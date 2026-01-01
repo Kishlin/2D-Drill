@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/Kishlin/drill-game/internal/engine"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -28,14 +30,17 @@ func main() {
 
 	rl.SetTargetFPS(targetFPS)
 
-	slog.Info("Window initialized", "width", screenWidth, "height", screenHeight, "fps", targetFPS)
+	// Initialize game
+	game := engine.NewGame()
 
-	// TODO: Initialize game state, load assets, etc.
+	slog.Info("Game initialized")
 
 	// Main game loop
 	for !rl.WindowShouldClose() {
+		dt := rl.GetFrameTime() // Delta time in seconds
+
 		// Update
-		if err := update(); err != nil {
+		if err := game.Update(dt); err != nil {
 			slog.Error("Error during update", "error", err)
 			break
 		}
@@ -44,33 +49,10 @@ func main() {
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.RayWhite)
 
-		render()
+		game.Render()
 
 		rl.EndDrawing()
 	}
 
 	slog.Info("Shutting down Drill Game")
-}
-
-func update() error {
-	// TODO: Implement game update logic
-	// - Handle input
-	// - Update physics
-	// - Update entities
-	// - Check collisions
-	// - etc.
-
-	return nil
-}
-
-func render() {
-	// TODO: Implement game rendering
-	// - Draw world
-	// - Draw entities
-	// - Draw UI/HUD
-	// - etc.
-
-	// Placeholder: Draw "Hello, Drill Game!" text
-	rl.DrawText("Hello, Drill Game!", 190, 200, 20, rl.LightGray)
-	rl.DrawText("Press ESC to exit", 190, 240, 20, rl.LightGray)
 }
