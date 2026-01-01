@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	PlayerWidth  = 64.0
-	PlayerHeight = 64.0
+	PlayerWidth  = 54.0
+	PlayerHeight = 54.0
 )
 
 type Player struct {
