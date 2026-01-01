@@ -1,0 +1,30 @@
+{
+  "name": "test-runner",
+  "description": "Run Go tests with coverage for the Drill Game project. Supports different scopes: all tests, domain layer only, physics package, or specific package/file.",
+  "version": "1.0.0",
+  "parameters": {
+    "scope": {
+      "type": "string",
+      "description": "Test scope to run",
+      "enum": ["all", "domain", "physics"],
+      "default": "all"
+    },
+    "coverage": {
+      "type": "boolean",
+      "description": "Generate coverage report",
+      "default": true
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Verbose output showing all test names",
+      "default": false
+    }
+  },
+  "commands": [
+    {
+      "type": "bash",
+      "command": "#!/bin/bash\nset -e\ncd /home/kishlin/Workspace/2D-Drill\n\nif [ \"{{scope}}\" = \"all\" ]; then\n  TARGET=\"./...\"\nelif [ \"{{scope}}\" = \"domain\" ]; then\n  TARGET=\"./internal/domain/...\"\nelif [ \"{{scope}}\" = \"physics\" ]; then\n  TARGET=\"./internal/domain/physics/...\"\nelse\n  TARGET=\"./...\"\nfi\n\necho \"Running tests for: $TARGET\"\necho \"\"\n\nif [ \"{{verbose}}\" = \"true\" ]; then\n  VERBOSE=\"-v\"\nelse\n  VERBOSE=\"\"\nfi\n\nif [ \"{{coverage}}\" = \"true\" ]; then\n  go test $VERBOSE -cover -coverprofile=coverage.out $TARGET\n  if [ $? -eq 0 ]; then\n    echo \"\"\n    echo \"=== Coverage Summary ===\"\n    go tool cover -func=coverage.out | tail -n 1\n    echo \"\"\n    echo \"💡 Run 'go tool cover -html=coverage.out' to view detailed coverage\"\n  fi\nelse\n  go test $VERBOSE $TARGET\nfi"
+    }
+  ]
+}
+

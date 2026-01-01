@@ -1,0 +1,25 @@
+{
+  "name": "profile-game",
+  "description": "Profile the game's CPU or memory usage. Generates pprof profiles for performance analysis - critical for game optimization.",
+  "version": "1.0.0",
+  "parameters": {
+    "type": {
+      "type": "string",
+      "description": "Profile type: cpu or memory",
+      "enum": ["cpu", "memory"],
+      "default": "cpu"
+    },
+    "duration": {
+      "type": "string",
+      "description": "Duration to profile (e.g., 30s, 1m)",
+      "default": "30s"
+    }
+  },
+  "commands": [
+    {
+      "type": "bash",
+      "command": "#!/bin/bash\nset -e\ncd /home/kishlin/Workspace/2D-Drill\n\necho \"📊 Profiling Game Performance...\"\necho \"\"\n\nPROFILE_TYPE=\"{{type}}\"\nDURATION=\"{{duration}}\"\nOUTPUT_FILE=\"${PROFILE_TYPE}_profile.pprof\"\n\necho \"Profile type: $PROFILE_TYPE\"\necho \"Duration: $DURATION\"\necho \"\"\n\n# Check if game is already built\nif [ ! -f \"drill-game\" ]; then\n  echo \"Building game first...\"\n  go build -o drill-game ./cmd/game\n  echo \"\"\nfi\n\nif [ \"$PROFILE_TYPE\" = \"cpu\" ]; then\n  echo \"🎮 Start the game now and play for ~$DURATION\"\n  echo \"   The game will automatically close when profiling is complete.\"\n  echo \"\"\n  echo \"Note: Add CPU profiling to main.go with:\"\n  echo \"  import \\\"runtime/pprof\\\"\"\n  echo \"  f, _ := os.Create(\\\"cpu.pprof\\\")\"\n  echo \"  pprof.StartCPUProfile(f)\"\n  echo \"  defer pprof.StopCPUProfile()\"\n  echo \"\"\n  echo \"For now, use: go test -cpuprofile=cpu.prof -bench=. ./...\"\n  echo \"Then analyze with: go tool pprof cpu.prof\"\nelse\n  echo \"🎮 For memory profiling, add to main.go:\"\n  echo \"  import \\\"runtime/pprof\\\"\"\n  echo \"  f, _ := os.Create(\\\"mem.pprof\\\")\"\n  echo \"  pprof.WriteHeapProfile(f)\"\n  echo \"\"\n  echo \"Then analyze with: go tool pprof mem.pprof\"\nfi\n\necho \"\"\necho \"💡 Profiling commands:\"\necho \"   go tool pprof -http=:8080 profile.pprof   # Web UI\"\necho \"   go tool pprof -top profile.pprof         # Top consumers\"\necho \"   go tool pprof -list=FunctionName profile.pprof  # Line-by-line\""
+    }
+  ]
+}
+

@@ -1,0 +1,24 @@
+{
+  "name": "build-game",
+  "description": "Build the Drill Game binary with optional run. Creates optimized binary in the project root.",
+  "version": "1.0.0",
+  "parameters": {
+    "run": {
+      "type": "boolean",
+      "description": "Run the game after building",
+      "default": false
+    },
+    "optimize": {
+      "type": "boolean",
+      "description": "Build with optimizations (smaller binary, no debug info)",
+      "default": false
+    }
+  },
+  "commands": [
+    {
+      "type": "bash",
+      "command": "#!/bin/bash\nset -e\ncd /home/kishlin/Workspace/2D-Drill\n\necho \"🔨 Building Drill Game...\"\necho \"\"\n\nif [ \"{{optimize}}\" = \"true\" ]; then\n  echo \"Building optimized binary (no debug info)...\"\n  go build -ldflags=\"-s -w\" -o drill-game ./cmd/game\nelse\n  echo \"Building with debug info...\"\n  go build -o drill-game ./cmd/game\nfi\n\nif [ $? -eq 0 ]; then\n  SIZE=$(ls -lh drill-game | awk '{print $5}')\n  echo \"\"\n  echo \"✅ Build successful! Binary: drill-game ($SIZE)\"\n  \n  if [ \"{{run}}\" = \"true\" ]; then\n    echo \"\"\n    echo \"🎮 Starting game...\"\n    echo \"\"\n    ./drill-game\n  fi\nelse\n  echo \"❌ Build failed\"\n  exit 1\nfi"
+    }
+  ]
+}
+
