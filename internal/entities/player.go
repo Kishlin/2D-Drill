@@ -3,8 +3,8 @@ package entities
 import rl "github.com/gen2brain/raylib-go/raylib"
 
 const (
-	PlayerWidth  = 32.0
-	PlayerHeight = 32.0
+	PlayerWidth  = 64.0
+	PlayerHeight = 64.0
 )
 
 var (
@@ -14,7 +14,7 @@ var (
 type Player struct {
 	Position rl.Vector2 // World position (pixels)
 	Velocity rl.Vector2 // Pixels per second
-	OnGround bool       // Collision state
+	OnGround bool       // Collision state (used by physics system for ground collision)
 }
 
 func NewPlayer(startX, startY float32) *Player {

@@ -19,7 +19,7 @@ type Game struct {
 
 func NewGame() *Game {
 	return &Game{
-		player:        entities.NewPlayer(400, 300), // Start position
+		player:        entities.NewPlayer(400, systems.GroundLevel-entities.PlayerHeight), // Start position on ground (GroundLevel - PlayerHeight)
 		inputSystem:   systems.NewInputSystem(),
 		physicsSystem: systems.NewPhysicsSystem(),
 	}

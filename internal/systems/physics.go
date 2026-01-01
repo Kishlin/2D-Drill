@@ -36,7 +36,11 @@ func (ps *PhysicsSystem) UpdatePhysics(player interface {
 	playerBottom := pos.Y + player.GetHeight()
 	if playerBottom >= GroundLevel {
 		pos.Y = GroundLevel - player.GetHeight() // Snap to ground
-		vel.Y = 0                                // Stop vertical movement
+		// Only stop vertical movement if player is not flying upward
+		// This allows takeoff from the ground when pressing W/Up
+		if vel.Y >= 0 {
+			vel.Y = 0
+		}
 		player.SetOnGround(true)
 	} else {
 		player.SetOnGround(false)
