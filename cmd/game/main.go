@@ -4,19 +4,20 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/Kishlin/drill-game/internal/engine"
-
-	rl "github.com/gen2brain/raylib-go/raylib"
+	"github.com/Kishlin/drill-game/internal/adapters/input"
+	"github.com/Kishlin/drill-game/internal/adapters/rendering"
+	"github.com/Kishlin/drill-game/internal/domain/engine"
+	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
 const (
 	screenWidth  = 1280
 	screenHeight = 720
 	targetFPS    = 60
+	groundLevel  = 600.0
 )
 
 func main() {
-	// Initialize logger
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -24,34 +25,32 @@ func main() {
 
 	slog.Info("Starting Drill Game")
 
+	renderer := rendering.NewRaylibRenderer()
+	inputAdapter := input.NewRaylibInputAdapter()
+
 	// Initialize window
-	rl.InitWindow(screenWidth, screenHeight, "Drill Game")
-	defer rl.CloseWindow()
+	renderer.InitWindow(screenWidth, screenHeight, "Drill Game")
+	defer renderer.CloseWindow()
 
-	rl.SetTargetFPS(targetFPS)
+	renderer.SetTargetFPS(targetFPS)
 
-	// Initialize game
-	game := engine.NewGame()
+	slog.Info("Initializing Game")
 
-	slog.Info("Game initialized")
+	gameWorld := world.NewWorld(screenWidth, screenHeight, groundLevel)
+	game := engine.NewGame(gameWorld)
 
-	// Main game loop
-	for !rl.WindowShouldClose() {
-		dt := rl.GetFrameTime() // Delta time in seconds
+	for renderer.WindowShouldClose() == false {
+		dt := renderer.GetFrameTime() // Delta time in seconds
 
-		// Update
-		if err := game.Update(dt); err != nil {
+		inputState := inputAdapter.ReadInput()
+
+		err := game.Update(dt, inputState)
+		if err != nil {
 			slog.Error("Error during update", "error", err)
 			break
 		}
 
-		// Render
-		rl.BeginDrawing()
-		rl.ClearBackground(rl.RayWhite)
-
-		game.Render()
-
-		rl.EndDrawing()
+		renderer.Render(game)
 	}
 
 	slog.Info("Shutting down Drill Game")
