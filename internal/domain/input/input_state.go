@@ -5,7 +5,7 @@ type InputState struct {
 	Left  bool
 	Right bool
 	Up    bool
-	Down  bool
+	Dig   bool // Down for digging
 }
 
 func NewInputState() InputState {
@@ -13,7 +13,7 @@ func NewInputState() InputState {
 		Left:  false,
 		Right: false,
 		Up:    false,
-		Down:  false,
+		Dig:   false,
 	}
 }
 
@@ -22,5 +22,5 @@ func (is InputState) HasHorizontalInput() bool {
 }
 
 func (is InputState) HasVerticalInput() bool {
-	return is.Up || is.Down
+	return is.Up
 }
