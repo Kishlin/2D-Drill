@@ -14,7 +14,7 @@ const (
 	screenWidth  = 1280
 	screenHeight = 720
 	targetFPS    = 60
-	groundLevel  = 600.0
+	groundLevel  = 256.0 // Aligned to tile boundary (4 * TileSize)
 )
 
 func main() {
