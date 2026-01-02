@@ -95,17 +95,18 @@ func (w *World) GetTileAtGrid(gridX, gridY int) *entities.Tile {
 	return w.tiles[[2]int{gridX, gridY}]
 }
 
-// DigTile removes tile at pixel coordinates, returns true if successful
-func (w *World) DigTile(pixelX, pixelY float32) bool {
+// DigTile removes tile at pixel coordinates
+// Returns the removed tile (if any) and success status
+func (w *World) DigTile(pixelX, pixelY float32) (*entities.Tile, bool) {
 	tileX := int(pixelX / TileSize)
 	tileY := int(pixelY / TileSize)
 
 	tile := w.tiles[[2]int{tileX, tileY}]
 	if tile != nil && tile.IsDiggable() {
 		delete(w.tiles, [2]int{tileX, tileY})
-		return true
+		return tile, true
 	}
-	return false
+	return nil, false
 }
 
 // IsTileSolid checks if there's a solid tile at pixel coordinates
@@ -117,6 +118,15 @@ func (w *World) IsTileSolid(pixelX, pixelY float32) bool {
 // GetAllTiles returns all tiles (for rendering)
 func (w *World) GetAllTiles() map[[2]int]*entities.Tile {
 	return w.tiles
+}
+
+// SetTile sets a tile at the given grid coordinates (for testing)
+func (w *World) SetTile(gridX, gridY int, tile *entities.Tile) {
+	if tile == nil || tile.Type == entities.TileTypeEmpty {
+		delete(w.tiles, [2]int{gridX, gridY})
+	} else {
+		w.tiles[[2]int{gridX, gridY}] = tile
+	}
 }
 
 func (w *World) IsInBounds(x, y float32) bool {

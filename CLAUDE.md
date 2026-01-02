@@ -33,8 +33,8 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 
 - `engine/game.go` — Game orchestration, system coordination
 - `systems/physics.go` — Physics system (movement, gravity, AABB collision)
-- `systems/digging.go` — Tile destruction and player grid alignment
-- `entities/player.go` — Player data (AABB-based) and behavior
+- `systems/digging.go` — Tile destruction, ore collection, and player grid alignment
+- `entities/player.go` — Player data (AABB-based, inventory) and behavior
 - `entities/tile.go` — Tile types (Empty, Dirt, Ore) with solid/diggable state
 - `entities/ore_type.go` — 7 ore types with Gaussian distribution parameters
 - `physics/` — Pure physics functions (movement, gravity, AABB collision)
@@ -256,7 +256,7 @@ Run: `grep -r "raylib" internal/domain/` — should return nothing (except comme
 - ✅ Deterministic seeding for reproducible worlds
 
 **Phase 2**: Progression system (ore collection, inventory, upgrades, shop)
-- Ore inventory system
+- ✅ Ore inventory system (with real-time debug display)
 - Mining duration per ore type
 - Ore value/selling mechanics
 - Upgrade system

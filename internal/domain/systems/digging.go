@@ -14,6 +14,13 @@ func NewDiggingSystem(w *world.World) *DiggingSystem {
 	return &DiggingSystem{world: w}
 }
 
+// collectOreIfPresent adds ore to player inventory if the dug tile is ore
+func (ds *DiggingSystem) collectOreIfPresent(player *entities.Player, dugTile *entities.Tile) {
+	if dugTile != nil && dugTile.Type == entities.TileTypeOre {
+		player.AddOre(dugTile.OreType, 1)
+	}
+}
+
 // ProcessDigging handles downward digging logic and player alignment
 func (ds *DiggingSystem) ProcessDigging(
 	player *entities.Player,
@@ -38,7 +45,9 @@ func (ds *DiggingSystem) ProcessDigging(
 		player.AABB.X = tileCenterX - player.AABB.Width/2
 
 		// Dig the tile
-		ds.world.DigTile(playerCenterX, playerBottomY)
+		if dugTile, success := ds.world.DigTile(playerCenterX, playerBottomY); success {
+			ds.collectOreIfPresent(player, dugTile)
+		}
 	}
 }
 
@@ -60,7 +69,9 @@ func (ds *DiggingSystem) ProcessHorizontalDigging(
 		tileX := player.AABB.X - 1
 		tile := ds.world.GetTileAt(tileX, playerCenterY)
 		if tile != nil && tile.IsDiggable() {
-			ds.world.DigTile(tileX, playerCenterY)
+			if dugTile, success := ds.world.DigTile(tileX, playerCenterY); success {
+				ds.collectOreIfPresent(player, dugTile)
+			}
 			return
 		}
 	}
@@ -70,7 +81,9 @@ func (ds *DiggingSystem) ProcessHorizontalDigging(
 		tileX := player.AABB.X + player.AABB.Width + 1
 		tile := ds.world.GetTileAt(tileX, playerCenterY)
 		if tile != nil && tile.IsDiggable() {
-			ds.world.DigTile(tileX, playerCenterY)
+			if dugTile, success := ds.world.DigTile(tileX, playerCenterY); success {
+				ds.collectOreIfPresent(player, dugTile)
+			}
 			return
 		}
 	}

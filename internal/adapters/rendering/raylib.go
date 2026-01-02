@@ -237,4 +237,16 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	// Draw input state
 	inputText := fmt.Sprintf("Input: L=%v R=%v U=%v D=%v", inputState.Left, inputState.Right, inputState.Up, inputState.Dig)
 	rl.DrawText(inputText, posX, posY, fontSize, textColor)
+	posY += lineHeight
+
+	// Draw ore inventory
+	inventoryText := fmt.Sprintf("Ore: Cu=%d Fe=%d Ag=%d Au=%d My=%d Pt=%d Di=%d",
+		player.OreInventory[entities.OreCopper],
+		player.OreInventory[entities.OreIron],
+		player.OreInventory[entities.OreSilver],
+		player.OreInventory[entities.OreGold],
+		player.OreInventory[entities.OreMythril],
+		player.OreInventory[entities.OrePlatinum],
+		player.OreInventory[entities.OreDiamond])
+	rl.DrawText(inventoryText, posX, posY, fontSize, textColor)
 }

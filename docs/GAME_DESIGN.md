@@ -56,6 +56,10 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **Directional Drilling**:
   - Dig **downward** with explicit S/Down key press (snaps player to grid)
   - Dig **left/right** by moving into a wall while grounded (automatic, no grid snap)
+- **Ore Collection**: Ores are automatically collected into inventory when dug
+  - Each tile dug = 1 ore collected (1:1 ratio)
+  - Dirt tiles are destroyed but not collected
+  - Inventory displays counts for all 7 ore types in real-time
 - Taking damage from heat, collisions, or hazards
 - Cargo fills up as ores are collected
 
@@ -63,6 +67,13 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **Grounded Left/Right Digging**: When the player is on solid ground and presses left/right against a diggable wall, the tile is automatically destroyed, allowing the player to move through
 - **Downward Digging**: Can be performed anytime with S/Down key, aligns player to tile grid horizontally
 - **Mid-Air**: Left/Right digging is disabled while airborne; player will bounce off walls instead
+
+### Ore Inventory System
+- **Automatic Collection**: When any ore tile is dug, it's automatically added to the player's inventory
+- **Storage**: Inventory tracks count of each ore type (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
+- **Display**: Current ore counts shown in debug overlay at top-left of screen
+- **Simple Economy**: 1 tile dug = 1 ore collected (no partial ores, no quantity variance)
+- **Dirt Ignored**: Only ore tiles contribute to inventory (dirt is destroyed but not collected)
 
 ## World
 

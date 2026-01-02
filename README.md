@@ -17,6 +17,7 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 - 🗺️ **Chunk Loading**: Lazy 16×16 chunk loading around player (3×3 grid)
 - 📐 **Deterministic Generation**: Same seed = reproducible worlds
 - ⛏️ **Directional Digging**: Dig downward (S) or through left/right walls (A/D) when grounded
+- 📦 **Ore Inventory System**: Automatic ore collection with real-time inventory display
 
 ### Planned (Phase 2+)
 - 🔧 Comprehensive upgrade system (speed, drilling, survivability, cargo)
@@ -99,11 +100,12 @@ drill-game/
 - [x] Tile-based collision (AABB) and axis-separated resolution
 - [x] Directional digging system (downward with grid alignment, left/right while grounded)
 - [x] Chunk loading (16×16 chunks, 3×3 proactive grid)
-- [x] 31 unit tests + 7 integration tests
+- [x] Ore inventory system (automatic collection on digging)
+- [x] 38 unit tests + 10 integration tests
 - [x] Deterministic world generation
 
-### Phase 2: Progression System (Planned)
-- [ ] Ore inventory system
+### Phase 2: Progression System
+- [x] Ore inventory system
 - [ ] Currency and shop
 - [ ] Upgrade mechanics (speed, drilling, capacity)
 - [ ] Mining duration per ore type

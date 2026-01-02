@@ -81,9 +81,12 @@ drill-game/
 │       ├── engine/
 │       │   └── game.go                      # Game orchestration (domain)
 │       ├── systems/
-│       │   └── physics.go                   # PhysicsSystem
+│       │   ├── physics.go                   # PhysicsSystem
+│       │   ├── digging.go                   # DiggingSystem (ore collection)
+│       │   └── digging_test.go              # Digging & ore collection tests
 │       ├── entities/
-│       │   ├── player.go                    # Player entity (AABB-based)
+│       │   ├── player.go                    # Player entity (AABB-based + inventory)
+│       │   ├── player_test.go               # Player inventory tests
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   └── ore_type.go                  # Ore types & Gaussian parameters
 │       ├── physics/
@@ -229,7 +232,7 @@ func (g *Game) GetPlayer() *entities.Player {
 
 #### Digging System (`domain/systems/digging.go`)
 
-Handles tile destruction for both downward and horizontal digging:
+Handles tile destruction for both downward and horizontal digging, and collects ore into player inventory:
 
 ```go
 type DiggingSystem struct {
@@ -255,7 +258,10 @@ func (ds *DiggingSystem) ProcessDigging(
         tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
         player.AABB.X = tileCenterX - player.AABB.Width/2
 
-        ds.world.DigTile(playerCenterX, playerBottomY)
+        // Dig tile and collect ore if applicable
+        if dugTile, success := ds.world.DigTile(playerCenterX, playerBottomY); success {
+            ds.collectOreIfPresent(player, dugTile)
+        }
     }
 }
 
@@ -275,7 +281,9 @@ func (ds *DiggingSystem) ProcessHorizontalDigging(
         // Check tile just left of player
         tile := ds.world.GetTileAt(player.AABB.X-1, playerCenterY)
         if tile != nil && tile.IsDiggable() {
-            ds.world.DigTile(player.AABB.X-1, playerCenterY)
+            if dugTile, success := ds.world.DigTile(player.AABB.X-1, playerCenterY); success {
+                ds.collectOreIfPresent(player, dugTile)
+            }
             return
         }
     }
@@ -365,20 +373,29 @@ func GetOccupiedTileRange(aabb AABB, tileSize float32) (minX, maxX, minY, maxY i
 
 #### Player Entity (`domain/entities/player.go`)
 
-Pure data entity with AABB collision primitive:
+Pure data entity with AABB collision primitive and ore inventory:
 
 ```go
 type Player struct {
-    AABB     types.AABB  // Position and dimensions - direct access
-    Velocity types.Vec2  // Pixels per second - direct access
-    OnGround bool        // Collision state - direct access
+    AABB         types.AABB  // Position and dimensions - direct access
+    Velocity     types.Vec2  // Pixels per second - direct access
+    OnGround     bool        // Collision state - direct access
+    OreInventory [7]int      // Ore counts indexed by OreType
 }
 
 func NewPlayer(startX, startY float32) *Player {
     return &Player{
-        AABB:     types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
-        Velocity: types.Zero(),
-        OnGround: false,
+        AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
+        Velocity:     types.Zero(),
+        OnGround:     false,
+        OreInventory: [7]int{},
+    }
+}
+
+// AddOre increments ore count for given type
+func (p *Player) AddOre(oreType OreType, amount int) {
+    if oreType >= 0 && oreType < 7 {
+        p.OreInventory[oreType] += amount
     }
 }
 ```
@@ -390,6 +407,8 @@ func NewPlayer(startX, startY float32) *Player {
 - Zero Raylib dependency
 - Direct field access (no getters/setters) for simplicity
 - AABB enables proper collision detection (not just ground)
+- `OreInventory [7]int` stores counts for all 7 ore types efficiently
+- `AddOre()` is the only ore collection method (simple, one-purpose)
 
 #### Types (`domain/types/`)
 

@@ -149,7 +149,7 @@ func TestIntegration_DiggingOre(t *testing.T) {
 				}
 
 				// Dig the tile
-				success := world.DigTile(pixelX, pixelY)
+				_, success := world.DigTile(pixelX, pixelY)
 				if !success {
 					t.Error("Should successfully dig ore tile")
 				}
