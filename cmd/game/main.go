@@ -14,7 +14,11 @@ const (
 	screenWidth  = 1280
 	screenHeight = 720
 	targetFPS    = 60
-	groundLevel  = 256.0 // Aligned to tile boundary (4 * TileSize)
+
+	// Extended world dimensions (6× width, 1000 tiles deep)
+	worldWidth  = screenWidth * 6 // 7680 pixels
+	worldHeight = 64 * 1000        // 64000 pixels (1000 tiles × 64px)
+	groundLevel = 640.0            // Aligned to tile boundary (10 * TileSize)
 )
 
 func main() {
@@ -25,7 +29,7 @@ func main() {
 
 	slog.Info("Starting Drill Game")
 
-	renderer := rendering.NewRaylibRenderer()
+	renderer := rendering.NewRaylibRenderer(screenWidth, screenHeight)
 	inputAdapter := input.NewRaylibInputAdapter()
 
 	// Initialize window
@@ -36,7 +40,7 @@ func main() {
 
 	slog.Info("Initializing Game")
 
-	gameWorld := world.NewWorld(screenWidth, screenHeight, groundLevel)
+	gameWorld := world.NewWorld(worldWidth, worldHeight, groundLevel)
 	game := engine.NewGame(gameWorld)
 
 	for renderer.WindowShouldClose() == false {

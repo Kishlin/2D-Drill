@@ -38,4 +38,32 @@ func (ps *PhysicsSystem) UpdatePhysics(
 	player.AABB.Y += player.Velocity.Y * dt
 	collisionsY := physics.CheckCollisions(player.AABB, ps.world)
 	player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
+
+	// 3. Enforce world boundary constraints (prevent player from leaving game area)
+	ps.constrainPlayerToWorldBounds(player)
+}
+
+// constrainPlayerToWorldBounds clamps player position to world boundaries
+func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
+	// Horizontal bounds: player cannot go left of 0 or right of (worldWidth - playerWidth)
+	minX := float32(0.0)
+	maxX := ps.world.Width - float32(entities.PlayerWidth)
+
+	if player.AABB.X < minX {
+		player.AABB.X = minX
+		player.Velocity.X = 0 // Stop horizontal velocity at boundary
+	} else if player.AABB.X > maxX {
+		player.AABB.X = maxX
+		player.Velocity.X = 0 // Stop horizontal velocity at boundary
+	}
+
+	// Vertical bounds: player cannot go above y=0
+	minY := float32(0.0)
+
+	if player.AABB.Y < minY {
+		player.AABB.Y = minY
+		player.Velocity.Y = 0 // Stop vertical velocity at top boundary
+	}
+
+	// No maximum Y - player can dig infinitely deep
 }

@@ -15,9 +15,13 @@ type Game struct {
 }
 
 func NewGame(w *world.World) *Game {
+	// Spawn player at center of world horizontally, just above ground
+	spawnX := (w.Width / 2) - (entities.PlayerWidth / 2)
+	spawnY := w.GetGroundLevel() - entities.PlayerHeight - 10
+
 	return &Game{
 		world:          w,
-		player:         entities.NewPlayer(400, w.GetGroundLevel()-entities.PlayerHeight),
+		player:         entities.NewPlayer(spawnX, spawnY),
 		physicsSystem:  systems.NewPhysicsSystem(w),
 		diggingSystem:  systems.NewDiggingSystem(w),
 	}

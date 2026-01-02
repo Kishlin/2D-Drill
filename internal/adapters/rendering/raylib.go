@@ -19,19 +19,81 @@ var (
 	GridColor   = rl.NewColor(100, 65, 30, 128) // Semi-transparent grid lines
 )
 
-type RaylibRenderer struct{}
+type RaylibRenderer struct {
+	camera       rl.Camera2D
+	screenWidth  float32
+	screenHeight float32
+	worldWidth   float32 // Cached for boundary clamping
+}
 
-func NewRaylibRenderer() *RaylibRenderer {
-	return &RaylibRenderer{}
+func NewRaylibRenderer(screenWidth, screenHeight int32) *RaylibRenderer {
+	return &RaylibRenderer{
+		camera: rl.Camera2D{
+			Offset:   rl.Vector2{X: float32(screenWidth) / 2, Y: float32(screenHeight) / 2},
+			Target:   rl.Vector2{X: 0, Y: 0},
+			Rotation: 0.0,
+			Zoom:     1.0,
+		},
+		screenWidth:  float32(screenWidth),
+		screenHeight: float32(screenHeight),
+		worldWidth:   0, // Set on first render
+	}
+}
+
+// updateCamera sets camera target to player position with boundary clamping
+func (r *RaylibRenderer) updateCamera(player *entities.Player, w *world.World) {
+	// Cache world width on first call
+	if r.worldWidth == 0 {
+		r.worldWidth = w.Width
+	}
+
+	// Camera targets player center (AABB is top-left corner)
+	playerCenterX := player.AABB.X + player.AABB.Width/2
+	playerCenterY := player.AABB.Y + player.AABB.Height/2
+
+	// Clamp camera to prevent viewing outside world bounds
+	halfScreenW := r.screenWidth / 2
+	halfScreenH := r.screenHeight / 2
+
+	minX := halfScreenW
+	maxX := r.worldWidth - halfScreenW
+	minY := w.GetGroundLevel() - halfScreenH // Can't view above sky
+
+	// Horizontal clamping
+	targetX := playerCenterX
+	if targetX < minX {
+		targetX = minX
+	} else if targetX > maxX {
+		targetX = maxX
+	}
+
+	// Vertical clamping (top only, no bottom limit per user requirement)
+	targetY := playerCenterY
+	if targetY < minY {
+		targetY = minY
+	}
+	// No maxY check - camera follows player infinitely downward
+
+	r.camera.Target = rl.Vector2{X: targetX, Y: targetY}
 }
 
 func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) {
+	// Update camera position before rendering
+	r.updateCamera(game.GetPlayer(), game.GetWorld())
+
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.RayWhite)
+
+	// === WORLD SPACE (camera transform applied) ===
+	rl.BeginMode2D(r.camera)
 
 	r.renderWorld(game.GetWorld())
 	r.renderTiles(game.GetWorld())
 	r.renderPlayer(game.GetPlayer())
+
+	rl.EndMode2D()
+
+	// === SCREEN SPACE (no camera, always visible) ===
 	r.renderDebugInfo(game.GetPlayer(), inputState)
 
 	rl.EndDrawing()
@@ -68,18 +130,36 @@ func (r *RaylibRenderer) renderPlayer(player *entities.Player) {
 func (r *RaylibRenderer) renderWorld(w *world.World) {
 	groundLevel := w.GetGroundLevel()
 
-	// Draw sky (upper portion)
-	rl.DrawRectangle(0, 0, int32(w.Width), int32(groundLevel), SkyColor)
+	// Draw sky from off-screen above to ground level
+	// Extended upward to cover viewport when camera is near top
+	skyTop := int32(-r.screenHeight)
+	skyHeight := int32(groundLevel) - skyTop
 
-	// Draw ground (lower portion)
+	rl.DrawRectangle(0, skyTop, int32(w.Width), skyHeight, SkyColor)
+
+	// Draw ground (lower portion from groundLevel to world bottom)
 	rl.DrawRectangle(0, int32(groundLevel), int32(w.Width), int32(w.Height), GroundColor)
 }
 
 func (r *RaylibRenderer) renderTiles(w *world.World) {
 	tiles := w.GetAllTiles()
 
+	// Calculate visible tile range based on camera viewport
+	// Add 1-tile margin to prevent pop-in at edges
+	minVisibleX := int((r.camera.Target.X-r.screenWidth/2)/world.TileSize) - 1
+	maxVisibleX := int((r.camera.Target.X+r.screenWidth/2)/world.TileSize) + 1
+	minVisibleY := int((r.camera.Target.Y-r.screenHeight/2)/world.TileSize) - 1
+	maxVisibleY := int((r.camera.Target.Y+r.screenHeight/2)/world.TileSize) + 1
+
 	for coord, tile := range tiles {
 		gridX, gridY := coord[0], coord[1]
+
+		// Skip tiles outside viewport (culling optimization)
+		if gridX < minVisibleX || gridX > maxVisibleX ||
+			gridY < minVisibleY || gridY > maxVisibleY {
+			continue
+		}
+
 		pixelX := float32(gridX * world.TileSize)
 		pixelY := float32(gridY * world.TileSize)
 
@@ -118,6 +198,12 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	lineHeight := int32(25)
 	posX := int32(10)
 	posY := int32(10)
+
+	// Draw FPS
+	fps := rl.GetFPS()
+	fpsText := fmt.Sprintf("FPS: %d", fps)
+	rl.DrawText(fpsText, posX, posY, fontSize, textColor)
+	posY += lineHeight
 
 	// Draw player position and velocity
 	posVelText := fmt.Sprintf("Pos: X=%.1f, Y=%.1f | Vel: X=%.1f, Y=%.1f", player.AABB.X, player.AABB.Y, player.Velocity.X, player.Velocity.Y)

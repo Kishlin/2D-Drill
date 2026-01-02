@@ -702,6 +702,164 @@ func (a AABB) Penetration(b AABB) (dx, dy float32) {
 
 ---
 
+## Camera System
+
+The game uses Raylib's `Camera2D` for viewport management, allowing the player to explore a world much larger than the screen.
+
+### Camera Implementation
+
+**Camera2D** lives in the rendering adapter (not domain):
+
+```go
+type RaylibRenderer struct {
+    camera       rl.Camera2D
+    screenWidth  float32
+    screenHeight float32
+    worldWidth   float32
+}
+
+func (r *RaylibRenderer) updateCamera(player *entities.Player, w *world.World) {
+    // Camera target follows player center
+    playerCenterX := player.AABB.X + player.AABB.Width/2
+    playerCenterY := player.AABB.Y + player.AABB.Height/2
+
+    // Clamp camera to world bounds
+    halfScreenW := r.screenWidth / 2
+    halfScreenH := r.screenHeight / 2
+
+    minX := halfScreenW
+    maxX := r.worldWidth - halfScreenW
+    minY := w.GetGroundLevel() - halfScreenH
+
+    // Clamp and assign to camera target
+    targetX := clamp(playerCenterX, minX, maxX)
+    targetY := clamp(playerCenterY, minY, maxY)
+    r.camera.Target = rl.Vector2{X: targetX, Y: targetY}
+}
+
+func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) {
+    r.updateCamera(game.GetPlayer(), game.GetWorld())
+
+    rl.BeginDrawing()
+    rl.ClearBackground(rl.RayWhite)
+
+    // World space rendering (camera applied)
+    rl.BeginMode2D(r.camera)
+    r.renderWorld(game.GetWorld())
+    r.renderTiles(game.GetWorld())
+    r.renderPlayer(game.GetPlayer())
+    rl.EndMode2D()
+
+    // Screen space rendering (no camera, UI always visible)
+    r.renderDebugInfo(game.GetPlayer(), inputState)
+
+    rl.EndDrawing()
+}
+```
+
+### Viewport Culling
+
+For performance with large worlds, only tiles visible in the camera viewport are rendered:
+
+```go
+func (r *RaylibRenderer) renderTiles(w *world.World) {
+    tiles := w.GetAllTiles()
+
+    // Calculate visible tile range
+    minVisibleX := int((r.camera.Target.X - r.screenWidth/2) / world.TileSize) - 1
+    maxVisibleX := int((r.camera.Target.X + r.screenWidth/2) / world.TileSize) + 1
+    minVisibleY := int((r.camera.Target.Y - r.screenHeight/2) / world.TileSize) - 1
+    maxVisibleY := int((r.camera.Target.Y + r.screenHeight/2) / world.TileSize) + 1
+
+    for coord, tile := range tiles {
+        gridX, gridY := coord[0], coord[1]
+
+        // Skip tiles outside viewport
+        if gridX < minVisibleX || gridX > maxVisibleX ||
+           gridY < minVisibleY || gridY > maxVisibleY {
+            continue
+        }
+
+        // Render visible tile...
+    }
+}
+```
+
+**Performance:** Reduces tiles rendered from ~94,000 to ~300 (~300× improvement).
+
+### Why in Adapter, Not Domain?
+
+- Camera is a **rendering concern**, not game logic
+- Tightly coupled to Raylib's `Camera2D` struct
+- Player position and world bounds already in domain (no new logic)
+- Follows pattern: adapters translate domain state to visual representation
+
+---
+
+## World Boundary Constraints
+
+Players cannot leave the game area. World boundaries are enforced by the physics system:
+
+```go
+func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
+    // Horizontal: player.X must be in [0, worldWidth - playerWidth]
+    minX := float32(0.0)
+    maxX := ps.world.Width - float32(entities.PlayerWidth)
+
+    if player.AABB.X < minX {
+        player.AABB.X = minX
+        player.Velocity.X = 0
+    } else if player.AABB.X > maxX {
+        player.AABB.X = maxX
+        player.Velocity.X = 0
+    }
+
+    // Vertical: player.Y must be >= 0
+    minY := float32(0.0)
+
+    if player.AABB.Y < minY {
+        player.AABB.Y = minY
+        player.Velocity.Y = 0
+    }
+    // No maximum Y - player can dig infinitely deep
+}
+```
+
+Called after collision resolution in the physics pipeline:
+
+```go
+// 2. Axis-separated collision resolution
+player.AABB.X += player.Velocity.X * dt
+collisionsX := physics.CheckCollisions(player.AABB, ps.world)
+player.AABB, player.Velocity = physics.ResolveCollisionsX(player.AABB, player.Velocity, collisionsX)
+
+player.AABB.Y += player.Velocity.Y * dt
+collisionsY := physics.CheckCollisions(player.AABB, ps.world)
+player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
+
+// 3. Enforce world boundary constraints
+ps.constrainPlayerToWorldBounds(player)
+```
+
+**Design note:** Boundary constraints are purely domain-level (physics system), not rendering. Camera clamping happens independently in the adapter, preventing the camera from showing off-screen areas.
+
+---
+
+## World Dimensions
+
+The game world extends far beyond the screen:
+
+| Dimension | Size | Tiles |
+|-----------|------|-------|
+| Width | 7680 pixels | 120 tiles wide (6× screen width) |
+| Height | 64000 pixels | 1000 tiles deep |
+| Ground Level | 640 pixels | 10 tiles up from bottom |
+| Tile Size | 64×64 pixels | Standard |
+
+**Sparse tile storage:** Only non-empty tiles are stored in memory, enabling efficient large worlds.
+
+---
+
 ## Future Architecture Considerations
 
 ### Adding New Entities
