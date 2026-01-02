@@ -19,5 +19,6 @@ func (a *RaylibInputAdapter) ReadInput() input.InputState {
 		Right: rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD),
 		Up:    rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW),
 		Dig:   rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS),
+		Sell:  rl.IsKeyPressed(rl.KeyE),
 	}
 }

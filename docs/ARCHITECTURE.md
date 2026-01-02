@@ -83,12 +83,14 @@ drill-game/
 │       ├── systems/
 │       │   ├── physics.go                   # PhysicsSystem
 │       │   ├── digging.go                   # DiggingSystem (ore collection)
+│       │   ├── shop.go                      # ShopSystem (selling inventory)
 │       │   └── digging_test.go              # Digging & ore collection tests
 │       ├── entities/
-│       │   ├── player.go                    # Player entity (AABB-based + inventory)
+│       │   ├── player.go                    # Player entity (AABB-based + inventory + money)
 │       │   ├── player_test.go               # Player inventory tests
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
-│       │   └── ore_type.go                  # Ore types & Gaussian parameters
+│       │   ├── shop.go                      # Shop entity (AABB-based interactable)
+│       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
 │       │   ├── movement.go                  # Movement functions
@@ -140,6 +142,7 @@ main.go Loop:
 │    • Load chunks around player (3×3)    │
 │    • Downward digging (S/Down key)      │
 │    • Horizontal digging (L/R when grounded)
+│    • Shop selling (E key + overlap)     │
 │    • Physics system applies forces      │
 │    • Gravity, movement, collision       │
 │    • Updates Player position/velocity   │
@@ -149,9 +152,10 @@ main.go Loop:
 ┌─────────────────────────────────────────┐
 │ 3. Render via Adapter                   │
 │    renderer.Render(game)                │
-│    • Extracts Player, World from game   │
+│    • Extracts Player, World, Shop       │
 │    • Renders tiles with ore colors      │
-│    • Draws player, entities             │
+│    • Draws shop, player, entities       │
+│    • Displays debug info (money, ore)   │
 │    • Camera follows player              │
 └─────────────────────────────────────────┘
 ```

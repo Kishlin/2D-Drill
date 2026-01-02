@@ -31,6 +31,17 @@ var OreDistributions = map[OreType]OreMetadata{
 	OreDiamond:  {PeakDepth: 900, Sigma: 150, MaxWeight: 1.0},
 }
 
+// OreValues maps each ore type to its sell value in currency
+var OreValues = map[OreType]int{
+	OreCopper:   10,
+	OreIron:     25,
+	OreSilver:   75,
+	OreGold:     250,
+	OreMythril:  1000,
+	OrePlatinum: 5000,
+	OreDiamond:  30000,
+}
+
 // GetAllOreTypes returns all ore types for iteration
 func GetAllOreTypes() []OreType {
 	return []OreType{
@@ -42,4 +53,15 @@ func GetAllOreTypes() []OreType {
 		OrePlatinum,
 		OreDiamond,
 	}
+}
+
+// CalculateInventoryValue calculates total sell value of an ore inventory
+func CalculateInventoryValue(inventory [7]int) int {
+	total := 0
+	for oreType, count := range inventory {
+		if count > 0 {
+			total += OreValues[OreType(oreType)] * count
+		}
+	}
+	return total
 }

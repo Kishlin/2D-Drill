@@ -14,6 +14,7 @@ type Player struct {
 	Velocity     types.Vec2 // Pixels per second - direct access
 	OnGround     bool       // Collision state - direct access
 	OreInventory [7]int     // Ore counts indexed by OreType
+	Money        int        // Player's currency from selling ores
 }
 
 func NewPlayer(startX, startY float32) *Player {
@@ -30,4 +31,11 @@ func (p *Player) AddOre(oreType OreType, amount int) {
 	if oreType >= 0 && oreType < 7 {
 		p.OreInventory[oreType] += amount
 	}
+}
+
+// SellInventory sells all ore in inventory and adds value to player's money
+func (p *Player) SellInventory() {
+	totalValue := CalculateInventoryValue(p.OreInventory)
+	p.Money += totalValue
+	p.OreInventory = [7]int{}
 }

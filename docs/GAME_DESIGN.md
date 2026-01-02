@@ -48,7 +48,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - **Left (A) / Right (D)**: When grounded against a wall, automatically dig through the blocking tile
   - **Up (W)**: Fly/jump upward
 - **Down (S) / Down Arrow**: Dig downward (with player grid alignment)
-- **ESC**: Pause / Open shop
+- **E**: Sell entire inventory at shop (when inside shop area)
 
 ### Vehicle Mechanics
 - Gravity pulls vehicle downward
@@ -74,6 +74,23 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **Display**: Current ore counts shown in debug overlay at top-left of screen
 - **Simple Economy**: 1 tile dug = 1 ore collected (no partial ores, no quantity variance)
 - **Dirt Ignored**: Only ore tiles contribute to inventory (dirt is destroyed but not collected)
+
+### Currency & Shop System
+- **Shop Location**: Visible on the surface (green rectangle, ~3 tiles right of spawn)
+- **Selling Ores**: Press E while overlapping with shop to sell entire inventory
+- **Instant Transaction**: All ores converted to money immediately, inventory cleared
+- **Ore Values**:
+  | Ore      | Value |
+  |----------|-------|
+  | Copper   | $10   |
+  | Iron     | $25   |
+  | Silver   | $75   |
+  | Gold     | $250  |
+  | Mythril  | $1000 |
+  | Platinum | $5000 |
+  | Diamond  | $30000|
+- **Money Display**: Current balance shown in debug overlay
+- **No Carrying Limit**: Store unlimited ore, but must return to shop to convert to currency (future: cargo upgrades)
 
 ## World
 

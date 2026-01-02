@@ -178,6 +178,7 @@ type InputState struct {
     Right bool  // Move right
     Up    bool  // Fly/jump
     Dig   bool  // Dig tile below
+    Sell  bool  // Sell inventory at shop
 }
 ```
 
@@ -186,10 +187,14 @@ type InputState struct {
 - `Right` ← Arrow Right OR D key (move right, or dig right when grounded against wall)
 - `Up` ← Arrow Up OR W key (fly/jump)
 - `Dig` ← Down arrow OR S key (dig downward with grid alignment)
+- `Sell` ← E key (sell inventory at shop when inside shop area)
 
 **Digging Behavior:**
 - **Downward** (S/Down): Always available, snaps player to tile grid horizontally
 - **Horizontal Left/Right** (A/D or Left/Right): Only when grounded, auto-digs blocking tiles without grid snap
+
+**Shop Interaction:**
+- **Sell** (E key): Press to sell entire inventory when overlapping with shop (any AABB penetration)
 
 ## Game Configuration
 
@@ -203,6 +208,15 @@ type InputState struct {
 - Start Position: Center X, just above ground level
 - Max Move Speed: 300 px/sec
 - Jump/Fly Speed: -300 px/sec (upward)
+- Inventory: Tracks 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
+- Money: Currency earned from selling ores at shop (initialized to $0)
+
+**Shop** (`internal/domain/entities/shop.go`):
+- Position: ~3 tiles to the right of player spawn, at ground level
+- Size: 320×192 pixels (5 tiles wide × 3 tiles high)
+- Appearance: Forest green rectangle with dark green border
+- Function: Purchase with E key while overlapping to sell entire inventory
+- Ore Values: Copper=$10, Iron=$25, Silver=$75, Gold=$250, Mythril=$1000, Platinum=$5000, Diamond=$30000
 
 ## Documentation Files
 
@@ -257,8 +271,10 @@ Run: `grep -r "raylib" internal/domain/` — should return nothing (except comme
 
 **Phase 2**: Progression system (ore collection, inventory, upgrades, shop)
 - ✅ Ore inventory system (with real-time debug display)
+- ✅ Shop entity (visible on map, interactable)
+- ✅ Ore value/selling mechanics (sell all inventory for money at shop)
+- ✅ Money system and display
 - Mining duration per ore type
-- Ore value/selling mechanics
 - Upgrade system
 
 **Phase 3**: Polish (particles, sound, UI)

@@ -6,6 +6,7 @@ type InputState struct {
 	Right bool
 	Up    bool
 	Dig   bool // Down for digging
+	Sell  bool // E key for selling at shop
 }
 
 func NewInputState() InputState {
@@ -14,6 +15,7 @@ func NewInputState() InputState {
 		Right: false,
 		Up:    false,
 		Dig:   false,
+		Sell:  false,
 	}
 }
 

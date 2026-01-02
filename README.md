@@ -18,6 +18,7 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 - 📐 **Deterministic Generation**: Same seed = reproducible worlds
 - ⛏️ **Directional Digging**: Dig downward (S) or through left/right walls (A/D) when grounded
 - 📦 **Ore Inventory System**: Automatic ore collection with real-time inventory display
+- 🏪 **Shop System**: Visible shop on map, sell entire inventory for currency (E key)
 
 ### Planned (Phase 2+)
 - 🔧 Comprehensive upgrade system (speed, drilling, survivability, cargo)
@@ -106,10 +107,10 @@ drill-game/
 
 ### Phase 2: Progression System
 - [x] Ore inventory system
-- [ ] Currency and shop
+- [x] Currency and shop system
+- [x] Ore selling mechanics
 - [ ] Upgrade mechanics (speed, drilling, capacity)
 - [ ] Mining duration per ore type
-- [ ] Ore selling mechanics
 - [ ] Save/load functionality
 
 ### Phase 3: Polish & Effects (Planned)

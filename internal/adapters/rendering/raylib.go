@@ -17,6 +17,7 @@ var (
 	SkyColor    = rl.SkyBlue
 	DirtColor   = rl.NewColor(139, 90, 43, 255) // Brown dirt
 	GridColor   = rl.NewColor(100, 65, 30, 128) // Semi-transparent grid lines
+	ShopColor   = rl.NewColor(34, 139, 34, 255) // Forest Green
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -100,6 +101,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 
 	r.renderWorld(game.GetWorld())
 	r.renderTiles(game.GetWorld())
+	r.renderShop(game.GetShop())
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -136,6 +138,23 @@ func (r *RaylibRenderer) renderPlayer(player *entities.Player) {
 	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
 	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
 	rl.DrawRectangleV(rlPos, rlSize, PlayerColor)
+}
+
+func (r *RaylibRenderer) renderShop(shop *entities.Shop) {
+	// Convert domain AABB to Raylib rendering
+	aabb := shop.AABB
+	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
+	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
+
+	// Draw filled rectangle for shop
+	rl.DrawRectangleV(rlPos, rlSize, ShopColor)
+
+	// Draw border for visibility
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
+		2.0,
+		rl.DarkGreen,
+	)
 }
 
 func (r *RaylibRenderer) renderWorld(w *world.World) {
@@ -249,4 +268,9 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 		player.OreInventory[entities.OrePlatinum],
 		player.OreInventory[entities.OreDiamond])
 	rl.DrawText(inventoryText, posX, posY, fontSize, textColor)
+	posY += lineHeight
+
+	// Draw player money
+	moneyText := fmt.Sprintf("Money: $%d", player.Money)
+	rl.DrawText(moneyText, posX, posY, fontSize, textColor)
 }

@@ -12,6 +12,7 @@ type Game struct {
 	player         *entities.Player
 	physicsSystem  *systems.PhysicsSystem
 	diggingSystem  *systems.DiggingSystem
+	shopSystem     *systems.ShopSystem
 }
 
 func NewGame(w *world.World) *Game {
@@ -19,11 +20,17 @@ func NewGame(w *world.World) *Game {
 	spawnX := (w.Width / 2) - (entities.PlayerWidth / 2)
 	spawnY := w.GetGroundLevel() - entities.PlayerHeight - 10
 
+	// Create shop to the right of player spawn
+	shopX := spawnX + 200.0 // ~3 tiles to the right
+	shopY := w.GetGroundLevel() - entities.ShopHeight
+	shop := entities.NewShop(shopX, shopY)
+
 	return &Game{
 		world:          w,
 		player:         entities.NewPlayer(spawnX, spawnY),
 		physicsSystem:  systems.NewPhysicsSystem(w),
 		diggingSystem:  systems.NewDiggingSystem(w),
+		shopSystem:     systems.NewShopSystem(shop),
 	}
 }
 
@@ -39,7 +46,10 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 2. Handle horizontal digging (before physics, so blocked tiles can be dug)
 	g.diggingSystem.ProcessHorizontalDigging(g.player, inputState)
 
-	// 3. Update physics
+	// 3. Handle shop selling (before physics, so player position is stable)
+	g.shopSystem.ProcessSelling(g.player, inputState)
+
+	// 4. Update physics
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
 	return nil
@@ -51,4 +61,8 @@ func (g *Game) GetWorld() *world.World {
 
 func (g *Game) GetPlayer() *entities.Player {
 	return g.player
+}
+
+func (g *Game) GetShop() *entities.Shop {
+	return g.shopSystem.GetShop()
 }
