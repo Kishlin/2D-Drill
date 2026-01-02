@@ -17,6 +17,17 @@ var (
 	SkyColor    = rl.SkyBlue
 	DirtColor   = rl.NewColor(139, 90, 43, 255) // Brown dirt
 	GridColor   = rl.NewColor(100, 65, 30, 128) // Semi-transparent grid lines
+
+	// Ore colors for different ore types
+	OreColors = map[entities.OreType]rl.Color{
+		entities.OreCopper:   rl.NewColor(255, 140, 0, 255),   // Orange
+		entities.OreIron:     rl.NewColor(128, 128, 128, 255), // Gray
+		entities.OreSilver:   rl.NewColor(192, 192, 192, 255), // Light Gray
+		entities.OreGold:     rl.NewColor(255, 215, 0, 255),   // Gold
+		entities.OreMythril:  rl.NewColor(0, 255, 255, 255),   // Cyan
+		entities.OrePlatinum: rl.NewColor(230, 230, 250, 255), // White-ish
+		entities.OreDiamond:  rl.NewColor(0, 191, 255, 255),   // Blue
+	}
 )
 
 type RaylibRenderer struct {
@@ -166,10 +177,18 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 		// Render tile based on type
 		var color rl.Color
 		switch tile.Type {
+		case entities.TileTypeEmpty:
+			continue // Skip empty tiles
 		case entities.TileTypeDirt:
 			color = DirtColor
+		case entities.TileTypeOre:
+			var ok bool
+			color, ok = OreColors[tile.OreType]
+			if !ok {
+				color = rl.Magenta // Error color for unknown ore
+			}
 		default:
-			continue // Skip empty tiles
+			color = rl.Magenta // Error color for unknown tile type
 		}
 
 		// Draw filled tile

@@ -54,7 +54,7 @@ func TestGetOccupiedTileRange(t *testing.T) {
 }
 
 func TestCheckCollisions_NoCollisions(t *testing.T) {
-	w := world.NewWorld(1280, 720, 640)
+	w := world.NewWorld(1280, 720, 640, 42)
 	playerAABB := types.NewAABB(100, 100, 54, 54) // Above ground, in air
 
 	collisions := physics.CheckCollisions(playerAABB, w)
@@ -65,7 +65,7 @@ func TestCheckCollisions_NoCollisions(t *testing.T) {
 }
 
 func TestCheckCollisions_GroundCollision(t *testing.T) {
-	w := world.NewWorld(1280, 720, 640)
+	w := world.NewWorld(1280, 720, 640, 42)
 	// Player overlapping ground tiles (ground at Y=640, tiles start at grid Y=10)
 	playerAABB := types.NewAABB(100, 620, 54, 54) // Bottom at 674
 
@@ -77,7 +77,7 @@ func TestCheckCollisions_GroundCollision(t *testing.T) {
 }
 
 func TestResolveCollisionsY_GroundLanding(t *testing.T) {
-	w := world.NewWorld(1280, 720, 640)
+	w := world.NewWorld(1280, 720, 640, 42)
 
 	// Player falling onto ground (ground at 640)
 	aabb := types.NewAABB(100, 620, 54, 54)

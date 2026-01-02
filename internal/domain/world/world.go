@@ -9,30 +9,70 @@ type World struct {
 	Width       float32
 	Height      float32
 	tiles       map[[2]int]*entities.Tile // Sparse map: [x, y] -> Tile
+
+	generator    *ChunkGenerator
+	loadedChunks map[[2]int]bool
+	seed         int64
 }
 
-func NewWorld(width, height, groundLevel float32) *World {
-	w := &World{
-		Width:       width,
-		Height:      height,
-		GroundLevel: groundLevel,
-		tiles:       make(map[[2]int]*entities.Tile),
+func NewWorld(width, height, groundLevel float32, seed int64) *World {
+	return &World{
+		Width:        width,
+		Height:       height,
+		GroundLevel:  groundLevel,
+		tiles:        make(map[[2]int]*entities.Tile),
+		generator:    NewChunkGenerator(seed, groundLevel),
+		loadedChunks: make(map[[2]int]bool),
+		seed:         seed,
 	}
-	w.generateInitialTiles()
-	return w
 }
 
-// generateInitialTiles initializes world with solid dirt below ground level
-func (w *World) generateInitialTiles() {
-	tilesWide := int(w.Width / TileSize)
-	tilesHigh := int(w.Height / TileSize)
-	groundTileY := int(w.GroundLevel / TileSize)
+// EnsureChunkLoaded generates a chunk if not already loaded
+func (w *World) EnsureChunkLoaded(chunkX, chunkY int) {
+	key := [2]int{chunkX, chunkY}
+	if w.loadedChunks[key] {
+		return
+	}
 
-	for x := 0; x < tilesWide; x++ {
-		for y := groundTileY; y < tilesHigh; y++ {
-			w.tiles[[2]int{x, y}] = entities.NewTile(entities.TileTypeDirt)
+	for localX := 0; localX < ChunkSize; localX++ {
+		for localY := 0; localY < ChunkSize; localY++ {
+			tileX := chunkX*ChunkSize + localX
+			tileY := chunkY*ChunkSize + localY
+
+			if !w.isGridInBounds(tileX, tileY) {
+				continue
+			}
+
+			tile := w.generator.GenerateTile(tileX, tileY)
+
+			// Only store solid tiles (Dirt, Ore) - sparse storage
+			if tile.Type != entities.TileTypeEmpty {
+				w.tiles[[2]int{tileX, tileY}] = tile
+			}
 		}
 	}
+
+	w.loadedChunks[key] = true
+}
+
+// UpdateChunksAroundPlayer proactively loads a 3×3 grid of chunks around player
+func (w *World) UpdateChunksAroundPlayer(playerX, playerY float32) {
+	playerChunkX := int(playerX/TileSize) / ChunkSize
+	playerChunkY := int(playerY/TileSize) / ChunkSize
+
+	// Load 3×3 grid around player
+	for dx := -1; dx <= 1; dx++ {
+		for dy := -1; dy <= 1; dy++ {
+			w.EnsureChunkLoaded(playerChunkX+dx, playerChunkY+dy)
+		}
+	}
+}
+
+// isGridInBounds checks if tile coordinates are within world bounds
+func (w *World) isGridInBounds(gridX, gridY int) bool {
+	pixelX := float32(gridX) * TileSize
+	pixelY := float32(gridY) * TileSize
+	return w.IsInBounds(pixelX, pixelY)
 }
 
 func (w *World) GetGroundLevel() float32 {
@@ -43,11 +83,15 @@ func (w *World) GetGroundLevel() float32 {
 func (w *World) GetTileAt(pixelX, pixelY float32) *entities.Tile {
 	tileX := int(pixelX / TileSize)
 	tileY := int(pixelY / TileSize)
-	return w.tiles[[2]int{tileX, tileY}]
+	return w.GetTileAtGrid(tileX, tileY)
 }
 
-// GetTileAtGrid returns tile at grid coordinates
+// GetTileAtGrid returns tile at grid coordinates (triggers chunk load if needed)
 func (w *World) GetTileAtGrid(gridX, gridY int) *entities.Tile {
+	chunkX := gridX / ChunkSize
+	chunkY := gridY / ChunkSize
+	w.EnsureChunkLoaded(chunkX, chunkY)
+
 	return w.tiles[[2]int{gridX, gridY}]
 }
 

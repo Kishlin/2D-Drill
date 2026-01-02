@@ -28,6 +28,11 @@ func NewGame(w *world.World) *Game {
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
+	// 0. Update chunks around player (proactive loading)
+	playerX := g.player.AABB.X + g.player.AABB.Width/2
+	playerY := g.player.AABB.Y + g.player.AABB.Height/2
+	g.world.UpdateChunksAroundPlayer(playerX, playerY)
+
 	// 1. Handle digging (before physics, so alignment happens first)
 	g.diggingSystem.ProcessDigging(g.player, inputState)
 

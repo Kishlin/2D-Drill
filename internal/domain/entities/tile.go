@@ -9,14 +9,20 @@ type TileType int
 const (
 	TileTypeEmpty TileType = iota // Air/empty space
 	TileTypeDirt                   // Solid dirt (diggable)
+	TileTypeOre                    // Solid ore (diggable, contains ore)
 )
 
 type Tile struct {
-	Type TileType
+	Type    TileType
+	OreType OreType // Only meaningful if Type == TileTypeOre
 }
 
 func NewTile(tileType TileType) *Tile {
 	return &Tile{Type: tileType}
+}
+
+func NewOreTile(oreType OreType) *Tile {
+	return &Tile{Type: TileTypeOre, OreType: oreType}
 }
 
 func (t *Tile) IsSolid() bool {
@@ -24,7 +30,7 @@ func (t *Tile) IsSolid() bool {
 }
 
 func (t *Tile) IsDiggable() bool {
-	return t.Type == TileTypeDirt
+	return t.Type == TileTypeDirt || t.Type == TileTypeOre
 }
 
 // GetAABB returns the tile's bounding box at given grid coordinates
