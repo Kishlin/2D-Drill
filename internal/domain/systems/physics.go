@@ -15,28 +15,27 @@ func NewPhysicsSystem(w *world.World) *PhysicsSystem {
 	return &PhysicsSystem{world: w}
 }
 
-// UpdatePhysics applies all physics: movement, gravity, integration, collision
-// This method orchestrates pure physics functions from the physics package
+// UpdatePhysics applies physics using axis-separated AABB collision
+// Now works with *Player directly instead of interface
 func (ps *PhysicsSystem) UpdatePhysics(
-	entity entities.PhysicsEntity,
+	player *entities.Player,
 	inputState input.InputState,
 	dt float32,
 ) {
-	// Get current position and velocity
-	position := *entity.GetPositionVec()
-	velocity := *entity.GetVelocityVec()
+	// 1. Apply movement and gravity to velocity
+	player.Velocity = physics.ApplyHorizontalMovement(player.Velocity, inputState, dt)
+	player.Velocity = physics.ApplyVerticalMovement(player.Velocity, inputState, dt)
+	player.Velocity = physics.ApplyGravity(player.Velocity, dt)
 
-	// Apply physics using pure functions from physics package
-	velocity = physics.ApplyHorizontalMovement(velocity, inputState, dt)
-	velocity = physics.ApplyVerticalMovement(velocity, inputState, dt)
-	velocity = physics.ApplyGravity(velocity, dt)
-	position = physics.IntegrateVelocity(position, velocity, dt)
+	// 2. AXIS-SEPARATED COLLISION RESOLUTION
 
-	// Resolve collisions
-	result := physics.ResolveGroundCollision(position, velocity, entity.GetHeight(), ps.world)
+	// X-axis: integrate position → check → resolve
+	player.AABB.X += player.Velocity.X * dt
+	collisionsX := physics.CheckCollisions(player.AABB, ps.world)
+	player.AABB, player.Velocity = physics.ResolveCollisionsX(player.AABB, player.Velocity, collisionsX)
 
-	// Update entity with new state
-	entity.SetPosition(result.Position)
-	entity.SetVelocity(result.Velocity)
-	entity.SetOnGround(result.OnGround)
+	// Y-axis: integrate position → check → resolve
+	player.AABB.Y += player.Velocity.Y * dt
+	collisionsY := physics.CheckCollisions(player.AABB, ps.world)
+	player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
 }

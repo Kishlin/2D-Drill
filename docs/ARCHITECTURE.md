@@ -83,18 +83,20 @@ drill-game/
 │       ├── systems/
 │       │   └── physics.go                   # PhysicsSystem
 │       ├── entities/
-│       │   ├── player.go                    # Player entity (data + behavior)
-│       │   └── contracts.go                 # PhysicsEntity interface
+│       │   ├── player.go                    # Player entity (AABB-based)
+│       │   └── tile.go                      # Tile entity
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
 │       │   ├── movement.go                  # Movement functions
 │       │   ├── gravity.go                   # Gravity + velocity integration
-│       │   ├── collision.go                 # Collision detection/resolution
+│       │   ├── collision.go                 # AABB collision detection/resolution
 │       │   ├── movement_test.go             # Movement tests
 │       │   ├── gravity_test.go              # Gravity tests
-│       │   └── collision_test.go            # Collision tests
+│       │   └── collision_test.go            # AABB collision tests
 │       ├── types/
-│       │   └── vec2.go                      # Custom Vec2 (no Raylib types)
+│       │   ├── vec2.go                      # Custom Vec2 (no Raylib types)
+│       │   ├── aabb.go                      # AABB collision primitive
+│       │   └── aabb_test.go                 # AABB unit tests
 │       ├── input/
 │       │   └── input_state.go               # InputState struct (framework-agnostic)
 │       └── world/
@@ -205,7 +207,7 @@ func (g *Game) GetPlayer() *entities.Player {
 
 #### Physics System (`domain/systems/physics.go`)
 
-Orchestrates pure physics functions:
+Orchestrates pure physics functions with axis-separated collision:
 
 ```go
 type PhysicsSystem struct {
@@ -213,29 +215,35 @@ type PhysicsSystem struct {
 }
 
 func (ps *PhysicsSystem) UpdatePhysics(
-    entity entities.PhysicsEntity,
+    player *entities.Player,
     inputState input.InputState,
     dt float32,
 ) {
-    // Orchestrate pure functions (all testable, no Raylib)
-    velocity := physics.ApplyHorizontalMovement(velocity, inputState, dt)
-    velocity = physics.ApplyVerticalMovement(velocity, inputState, dt)
-    velocity = physics.ApplyGravity(velocity, dt)
-    position = physics.IntegrateVelocity(position, velocity, dt)
+    // 1. Apply movement and gravity to velocity
+    player.Velocity = physics.ApplyHorizontalMovement(player.Velocity, inputState, dt)
+    player.Velocity = physics.ApplyVerticalMovement(player.Velocity, inputState, dt)
+    player.Velocity = physics.ApplyGravity(player.Velocity, dt)
 
-    result := physics.ResolveGroundCollision(position, velocity, entity.GetHeight(), ps.world)
+    // 2. AXIS-SEPARATED COLLISION RESOLUTION
 
-    entity.SetPosition(result.Position)
-    entity.SetVelocity(result.Velocity)
-    entity.SetOnGround(result.OnGround)
+    // X-axis: integrate position → check → resolve
+    player.AABB.X += player.Velocity.X * dt
+    collisionsX := physics.CheckCollisions(player.AABB, ps.world)
+    player.AABB, player.Velocity = physics.ResolveCollisionsX(player.AABB, player.Velocity, collisionsX)
+
+    // Y-axis: integrate position → check → resolve
+    player.AABB.Y += player.Velocity.Y * dt
+    collisionsY := physics.CheckCollisions(player.AABB, ps.world)
+    player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
 }
 ```
 
 **Why this design:**
-- Uses explicit `PhysicsEntity` interface (not anonymous inline interfaces)
+- Direct field access (no getters/setters) for simplicity
+- Axis-separated collision prevents corner-catching
 - Pure physics functions fully testable without framework
 - Accepts `InputState` (not Raylib types)
-- IDEs can resolve all symbols correctly
+- Works with `*Player` directly (no interface needed)
 
 #### Pure Physics Functions (`domain/physics/`)
 
@@ -248,51 +256,54 @@ func ApplyVerticalMovement(velocity Vec2, inputState InputState, dt float32) Vec
 
 // gravity.go - Pure functions
 func ApplyGravity(velocity Vec2, dt float32) Vec2
-func IntegrateVelocity(position, velocity Vec2, dt float32) Vec2
 
-// collision.go - Pure functions
-func ResolveGroundCollision(position, velocity Vec2, height float32, world *World) CollisionResult
+// collision.go - AABB-based collision functions
+func CheckCollisions(aabb AABB, world *World) []TileCollision
+func ResolveCollisionsX(aabb AABB, velocity Vec2, collisions []TileCollision) (AABB, Vec2)
+func ResolveCollisionsY(aabb AABB, velocity Vec2, collisions []TileCollision) (AABB, Vec2, bool)
+func GetOccupiedTileRange(aabb AABB, tileSize float32) (minX, maxX, minY, maxY int)
 ```
 
 **Why this design:**
 - Zero Raylib imports
 - Can be tested standalone
-- Input/output are domain types (Vec2, InputState, etc.)
+- Input/output are domain types (AABB, Vec2, etc.)
 - Pure functions enable unit testing without framework
+- Value-based (no pointer mutations in function signatures)
 
 #### Player Entity (`domain/entities/player.go`)
 
-Pure data entity with domain behavior:
+Pure data entity with AABB collision primitive:
 
 ```go
 type Player struct {
-    Position types.Vec2  // Domain type (not rl.Vector2)
-    Velocity types.Vec2
-    OnGround bool
+    AABB     types.AABB  // Position and dimensions - direct access
+    Velocity types.Vec2  // Pixels per second - direct access
+    OnGround bool        // Collision state - direct access
 }
 
-// Domain interface for physics systems
-type PhysicsEntity interface {
-    GetPositionVec() *types.Vec2
-    GetVelocityVec() *types.Vec2
-    SetPosition(types.Vec2)
-    SetVelocity(types.Vec2)
-    SetOnGround(bool)
-    GetHeight() float32
+func NewPlayer(startX, startY float32) *Player {
+    return &Player{
+        AABB:     types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
+        Velocity: types.Zero(),
+        OnGround: false,
+    }
 }
 ```
 
 **Why this design:**
+- AABB eliminates redundant Position storage (X, Y already in AABB)
 - No Render() method (rendering is adapter responsibility)
-- Uses domain types (Vec2, not rl.Vector2)
+- Uses domain types (AABB, Vec2, not rl.Vector2)
 - Zero Raylib dependency
-- Clear contract via `PhysicsEntity` interface for extensibility
-- Easy to add new entities (Enemy, NPC) that implement the same interface
+- Direct field access (no getters/setters) for simplicity
+- AABB enables proper collision detection (not just ground)
 
-#### Types (`domain/types/vec2.go`)
+#### Types (`domain/types/`)
 
 Custom math types independent of framework:
 
+**Vec2** (`vec2.go`):
 ```go
 type Vec2 struct {
     X float32
@@ -305,11 +316,25 @@ func (v Vec2) Magnitude() float32
 // ... other operations
 ```
 
+**AABB** (`aabb.go`):
+```go
+type AABB struct {
+    X, Y          float32 // Top-left corner position
+    Width, Height float32 // Dimensions
+}
+
+func (a AABB) Intersects(b AABB) bool
+func (a AABB) Penetration(b AABB) (dx, dy float32)
+func (a AABB) Min() Vec2
+func (a AABB) Max() Vec2
+```
+
 **Why this design:**
 - No Raylib dependency
 - Physics can use its own types
 - Conversion to Raylib types only happens in rendering adapter
-- Provides abstraction layer
+- AABB provides proper collision detection (not just point-based)
+- Value types (not pointers) for simplicity and performance
 
 #### InputState (`domain/input/input_state.go`)
 
@@ -504,11 +529,17 @@ type Vec2 struct {
     Y float32
 }
 
+type AABB struct {
+    X, Y          float32  // 16 bytes total
+    Width, Height float32
+}
+
 // ✓ Good: Values for small types
-player.Position = types.Vec2{X: 100, Y: 200}
+player.Velocity = types.Vec2{X: 100, Y: 200}
+player.AABB = types.NewAABB(0, 0, 64, 64)
 
 // ✗ Bad: Pointers for small types
-player.Position = &types.Vec2{X: 100, Y: 200}
+player.Velocity = &types.Vec2{X: 100, Y: 200}
 ```
 
 **Why:** Small types (8-16 bytes) should be values:
@@ -516,37 +547,30 @@ player.Position = &types.Vec2{X: 100, Y: 200}
 - Better cache locality
 - No nil pointer issues
 - Go idiom (see time.Time, image.Point)
+- Cheaper to copy than pointer indirection on modern CPUs
 
-### 5. Explicit Contracts
+### 5. Direct Field Access for Simplicity
 
-Use explicit interfaces, not anonymous inline interfaces:
+Use direct field access instead of getters/setters when appropriate:
 
 ```go
-// ✓ Good: Named interface in domain
-type PhysicsEntity interface {
-    GetPositionVec() *types.Vec2
-    GetVelocityVec() *types.Vec2
-    SetPosition(types.Vec2)
-    SetVelocity(types.Vec2)
-    SetOnGround(bool)
-    GetHeight() float32
-}
+// ✓ Good: Direct field access
+player.AABB.X += player.Velocity.X * dt
+player.Velocity.Y += gravity * dt
+player.OnGround = true
 
-// ✗ Bad: Anonymous inline interface (confuses IDEs)
-func UpdatePhysics(
-    player interface {
-        GetPositionVec() *types.Vec2
-        // ... etc
-    },
-) {
-}
+// ✗ Overly complex: Unnecessary indirection
+player.SetPosition(player.GetPosition().Add(player.GetVelocity().Scale(dt)))
+player.SetVelocity(player.GetVelocity().Add(Vec2{Y: gravity * dt}))
+player.SetOnGround(true)
 ```
 
 **Why:**
-- IDEs can resolve symbols
-- "Find all implementations" works
-- Refactoring is safe
-- Documents the contract clearly
+- Simpler code, easier to read
+- Less boilerplate (no getter/setter methods)
+- Better performance (no function call overhead)
+- Go idiom: exported fields for simple data structures
+- Still maintains encapsulation at package boundaries
 
 ### 6. Getters for External Access
 
@@ -572,6 +596,112 @@ func (r *RaylibRenderer) Render(game *engine.Game) {
 
 ---
 
+## AABB Collision System
+
+The game uses **Axis-Aligned Bounding Box (AABB) collision detection** with axis-separated resolution for precise 2D platformer physics.
+
+### Core Concepts
+
+**AABB Primitive:**
+- Rectangular collision box defined by position (X, Y) and dimensions (Width, Height)
+- Axis-aligned (no rotation) for fast intersection tests
+- Used for both player and tiles
+
+**Axis-Separated Resolution:**
+- X-axis movement and collision resolved first
+- Y-axis movement and collision resolved second
+- Prevents corner-catching and enables natural wall sliding
+
+### Collision Pipeline
+
+```go
+// 1. Apply movement and gravity
+player.Velocity = ApplyHorizontalMovement(player.Velocity, input, dt)
+player.Velocity = ApplyGravity(player.Velocity, dt)
+
+// 2. X-axis: integrate → detect → resolve
+player.AABB.X += player.Velocity.X * dt
+collisionsX := CheckCollisions(player.AABB, world)
+player.AABB, player.Velocity = ResolveCollisionsX(player.AABB, player.Velocity, collisionsX)
+
+// 3. Y-axis: integrate → detect → resolve
+player.AABB.Y += player.Velocity.Y * dt
+collisionsY := CheckCollisions(player.AABB, world)
+player.AABB, player.Velocity, player.OnGround = ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
+```
+
+### Collision Detection
+
+**CheckCollisions()** finds all solid tiles overlapping the player:
+
+```go
+func CheckCollisions(aabb AABB, world *World) []TileCollision {
+    // 1. Calculate which tiles the AABB might overlap
+    minX, maxX, minY, maxY := GetOccupiedTileRange(aabb, TileSize)
+
+    // 2. Check each potentially overlapping tile
+    for x := minX; x <= maxX; x++ {
+        for y := minY; y <= maxY; y++ {
+            tile := world.GetTileAtGrid(x, y)
+            if tile != nil && tile.IsSolid() && aabb.Intersects(tile.GetAABB(x, y, TileSize)) {
+                // Found collision!
+            }
+        }
+    }
+}
+```
+
+**Performance:** Player can overlap at most 4 tiles (2×2 grid), so maximum 4 intersection tests per frame.
+
+### Collision Resolution
+
+**ResolveCollisionsX()** pushes player out horizontally:
+- Calculates penetration depth using `AABB.Penetration()`
+- Adjusts position: `aabb.X -= dx`
+- Zeros horizontal velocity on wall hit
+
+**ResolveCollisionsY()** pushes player out vertically:
+- Calculates penetration depth
+- Adjusts position: `aabb.Y -= dy`
+- Detects ground: if pushed up (`dy > 0`), set `OnGround = true`
+- Detects ceiling: if pushed down (`dy < 0`), zero upward velocity
+
+### Why Axis-Separated?
+
+**Without axis separation (naive AABB):**
+- Player moving diagonally into corner gets "stuck"
+- Cannot slide along walls smoothly
+- Ground detection is ambiguous
+
+**With axis separation:**
+- X collision resolved first, Y collision resolved second
+- Player slides along walls naturally during diagonal movement
+- Clear ground/ceiling/wall detection based on which axis had collision
+
+### Penetration Calculation
+
+```go
+func (a AABB) Penetration(b AABB) (dx, dy float32) {
+    // Calculate overlap on each axis
+    overlapX := min(a.X+a.Width, b.X+b.Width) - max(a.X, b.X)
+    overlapY := min(a.Y+a.Height, b.Y+b.Height) - max(a.Y, b.Y)
+
+    // Determine push direction based on relative positions
+    if a.X < b.X {
+        dx = overlapX  // Push left (subtract to move right)
+    } else {
+        dx = -overlapX // Push right (subtract to move left)
+    }
+
+    // Same for Y axis
+    // ...
+}
+```
+
+**Key insight:** Signs are chosen so `position -= penetration` always pushes objects apart.
+
+---
+
 ## Future Architecture Considerations
 
 ### Adding New Entities
@@ -579,25 +709,27 @@ func (r *RaylibRenderer) Render(game *engine.Game) {
 To add an Enemy that also uses physics:
 
 ```go
-// 1. Implement PhysicsEntity interface
+// 1. Create entity with AABB
 type Enemy struct {
-    Position types.Vec2
+    AABB     types.AABB
     Velocity types.Vec2
     Health   float32
+    AI       AIState
     // ...
 }
 
-func (e *Enemy) GetPositionVec() *types.Vec2 { return &e.Position }
-func (e *Enemy) GetVelocityVec() *types.Vec2 { return &e.Velocity }
-// ... implement interface
+// 2. Create a separate UpdateEnemyPhysics method or generalize UpdatePhysics
+func (ps *PhysicsSystem) UpdateEnemyPhysics(enemy *entities.Enemy, dt float32) {
+    // Same collision logic as player
+    enemy.Velocity = physics.ApplyGravity(enemy.Velocity, dt)
 
-// 2. Use in physics system (zero changes needed!)
-func (ps *PhysicsSystem) UpdatePhysics(
-    entity entities.PhysicsEntity,  // Works with Enemy too
-    inputState input.InputState,
-    dt float32,
-) {
-    // Same logic works for all PhysicsEntity implementations
+    enemy.AABB.X += enemy.Velocity.X * dt
+    collisionsX := physics.CheckCollisions(enemy.AABB, ps.world)
+    enemy.AABB, enemy.Velocity = physics.ResolveCollisionsX(enemy.AABB, enemy.Velocity, collisionsX)
+
+    enemy.AABB.Y += enemy.Velocity.Y * dt
+    collisionsY := physics.CheckCollisions(enemy.AABB, ps.world)
+    enemy.AABB, enemy.Velocity, _ = physics.ResolveCollisionsY(enemy.AABB, enemy.Velocity, collisionsY)
 }
 ```
 
@@ -658,7 +790,7 @@ go test ./internal/domain/physics/...
 # Tests cover:
 # - Movement (acceleration, damping, max speed)
 # - Gravity (falling, velocity integration)
-# - Collision (ground detection, resolution)
+# - Collision (AABB detection, axis-separated resolution, wall/ceiling/ground)
 ```
 
 ### Integration Tests (Systems)

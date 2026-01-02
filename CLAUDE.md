@@ -32,14 +32,15 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 **Pure business logic with ZERO Raylib dependencies** — fully testable without framework initialization.
 
 - `engine/game.go` — Game orchestration, system coordination
-- `systems/physics.go` — Physics system (movement, gravity, collision)
+- `systems/physics.go` — Physics system (movement, gravity, AABB collision)
 - `systems/digging.go` — Tile destruction and player grid alignment
-- `entities/player.go` — Player data and behavior
+- `entities/player.go` — Player data (AABB-based) and behavior
 - `entities/tile.go` — Tile types (Empty, Dirt) with solid/diggable state
-- `physics/` — Pure physics functions (movement, gravity, collision)
+- `physics/` — Pure physics functions (movement, gravity, AABB collision)
 - `world/world.go` — Sparse tile map, grid-based terrain, collision queries
 - `input/input_state.go` — Platform-agnostic input representation
 - `types/vec2.go` — Custom 2D vector (no Raylib types)
+- `types/aabb.go` — AABB collision primitive (no Raylib types)
 
 ### Adapter Layer (`internal/adapters/`)
 **Framework integration — all Raylib code lives here, zero business logic.**
@@ -71,23 +72,25 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 2. Movement: Apply horizontal acceleration/damping (input-driven)
 3. Vertical Movement: Apply upward thrust when jumping
 4. Gravity: Apply downward acceleration every frame
-5. Integration: Update position from velocity
-6. Collision: Resolve tile collisions, snap to tile tops
+5. **Axis-Separated Collision**: X-axis integration → collision → resolve, then Y-axis integration → collision → resolve
 
-### World & Collision
+### World & AABB Collision
 - **Tile Size**: 64×64 pixels
 - **Sparse Map**: `map[[2]int]*entities.Tile` (only stores non-empty tiles)
-- **Collision Detection**: Full-width check (left, center, right edges of player)
-- **Tile-Based Ground**: Player stands on tiles, falls through dug tiles
-- **Ground Level**: Must align to tile boundary (e.g., 640 = 10 × TileSize)
+- **Collision Type**: AABB (Axis-Aligned Bounding Box) for player and tiles
+- **Detection**: CheckCollisions() finds all solid tiles intersecting player AABB (max 4 tiles)
+- **Resolution**: Axis-separated (X then Y) to prevent corner-catching and enable wall sliding
+- **Ground Detection**: Vertical collision with `dy > 0` (pushed upward) sets OnGround
+- **Wall/Ceiling**: Horizontal collision stops X movement, ceiling collision stops Y movement
 
 ## Testing Strategy
 
-**11 unit tests, zero framework dependencies** — all tests in `internal/domain/physics/`:
+**17 unit tests, zero framework dependencies** — all tests in `internal/domain/physics/` and `internal/domain/types/`:
 
 - `movement_test.go` — Acceleration, damping, speed capping
 - `gravity_test.go` — Gravity effects, position integration
-- `collision_test.go` — Ground collision, tile standing, takeoff
+- `collision_test.go` — AABB collision detection, axis-separated resolution, wall/ceiling/ground
+- `types/aabb_test.go` — AABB intersection, penetration calculation
 
 **Run tests:**
 ```bash
@@ -206,8 +209,9 @@ Run: `grep -r "raylib" internal/domain/` — should return nothing (except comme
 
 **Phase 1 (Current)**: Core gameplay
 - ✅ Game loop, player movement, physics
-- ✅ Tile-based world, collision
+- ✅ Tile-based world, AABB collision system
 - ✅ Digging system with player grid alignment
+- ✅ Axis-separated collision (walls, ceiling, ground)
 
 **Phase 2**: Progression system (ore types, upgrades, shop)
 **Phase 3**: Polish (particles, sound, UI)

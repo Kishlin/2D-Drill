@@ -24,8 +24,8 @@ func (ds *DiggingSystem) ProcessDigging(
 	}
 
 	// Calculate tile beneath player's center-bottom
-	playerCenterX := player.Position.X + entities.PlayerWidth/2
-	playerBottomY := player.Position.Y + entities.PlayerHeight
+	playerCenterX := player.AABB.X + player.AABB.Width/2
+	playerBottomY := player.AABB.Y + player.AABB.Height
 
 	// Check tile directly below player
 	tile := ds.world.GetTileAt(playerCenterX, playerBottomY)
@@ -35,7 +35,7 @@ func (ds *DiggingSystem) ProcessDigging(
 		tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
 
 		// Align player center with tile center
-		player.Position.X = tileCenterX - entities.PlayerWidth/2
+		player.AABB.X = tileCenterX - player.AABB.Width/2
 
 		// Dig the tile
 		ds.world.DigTile(playerCenterX, playerBottomY)

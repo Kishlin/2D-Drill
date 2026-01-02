@@ -1,62 +1,104 @@
 package physics
 
 import (
-	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
-// CollisionResult contains the results of collision detection and resolution
-type CollisionResult struct {
-	Position types.Vec2
-	Velocity types.Vec2
-	OnGround bool
+// TileCollision represents a collision with a tile
+type TileCollision struct {
+	GridX, GridY int
+	TileAABB     types.AABB
 }
 
-// ResolveGroundCollision checks for and resolves collision with tiles
-// Checks the full width of the player to support standing on tiles even with partial overlap
-// Returns updated position, velocity, and ground contact state
-func ResolveGroundCollision(position, velocity types.Vec2, height float32, w *world.World) CollisionResult {
-	playerBottom := position.Y + height
+// GetOccupiedTileRange calculates which tiles an AABB overlaps
+// Returns (minX, maxX, minY, maxY) in grid coordinates
+func GetOccupiedTileRange(aabb types.AABB, tileSize float32) (minX, maxX, minY, maxY int) {
+	minX = int(aabb.X / tileSize)
+	maxX = int((aabb.X + aabb.Width - 0.001) / tileSize)
+	minY = int(aabb.Y / tileSize)
+	maxY = int((aabb.Y + aabb.Height - 0.001) / tileSize)
+	return
+}
 
-	// Check for tile collision across the full width of the player (left, center, right)
-	// This allows the player to stand on a tile even if only a small portion is on top
-	checkPoints := []float32{
-		position.X,                          // left edge
-		position.X + entities.PlayerWidth/2, // center
-		position.X + entities.PlayerWidth,   // right edge
-	}
+// CheckCollisions finds all solid tiles intersecting the AABB
+func CheckCollisions(aabb types.AABB, w *world.World) []TileCollision {
+	minX, maxX, minY, maxY := GetOccupiedTileRange(aabb, world.TileSize)
 
-	for _, checkX := range checkPoints {
-		tile := w.GetTileAt(checkX, playerBottom)
-		if tile != nil && tile.IsSolid() {
-			// Found a solid tile, snap to its top
-			tileGridY := int(playerBottom / world.TileSize)
-			tileTopY := float32(tileGridY * world.TileSize)
+	var collisions []TileCollision
 
-			newPos := types.Vec2{
-				X: position.X,
-				Y: tileTopY - height,
+	for x := minX; x <= maxX; x++ {
+		for y := minY; y <= maxY; y++ {
+			tile := w.GetTileAtGrid(x, y)
+
+			if tile == nil || !tile.IsSolid() {
+				continue
 			}
 
-			newVel := velocity
-			if newVel.Y >= 0 {
-				newVel.Y = 0
-			}
+			tileAABB := tile.GetAABB(x, y, world.TileSize)
 
-			return CollisionResult{
-				Position: newPos,
-				Velocity: newVel,
-				OnGround: true,
+			if aabb.Intersects(tileAABB) {
+				collisions = append(collisions, TileCollision{
+					GridX:    x,
+					GridY:    y,
+					TileAABB: tileAABB,
+				})
 			}
 		}
 	}
 
-	// No tile collision found, so no collision at all
-	// (Removed legacy ground level - now purely tile-based)
-	return CollisionResult{
-		Position: position,
-		Velocity: velocity,
-		OnGround: false,
+	return collisions
+}
+
+// ResolveCollisionsX resolves X-axis collisions only
+// Takes AABB and velocity by value, returns updated AABB and velocity
+func ResolveCollisionsX(aabb types.AABB, velocity types.Vec2, collisions []TileCollision) (types.AABB, types.Vec2) {
+	if len(collisions) == 0 {
+		return aabb, velocity
 	}
+
+	newAABB := aabb
+	newVel := velocity
+
+	for _, col := range collisions {
+		dx, _ := newAABB.Penetration(col.TileAABB)
+
+		if dx != 0 {
+			newAABB.X -= dx // Adjust position
+			newVel.X = 0    // Stop horizontal movement
+		}
+	}
+
+	return newAABB, newVel
+}
+
+// ResolveCollisionsY resolves Y-axis collisions and detects ground
+// Takes AABB and velocity by value, returns updated AABB, velocity, and ground state
+func ResolveCollisionsY(aabb types.AABB, velocity types.Vec2, collisions []TileCollision) (types.AABB, types.Vec2, bool) {
+	if len(collisions) == 0 {
+		return aabb, velocity, false
+	}
+
+	newAABB := aabb
+	newVel := velocity
+	onGround := false
+
+	for _, col := range collisions {
+		_, dy := newAABB.Penetration(col.TileAABB)
+
+		if dy != 0 {
+			newAABB.Y -= dy // Adjust position
+
+			if dy > 0 {
+				// Positive dy with subtraction = push up = ground collision
+				onGround = true
+				newVel.Y = 0
+			} else {
+				// Negative dy with subtraction = push down = ceiling collision
+				newVel.Y = 0
+			}
+		}
+	}
+
+	return newAABB, newVel, onGround
 }

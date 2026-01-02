@@ -54,10 +54,10 @@ func (r *RaylibRenderer) GetFrameTime() float32 {
 }
 
 func (r *RaylibRenderer) renderPlayer(player *entities.Player) {
-	// Convert domain Vec2 to Raylib Vector2
-	pos := player.GetPositionVec()
-	rlPos := rl.Vector2{X: pos.X, Y: pos.Y}
-	rlSize := rl.Vector2{X: entities.PlayerWidth, Y: entities.PlayerHeight}
+	// Convert domain AABB to Raylib rendering
+	aabb := player.AABB
+	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
+	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
 	rl.DrawRectangleV(rlPos, rlSize, PlayerColor)
 }
 

@@ -1,5 +1,9 @@
 package entities
 
+import (
+	"github.com/Kishlin/drill-game/internal/domain/types"
+)
+
 type TileType int
 
 const (
@@ -21,4 +25,14 @@ func (t *Tile) IsSolid() bool {
 
 func (t *Tile) IsDiggable() bool {
 	return t.Type == TileTypeDirt
+}
+
+// GetAABB returns the tile's bounding box at given grid coordinates
+func (t *Tile) GetAABB(gridX, gridY int, tileSize float32) types.AABB {
+	return types.AABB{
+		X:      float32(gridX) * tileSize,
+		Y:      float32(gridY) * tileSize,
+		Width:  tileSize,
+		Height: tileSize,
+	}
 }
