@@ -50,7 +50,7 @@ func main() {
 			break
 		}
 
-		renderer.Render(game)
+		renderer.Render(game, inputState)
 	}
 
 	slog.Info("Shutting down Drill Game")

@@ -1,10 +1,13 @@
 package rendering
 
 import (
+	"fmt"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
+	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
@@ -22,13 +25,14 @@ func NewRaylibRenderer() *RaylibRenderer {
 	return &RaylibRenderer{}
 }
 
-func (r *RaylibRenderer) Render(game *engine.Game) {
+func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) {
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.RayWhite)
 
 	r.renderWorld(game.GetWorld())
 	r.renderTiles(game.GetWorld())
 	r.renderPlayer(game.GetPlayer())
+	r.renderDebugInfo(game.GetPlayer(), inputState)
 
 	rl.EndDrawing()
 }
@@ -106,4 +110,26 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 			GridColor,
 		)
 	}
+}
+
+func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState input.InputState) {
+	fontSize := int32(20)
+	textColor := rl.Black
+	lineHeight := int32(25)
+	posX := int32(10)
+	posY := int32(10)
+
+	// Draw player position and velocity
+	posVelText := fmt.Sprintf("Pos: X=%.1f, Y=%.1f | Vel: X=%.1f, Y=%.1f", player.AABB.X, player.AABB.Y, player.Velocity.X, player.Velocity.Y)
+	rl.DrawText(posVelText, posX, posY, fontSize, textColor)
+	posY += lineHeight
+
+	// Draw on ground status
+	onGroundText := fmt.Sprintf("OnGround: %v", player.OnGround)
+	rl.DrawText(onGroundText, posX, posY, fontSize, textColor)
+	posY += lineHeight
+
+	// Draw input state
+	inputText := fmt.Sprintf("Input: L=%v R=%v U=%v D=%v", inputState.Left, inputState.Right, inputState.Up, inputState.Dig)
+	rl.DrawText(inputText, posX, posY, fontSize, textColor)
 }
