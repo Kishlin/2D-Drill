@@ -72,8 +72,9 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 
 ### Game Update Order
 1. **Chunk Loading**: Proactively load 3×3 grid of chunks around player (16×16 tile chunks)
-2. **Digging**: Remove tiles, align player to grid (before physics)
-3. **Physics System Order**:
+2. **Downward Digging**: Remove tiles below player, align player to grid (S/Down key)
+3. **Horizontal Digging**: Remove tiles left/right of player when grounded (Left/Right/A/D keys)
+4. **Physics System Order**:
    - Movement: Apply horizontal acceleration/damping (input-driven)
    - Vertical Movement: Apply upward thrust when jumping
    - Gravity: Apply downward acceleration every frame
@@ -181,10 +182,14 @@ type InputState struct {
 ```
 
 **Input Adapter Maps** (`internal/adapters/input/raylib.go`):
-- `Left` ← Arrow Left OR A key
-- `Right` ← Arrow Right OR D key
-- `Up` ← Arrow Up OR W key
-- `Dig` ← Down arrow OR S key (spacebar mapping can be updated here)
+- `Left` ← Arrow Left OR A key (move left, or dig left when grounded against wall)
+- `Right` ← Arrow Right OR D key (move right, or dig right when grounded against wall)
+- `Up` ← Arrow Up OR W key (fly/jump)
+- `Dig` ← Down arrow OR S key (dig downward with grid alignment)
+
+**Digging Behavior:**
+- **Downward** (S/Down): Always available, snaps player to tile grid horizontally
+- **Horizontal Left/Right** (A/D or Left/Right): Only when grounded, auto-digs blocking tiles without grid snap
 
 ## Game Configuration
 

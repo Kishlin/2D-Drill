@@ -33,10 +33,13 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	playerY := g.player.AABB.Y + g.player.AABB.Height/2
 	g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-	// 1. Handle digging (before physics, so alignment happens first)
+	// 1. Handle downward digging (before physics, so alignment happens first)
 	g.diggingSystem.ProcessDigging(g.player, inputState)
 
-	// 2. Update physics
+	// 2. Handle horizontal digging (before physics, so blocked tiles can be dug)
+	g.diggingSystem.ProcessHorizontalDigging(g.player, inputState)
+
+	// 3. Update physics
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
 	return nil

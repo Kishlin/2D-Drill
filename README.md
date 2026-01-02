@@ -13,9 +13,10 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 ### Implemented ✅
 - ⛏️ **Procedurally Generated Worlds**: Seeded chunk-based generation for infinite depth
 - 💎 **7 Ore Types**: Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond with Gaussian depth distribution
-- 🎮 **Smooth Gameplay**: 60 FPS player movement, physics, and digging with AABB collision
+- 🎮 **Smooth Gameplay**: 60 FPS player movement, physics, and directional digging with AABB collision
 - 🗺️ **Chunk Loading**: Lazy 16×16 chunk loading around player (3×3 grid)
 - 📐 **Deterministic Generation**: Same seed = reproducible worlds
+- ⛏️ **Directional Digging**: Dig downward (S) or through left/right walls (A/D) when grounded
 
 ### Planned (Phase 2+)
 - 🔧 Comprehensive upgrade system (speed, drilling, survivability, cargo)
@@ -96,7 +97,7 @@ drill-game/
 - [x] Procedurally generated worlds with seeded RNG
 - [x] 7 ore types with Gaussian depth distribution
 - [x] Tile-based collision (AABB) and axis-separated resolution
-- [x] Digging system with player grid alignment
+- [x] Directional digging system (downward with grid alignment, left/right while grounded)
 - [x] Chunk loading (16×16 chunks, 3×3 proactive grid)
 - [x] 31 unit tests + 7 integration tests
 - [x] Deterministic world generation

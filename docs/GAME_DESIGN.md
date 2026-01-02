@@ -45,15 +45,24 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 
 ### Controls
 - **Arrow Keys / WASD**: Move vehicle
-- **Space / Mouse**: Activate drill
+  - **Left (A) / Right (D)**: When grounded against a wall, automatically dig through the blocking tile
+  - **Up (W)**: Fly/jump upward
+- **Down (S) / Down Arrow**: Dig downward (with player grid alignment)
 - **ESC**: Pause / Open shop
 
 ### Vehicle Mechanics
 - Gravity pulls vehicle downward
 - Can move left/right freely
-- Drilling destroys tiles in front of vehicle
+- **Directional Drilling**:
+  - Dig **downward** with explicit S/Down key press (snaps player to grid)
+  - Dig **left/right** by moving into a wall while grounded (automatic, no grid snap)
 - Taking damage from heat, collisions, or hazards
 - Cargo fills up as ores are collected
+
+### Directional Digging Details
+- **Grounded Left/Right Digging**: When the player is on solid ground and presses left/right against a diggable wall, the tile is automatically destroyed, allowing the player to move through
+- **Downward Digging**: Can be performed anytime with S/Down key, aligns player to tile grid horizontally
+- **Mid-Air**: Left/Right digging is disabled while airborne; player will bounce off walls instead
 
 ## World
 

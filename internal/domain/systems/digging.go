@@ -14,7 +14,7 @@ func NewDiggingSystem(w *world.World) *DiggingSystem {
 	return &DiggingSystem{world: w}
 }
 
-// ProcessDigging handles digging logic and player alignment
+// ProcessDigging handles downward digging logic and player alignment
 func (ds *DiggingSystem) ProcessDigging(
 	player *entities.Player,
 	inputState input.InputState,
@@ -39,5 +39,39 @@ func (ds *DiggingSystem) ProcessDigging(
 
 		// Dig the tile
 		ds.world.DigTile(playerCenterX, playerBottomY)
+	}
+}
+
+// ProcessHorizontalDigging handles auto-digging when moving left/right against walls
+// Only works when player is grounded
+func (ds *DiggingSystem) ProcessHorizontalDigging(
+	player *entities.Player,
+	inputState input.InputState,
+) {
+	// Only dig horizontally when grounded
+	if !player.OnGround {
+		return
+	}
+
+	playerCenterY := player.AABB.Y + player.AABB.Height/2
+
+	if inputState.Left {
+		// Check tile just left of player's left edge
+		tileX := player.AABB.X - 1
+		tile := ds.world.GetTileAt(tileX, playerCenterY)
+		if tile != nil && tile.IsDiggable() {
+			ds.world.DigTile(tileX, playerCenterY)
+			return
+		}
+	}
+
+	if inputState.Right {
+		// Check tile just right of player's right edge
+		tileX := player.AABB.X + player.AABB.Width + 1
+		tile := ds.world.GetTileAt(tileX, playerCenterY)
+		if tile != nil && tile.IsDiggable() {
+			ds.world.DigTile(tileX, playerCenterY)
+			return
+		}
 	}
 }

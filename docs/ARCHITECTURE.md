@@ -135,7 +135,8 @@ main.go Loop:
 │ 2. Update Domain Logic                  │
 │    game.Update(dt, inputState)          │
 │    • Load chunks around player (3×3)    │
-│    • Digging system processes input     │
+│    • Downward digging (S/Down key)      │
+│    • Horizontal digging (L/R when grounded)
 │    • Physics system applies forces      │
 │    • Gravity, movement, collision       │
 │    • Updates Player position/velocity   │
@@ -185,14 +186,28 @@ Orchestrates domain systems without any framework knowledge:
 
 ```go
 type Game struct {
-    world         *world.World
-    player        *entities.Player
-    physicsSystem *systems.PhysicsSystem
+    world          *world.World
+    player         *entities.Player
+    physicsSystem  *systems.PhysicsSystem
+    diggingSystem  *systems.DiggingSystem
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
     // Pure domain logic - zero Raylib
+    // Update chunks around player
+    playerX := g.player.AABB.X + g.player.AABB.Width/2
+    playerY := g.player.AABB.Y + g.player.AABB.Height/2
+    g.world.UpdateChunksAroundPlayer(playerX, playerY)
+
+    // Downward digging (before physics, so grid alignment works first)
+    g.diggingSystem.ProcessDigging(g.player, inputState)
+
+    // Horizontal digging (auto-dig left/right when grounded against walls)
+    g.diggingSystem.ProcessHorizontalDigging(g.player, inputState)
+
+    // Physics with axis-separated collision
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
+
     return nil
 }
 
@@ -211,6 +226,76 @@ func (g *Game) GetPlayer() *entities.Player {
 - Game accepts InputState (not Raylib keys)
 - Game provides getters for adapters to read state
 - All rendering responsibility is external
+
+#### Digging System (`domain/systems/digging.go`)
+
+Handles tile destruction for both downward and horizontal digging:
+
+```go
+type DiggingSystem struct {
+    world *world.World
+}
+
+// Downward digging with grid alignment (S/Down key)
+func (ds *DiggingSystem) ProcessDigging(
+    player *entities.Player,
+    inputState input.InputState,
+) {
+    if !inputState.Dig {
+        return
+    }
+
+    playerCenterX := player.AABB.X + player.AABB.Width/2
+    playerBottomY := player.AABB.Y + player.AABB.Height
+
+    tile := ds.world.GetTileAt(playerCenterX, playerBottomY)
+    if tile != nil && tile.IsDiggable() {
+        // Snap to grid and dig
+        tileGridX := int(playerCenterX / world.TileSize)
+        tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
+        player.AABB.X = tileCenterX - player.AABB.Width/2
+
+        ds.world.DigTile(playerCenterX, playerBottomY)
+    }
+}
+
+// Horizontal digging when grounded (A/D or Left/Right keys)
+func (ds *DiggingSystem) ProcessHorizontalDigging(
+    player *entities.Player,
+    inputState input.InputState,
+) {
+    // Only dig when grounded
+    if !player.OnGround {
+        return
+    }
+
+    playerCenterY := player.AABB.Y + player.AABB.Height/2
+
+    if inputState.Left {
+        // Check tile just left of player
+        tile := ds.world.GetTileAt(player.AABB.X-1, playerCenterY)
+        if tile != nil && tile.IsDiggable() {
+            ds.world.DigTile(player.AABB.X-1, playerCenterY)
+            return
+        }
+    }
+
+    if inputState.Right {
+        // Check tile just right of player
+        tile := ds.world.GetTileAt(player.AABB.X+player.AABB.Width+1, playerCenterY)
+        if tile != nil && tile.IsDiggable() {
+            ds.world.DigTile(player.AABB.X+player.AABB.Width+1, playerCenterY)
+        }
+    }
+}
+```
+
+**Why this design:**
+- Called before physics (so blocked tiles can be removed before collision resolution)
+- Uses direct world coordinate sampling (like downward digging)
+- Horizontal digging only when `player.OnGround == true` (prevents mid-air digging)
+- No collision detection needed (simple world queries)
+- Direct field access for simplicity
 
 #### Physics System (`domain/systems/physics.go`)
 
