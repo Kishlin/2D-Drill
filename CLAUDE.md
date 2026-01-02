@@ -139,11 +139,11 @@ Located in `internal/domain/physics/constants.go`:
 
 ```go
 Gravity               = 800 pixels/sec²
-MaxMoveSpeed          = 300 pixels/sec
+MaxMoveSpeed          = 450 pixels/sec
 MoveAcceleration      = 2500 pixels/sec²
 MoveDamping           = 1000 pixels/sec²
-FlyAcceleration       = 2000 pixels/sec²
-MaxUpwardVelocity     = -300 pixels/sec (negative = upward)
+FlyAcceleration       = 2500 pixels/sec²
+MaxUpwardVelocity     = -600 pixels/sec (negative = upward)
 FlyDamping            = 300 pixels/sec²
 ```
 
