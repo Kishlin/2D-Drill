@@ -19,13 +19,13 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 - ⛏️ **Directional Digging**: Dig downward (S) or through left/right walls (A/D) when grounded
 - 📦 **Ore Inventory System**: Automatic ore collection with real-time inventory display
 - 🏪 **Shop System**: Visible shop on map, sell entire inventory for currency (E key)
+- ⛽ **Fuel System**: Limited fuel tank (10L) with activity-based consumption (active: 0.333 L/s, idle: 0.0833 L/s)
 
 ### Planned (Phase 2+)
-- 🔧 Comprehensive upgrade system (speed, drilling, survivability, cargo)
-- 🌡️ Environmental hazards (heat, pressure)
-- 📊 Progression curve with ore collection and selling
-- 💰 Currency and shop system
-- 🎮 Expanded content and polish
+- ⛽ **Fuel Mechanics**: Game over behavior at zero fuel, refueling system, fuel efficiency upgrades
+- 🔧 **Comprehensive upgrade system**: Speed, drilling, survivability, cargo, fuel capacity/efficiency
+- 🌡️ **Environmental hazards**: Heat, pressure, lava, gas pockets, underwater areas
+- 🎨 **Polish & Content**: Particle effects, sound effects, UI improvements, more ores/biomes, achievements
 
 ## Tech Stack
 

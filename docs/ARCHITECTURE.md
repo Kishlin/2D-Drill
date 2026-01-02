@@ -84,9 +84,11 @@ drill-game/
 │       │   ├── physics.go                   # PhysicsSystem
 │       │   ├── digging.go                   # DiggingSystem (ore collection)
 │       │   ├── shop.go                      # ShopSystem (selling inventory)
-│       │   └── digging_test.go              # Digging & ore collection tests
+│       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
+│       │   ├── digging_test.go              # Digging & ore collection tests
+│       │   └── fuel_test.go                 # Fuel consumption tests
 │       ├── entities/
-│       │   ├── player.go                    # Player entity (AABB-based + inventory + money)
+│       │   ├── player.go                    # Player entity (AABB-based + inventory + money + fuel)
 │       │   ├── player_test.go               # Player inventory tests
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   ├── shop.go                      # Shop entity (AABB-based interactable)
@@ -104,7 +106,8 @@ drill-game/
 │       │   ├── aabb.go                      # AABB collision primitive
 │       │   └── aabb_test.go                 # AABB unit tests
 │       ├── input/
-│       │   └── input_state.go               # InputState struct (framework-agnostic)
+│       │   ├── input_state.go               # InputState struct (framework-agnostic)
+│       │   └── input_state_test.go          # InputState helper method tests
 │       └── world/
 │           ├── world.go                     # World: chunk loading, sparse tile map
 │           ├── generator.go                 # Procedural tile generation
@@ -146,6 +149,7 @@ main.go Loop:
 │    • Physics system applies forces      │
 │    • Gravity, movement, collision       │
 │    • Updates Player position/velocity   │
+│    • Fuel consumption (based on inputs) │
 └────────────┬────────────────────────────┘
              │
              ▼
@@ -155,7 +159,7 @@ main.go Loop:
 │    • Extracts Player, World, Shop       │
 │    • Renders tiles with ore colors      │
 │    • Draws shop, player, entities       │
-│    • Displays debug info (money, ore)   │
+│    • Displays debug info (money, ore, fuel) │
 │    • Camera follows player              │
 └─────────────────────────────────────────┘
 ```
@@ -197,6 +201,8 @@ type Game struct {
     player         *entities.Player
     physicsSystem  *systems.PhysicsSystem
     diggingSystem  *systems.DiggingSystem
+    shopSystem     *systems.ShopSystem
+    fuelSystem     *systems.FuelSystem
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
@@ -212,8 +218,14 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     // Horizontal digging (auto-dig left/right when grounded against walls)
     g.diggingSystem.ProcessHorizontalDigging(g.player, inputState)
 
+    // Shop selling interaction
+    g.shopSystem.ProcessSelling(g.player, inputState)
+
     // Physics with axis-separated collision
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
+
+    // Fuel consumption based on activity
+    g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
     return nil
 }
@@ -349,6 +361,49 @@ func (ps *PhysicsSystem) UpdatePhysics(
 - Accepts `InputState` (not Raylib types)
 - Works with `*Player` directly (no interface needed)
 
+#### Fuel System (`domain/systems/fuel.go`)
+
+Manages fuel consumption based on player activity:
+
+```go
+type FuelSystem struct {
+    // No state - purely functional
+}
+
+func (fs *FuelSystem) ConsumeFuel(
+    player *entities.Player,
+    inputState input.InputState,
+    dt float32,
+) {
+    // Determine consumption rate based on input
+    var rate float32
+    if inputState.HasMovementInput() {
+        rate = FuelConsumptionMoving  // 0.333 L/s
+    } else {
+        rate = FuelConsumptionIdle    // 0.0833 L/s
+    }
+
+    // Consume fuel this frame
+    player.Fuel -= rate * dt
+    if player.Fuel < 0 {
+        player.Fuel = 0
+    }
+}
+```
+
+**Consumption Rates:**
+- **Active Input** (Left, Right, Up, Dig): 10L in 30 seconds = 0.333 L/s
+- **Idle** (no movement/digging): 10L in 120 seconds = 0.0833 L/s
+- **Sell Input** (E key): Uses idle rate (not active activity)
+
+**Why this design:**
+- Called after physics to ensure movement is fully resolved
+- Uses `HasMovementInput()` helper to distinguish movement from shop interaction
+- Simple rate-based consumption with delta-time independence
+- Fuel clamped at zero (no negative values)
+- Direct field mutation for simplicity (no getters/setters)
+- Pure logic - could be replaced without affecting game structure
+
 #### Pure Physics Functions (`domain/physics/`)
 
 Framework-independent mathematical functions:
@@ -385,6 +440,8 @@ type Player struct {
     Velocity     types.Vec2  // Pixels per second - direct access
     OnGround     bool        // Collision state - direct access
     OreInventory [7]int      // Ore counts indexed by OreType
+    Money        int         // Currency from ore sales
+    Fuel         float32     // Current fuel in liters (0-10)
 }
 
 func NewPlayer(startX, startY float32) *Player {
@@ -393,6 +450,7 @@ func NewPlayer(startX, startY float32) *Player {
         Velocity:     types.Zero(),
         OnGround:     false,
         OreInventory: [7]int{},
+        Fuel:         FuelCapacity,
     }
 }
 
@@ -457,10 +515,26 @@ Platform-agnostic input representation:
 
 ```go
 type InputState struct {
-    Left  bool
-    Right bool
-    Up    bool
-    Down  bool
+    Left  bool  // A or Arrow Left - move left
+    Right bool  // D or Arrow Right - move right
+    Up    bool  // W or Arrow Up - jump/fly
+    Dig   bool  // S or Arrow Down - dig downward
+    Sell  bool  // E - sell inventory at shop
+}
+
+// HasMovementInput returns true if player is actively moving or digging
+func (is InputState) HasMovementInput() bool {
+    return is.Left || is.Right || is.Up || is.Dig
+}
+
+// HasHorizontalInput returns true if player is moving left or right
+func (is InputState) HasHorizontalInput() bool {
+    return is.Left || is.Right
+}
+
+// HasVerticalInput returns true if player is jumping/flying
+func (is InputState) HasVerticalInput() bool {
+    return is.Up
 }
 ```
 
@@ -469,6 +543,8 @@ type InputState struct {
 - Physics and game logic receive this, not raw keyboard input
 - Easy to swap input sources (file playback, network, AI)
 - Domain logic decoupled from input mechanism
+- Helper methods (`HasMovementInput()`) avoid repeating conditionals
+- `Sell` is separate from movement (doesn't count as active input)
 
 #### World (`domain/world/world.go`)
 

@@ -92,6 +92,20 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **Money Display**: Current balance shown in debug overlay
 - **No Carrying Limit**: Store unlimited ore, but must return to shop to convert to currency (future: cargo upgrades)
 
+### Fuel System
+- **Tank Capacity**: 10 liters (displays with 2 decimal precision)
+- **Active Movement Consumption**: 0.333 L/s when pressing movement/dig inputs (Left, Right, Up, Down)
+  - **Full Duration**: 10 liters lasts 30 seconds of active movement
+- **Idle Consumption**: 0.0833 L/s when standing still (no movement inputs)
+  - **Full Duration**: 10 liters lasts 120 seconds of idle time
+- **Shop Interaction**: Pressing E to sell does not consume fuel at active rate (uses idle rate if standing still)
+- **Display**: Current fuel level shown in debug overlay alongside money
+- **No Resource Limit**: Can have unlimited ore, but fuel is limited (creates time pressure)
+- **Future Mechanics** (not yet implemented):
+  - Game over or limitations when fuel reaches zero
+  - Refueling mechanic (shop or surface station)
+  - Fuel efficiency upgrades (use less fuel per second)
+
 ## World
 
 ### Structure
@@ -150,7 +164,8 @@ weight(ore, depth) = maxWeight × e^(-(depth - peakDepth)² / (2σ²))
 #### 1. Movement Upgrades
 - **Engine Power**: Increase horizontal speed
 - **Thruster Power**: Improve vertical movement (fight gravity)
-- **Fuel Capacity**: Longer operation time (future feature)
+- **Fuel Capacity**: Increase tank size beyond 10L (future upgrade)
+- **Fuel Efficiency**: Reduce consumption rates (future upgrade)
 
 #### 2. Drilling Upgrades
 - **Drill Strength**: Drill through tiles faster

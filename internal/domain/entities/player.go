@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	PlayerWidth  = 54.0
-	PlayerHeight = 54.0
+	PlayerWidth   = 54.0
+	PlayerHeight  = 54.0
+	FuelCapacity  = 10.0 // Liters
 )
 
 type Player struct {
@@ -15,6 +16,7 @@ type Player struct {
 	OnGround     bool       // Collision state - direct access
 	OreInventory [7]int     // Ore counts indexed by OreType
 	Money        int        // Player's currency from selling ores
+	Fuel         float32    // Current fuel in liters (0.0-10.0)
 }
 
 func NewPlayer(startX, startY float32) *Player {
@@ -23,6 +25,7 @@ func NewPlayer(startX, startY float32) *Player {
 		Velocity:     types.Zero(),
 		OnGround:     false,
 		OreInventory: [7]int{},
+		Fuel:         FuelCapacity,
 	}
 }
 

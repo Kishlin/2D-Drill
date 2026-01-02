@@ -13,6 +13,7 @@ type Game struct {
 	physicsSystem  *systems.PhysicsSystem
 	diggingSystem  *systems.DiggingSystem
 	shopSystem     *systems.ShopSystem
+	fuelSystem     *systems.FuelSystem
 }
 
 func NewGame(w *world.World) *Game {
@@ -31,6 +32,7 @@ func NewGame(w *world.World) *Game {
 		physicsSystem:  systems.NewPhysicsSystem(w),
 		diggingSystem:  systems.NewDiggingSystem(w),
 		shopSystem:     systems.NewShopSystem(shop),
+		fuelSystem:     systems.NewFuelSystem(),
 	}
 }
 
@@ -51,6 +53,9 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
 	// 4. Update physics
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
+
+	// 5. Consume fuel based on activity
+	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
 	return nil
 }

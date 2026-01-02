@@ -270,7 +270,7 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	rl.DrawText(inventoryText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
-	// Draw player money
-	moneyText := fmt.Sprintf("Money: $%d", player.Money)
-	rl.DrawText(moneyText, posX, posY, fontSize, textColor)
+	// Draw player money and fuel
+	moneyFuelText := fmt.Sprintf("Money: $%d | Fuel: %.2fL", player.Money, player.Fuel)
+	rl.DrawText(moneyFuelText, posX, posY, fontSize, textColor)
 }

@@ -210,6 +210,7 @@ type InputState struct {
 - Jump/Fly Speed: -300 px/sec (upward)
 - Inventory: Tracks 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
 - Money: Currency earned from selling ores at shop (initialized to $0)
+- Fuel: Tank capacity 10.0 liters (initialized to full)
 
 **Shop** (`internal/domain/entities/shop.go`):
 - Position: ~3 tiles to the right of player spawn, at ground level
@@ -217,6 +218,14 @@ type InputState struct {
 - Appearance: Forest green rectangle with dark green border
 - Function: Purchase with E key while overlapping to sell entire inventory
 - Ore Values: Copper=$10, Iron=$25, Silver=$75, Gold=$250, Mythril=$1000, Platinum=$5000, Diamond=$30000
+
+**Fuel System** (`internal/domain/systems/fuel.go`):
+- Tank Capacity: 10.0 liters (starts full)
+- Active Input Consumption: 10L in 30 seconds = 0.33333 L/s (Left, Right, Up, or Dig)
+- Idle Consumption: 10L in 120 seconds = 0.08333 L/s (no movement inputs)
+- Note: Movement/digging inputs take priority; Sell input does not trigger active consumption
+- Fuel display: Shows current level with 2 decimal precision in debug HUD alongside money
+- Game behavior when fuel reaches zero: (To be implemented in future phase)
 
 ## Documentation Files
 
@@ -274,7 +283,10 @@ Run: `grep -r "raylib" internal/domain/` — should return nothing (except comme
 - ✅ Shop entity (visible on map, interactable)
 - ✅ Ore value/selling mechanics (sell all inventory for money at shop)
 - ✅ Money system and display
+- ✅ Fuel system (consumption based on activity level)
 - Mining duration per ore type
+- Game over behavior when fuel depletes
+- Fuel refill mechanics (shop or surface replenishment)
 - Upgrade system
 
 **Phase 3**: Polish (particles, sound, UI)

@@ -26,3 +26,9 @@ func (is InputState) HasHorizontalInput() bool {
 func (is InputState) HasVerticalInput() bool {
 	return is.Up
 }
+
+// HasMovementInput returns true if player is actively moving or digging
+// (Left, Right, Up, or Dig - but NOT interactions)
+func (is InputState) HasMovementInput() bool {
+	return is.Left || is.Right || is.Up || is.Dig
+}
