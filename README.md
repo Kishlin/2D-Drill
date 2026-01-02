@@ -11,21 +11,17 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 ## Features
 
 ### Implemented ✅
-- ⛏️ **Procedurally Generated Worlds**: Seeded chunk-based generation for infinite depth
-- 💎 **7 Ore Types**: Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond with Gaussian depth distribution
-- 🎮 **Smooth Gameplay**: 60 FPS player movement, physics, and directional digging with AABB collision
-- 🗺️ **Chunk Loading**: Lazy 16×16 chunk loading around player (3×3 grid)
-- 📐 **Deterministic Generation**: Same seed = reproducible worlds
-- ⛏️ **Directional Digging**: Dig downward (S) or through left/right walls (A/D) when grounded
-- 📦 **Ore Inventory System**: Automatic ore collection with real-time inventory display
-- 🏪 **Shop System**: Visible shop on map, sell entire inventory for currency (E key)
-- ⛽ **Fuel System**: Limited fuel tank (10L) with activity-based consumption (active: 0.333 L/s, idle: 0.0833 L/s)
+- ⛏️ **Procedurally Generated Worlds** — Seeded chunk-based generation for infinite depth
+- 💎 **7 Ore Types** — Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond with Gaussian depth distribution
+- 🎮 **Smooth Gameplay** — 60 FPS movement, physics, directional digging with AABB collision
+- 🗺️ **Chunk Loading** — Lazy 16×16 chunks around player
+- 📦 **Ore Inventory & Shop System** — Automatic collection, sell for currency
+- ⛽ **Fuel System** — Limited tank with activity-based consumption
+
+See [CLAUDE.md](CLAUDE.md) for current feature status and configuration.
 
 ### Planned (Phase 2+)
-- ⛽ **Fuel Mechanics**: Game over behavior at zero fuel, refueling system, fuel efficiency upgrades
-- 🔧 **Comprehensive upgrade system**: Speed, drilling, survivability, cargo, fuel capacity/efficiency
-- 🌡️ **Environmental hazards**: Heat, pressure, lava, gas pockets, underwater areas
-- 🎨 **Polish & Content**: Particle effects, sound effects, UI improvements, more ores/biomes, achievements
+See [GAME_DESIGN.md](docs/GAME_DESIGN.md) for detailed game mechanics and progression system.
 
 ## Tech Stack
 
@@ -59,37 +55,35 @@ go run cmd/game/main.go
 
 ### Development
 
-```bash
-# Run tests
-go test ./...
-
-# Run tests with coverage
-go test -cover ./...
-
-# Build executable
-go build -o drill-game cmd/game/main.go
-```
+See [CLAUDE.md](CLAUDE.md) for quick commands to run tests and build the game.
 
 ## Project Structure
 
 ```
 drill-game/
-├── cmd/game/           # Application entry point
+├── cmd/game/                    # Application entry point
 ├── internal/
-│   ├── engine/         # Core game loop, asset management
-│   ├── entities/       # Game objects (player, tiles, ores)
-│   ├── systems/        # Game systems (camera, physics, mining)
-│   └── ui/             # User interface components
-├── assets/             # Sprites, sounds, fonts
-├── docs/               # Documentation
-└── .github/            # GitHub configuration
+│   ├── domain/                  # Pure business logic
+│   │   ├── engine/              # Game loop orchestration
+│   │   ├── entities/            # Game objects (player, tiles, ores)
+│   │   ├── systems/             # Game systems (physics, digging, fuel)
+│   │   ├── world/               # Procedural generation, chunk loading
+│   │   └── physics/             # Physics functions, collision
+│   └── adapters/                # Framework integration (Raylib only)
+│       ├── input/               # Keyboard input mapping
+│       └── rendering/           # Raylib rendering
+├── docs/                        # Documentation
+└── .github/                     # GitHub configuration
 ```
 
-## Documentation
+## Documentation Guide
 
-- [Architecture](docs/ARCHITECTURE.md) - Technical design and structure
-- [Game Design](docs/GAME_DESIGN.md) - Gameplay mechanics and progression
-- [Copilot Instructions](.github/copilot-instructions.md) - AI-assisted development guidelines
+Start here based on what you need:
+
+- **[CLAUDE.md](CLAUDE.md)** — Quick reference for AI assistants, commands, and configuration
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Technical design, hexagonal architecture, complete system reference
+- **[docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)** — Game mechanics, progression system, future features
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — Development workflows, testing, debugging, how to extend the game
 
 ## Roadmap
 

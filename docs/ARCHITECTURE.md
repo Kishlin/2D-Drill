@@ -1187,6 +1187,109 @@ Rendering and feel testing requires manual play:
 
 ---
 
+## Physics Constants
+
+All physics tuning values are centralized in `internal/domain/physics/constants.go`:
+
+```go
+const (
+    Gravity           = 800           // pixels/sec² - downward acceleration
+    MaxMoveSpeed      = 450           // pixels/sec - horizontal movement cap
+    MoveAcceleration  = 2500          // pixels/sec² - how fast player accelerates sideways
+    MoveDamping       = 1000          // pixels/sec² - how fast player slows down
+    FlyAcceleration   = 2500          // pixels/sec² - upward thrust acceleration
+    MaxUpwardVelocity = -600          // pixels/sec - upward velocity cap (negative = upward)
+    FlyDamping        = 300           // pixels/sec² - air resistance when flying
+)
+```
+
+**How these affect gameplay:**
+- **Gravity=800**: Heavy downward pull (1.25× Earth gravity) makes falling quick
+- **MaxMoveSpeed=450**: Fast horizontal movement, allows quick digging
+- **MoveAcceleration=2500**: Responsive control (reaches max speed in 0.18s)
+- **MoveDamping=1000**: Tight ground control (stops in 0.45s)
+- **MaxUpwardVelocity=-600**: Jump/fly height limited (reaches max height in 0.1s)
+
+See `internal/domain/physics/constants.go` for the source of truth.
+
+---
+
+## Game Configuration Reference
+
+### Window & Display (`cmd/game/main.go`)
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Screen Width | 1280 pixels | Horizontal viewport |
+| Screen Height | 720 pixels | Vertical viewport |
+| Target FPS | 60 | Frame rate cap |
+| Ground Level | 640.0 pixels | Safe spawning elevation (10 tiles up) |
+
+### Player Configuration (`internal/domain/entities/player.go`)
+
+| Property | Value | Notes |
+|----------|-------|-------|
+| Size | 64×64 pixels | Matches tile size |
+| Start Position | (640, 576) | Center X, just above ground |
+| Max Move Speed | 300 px/sec | Horizontal movement cap |
+| Jump/Fly Speed | -300 px/sec | Upward velocity (negative = up) |
+| Inventory Capacity | 7 ore types | Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond |
+| Initial Money | $0 | Earned by selling ores |
+| Initial Fuel | 10.0 liters | Full tank |
+
+### Shop Configuration (`internal/domain/entities/shop.go`)
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| Position | (960, 576) | 3 tiles right of player spawn, ground level |
+| Size | 320×192 pixels | 5 tiles wide × 3 tiles tall |
+| Appearance | Forest green rect with dark border | Visual identification |
+| Interaction | E key to sell | Triggers inventory sale |
+
+### Ore Values
+
+| Ore | Value | Depth Preference |
+|-----|-------|------------------|
+| Copper | $10 | 50-100 tiles |
+| Iron | $25 | 100-150 tiles |
+| Silver | $75 | 150-250 tiles |
+| Gold | $250 | 250-350 tiles |
+| Mythril | $1000 | 350-450 tiles |
+| Platinum | $5000 | 450-550 tiles |
+| Diamond | $30000 | 550+ tiles |
+
+**Distribution:** Each ore type uses Gaussian distribution centered at depth preference. Rarer ores appear deeper and are worth more.
+
+### Fuel System (`internal/domain/systems/fuel.go`)
+
+| Setting | Value | Formula |
+|---------|-------|---------|
+| Tank Capacity | 10.0 liters | Full tank |
+| Active Consumption | 0.33333 L/s | 10L depletes in 30 seconds with active input |
+| Idle Consumption | 0.08333 L/s | 10L depletes in 120 seconds with no input |
+| Active Input Triggers | Left, Right, Up, Dig | Movement/digging inputs only |
+
+**Consumption Behavior:**
+- Holding movement keys (Left/Right/Up) or digging (Down/S) = active mode
+- Pressing Sell (E) does NOT trigger active consumption
+- No movement for 1+ frame = idle consumption applies
+
+### Controls & Input Mapping
+
+| Input | Action | Notes |
+|-------|--------|-------|
+| **Left** (A or ←) | Move left / Dig left | Dig only when grounded against wall |
+| **Right** (D or →) | Move right / Dig right | Dig only when grounded against wall |
+| **Up** (W or ↑) | Jump/Fly | Hold to fly continuously |
+| **Dig** (S or ↓) | Dig downward | Always available, snaps to grid |
+| **Sell** (E) | Sell inventory | Only works at shop (AABB overlap) |
+
+**Digging Behavior:**
+- **Downward (S/Down)**: Always available, auto-aligns player to tile grid
+- **Horizontal (A/D or Left/Right)**: Only when grounded, auto-digs blocking tiles
+
+---
+
 ## Dependencies
 
 Minimal, intentional dependencies:

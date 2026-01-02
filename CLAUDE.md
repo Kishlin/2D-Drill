@@ -17,8 +17,11 @@ go test ./...
 # Run tests with coverage
 go test -cover ./...
 
-# Run single test file
-go test -v ./internal/domain/physics -run TestApplyGravity
+# Run physics tests
+go test -v ./internal/domain/physics
+
+# Run world tests
+go test -v ./internal/domain/world
 
 # Build and run
 go build -o drill-game cmd/game/main.go && ./drill-game
@@ -26,119 +29,51 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 
 ## Architecture Overview
 
-**Drill Game uses Hexagonal Architecture (Ports & Adapters)** with three clear layers:
+**Hexagonal Architecture (Ports & Adapters)** — Three layers:
+- `internal/domain/` — Pure business logic, zero framework dependencies
+- `internal/adapters/` — Framework integration (Raylib), no business logic
+- `cmd/game/main.go` — Application orchestration
 
-### Domain Layer (`internal/domain/`)
-**Pure business logic with ZERO Raylib dependencies** — fully testable without framework initialization.
-
-- `engine/game.go` — Game orchestration, system coordination
-- `systems/physics.go` — Physics system (movement, gravity, AABB collision)
-- `systems/digging.go` — Tile destruction, ore collection, and player grid alignment
-- `entities/player.go` — Player data (AABB-based, inventory) and behavior
-- `entities/tile.go` — Tile types (Empty, Dirt, Ore) with solid/diggable state
-- `entities/ore_type.go` — 7 ore types with Gaussian distribution parameters
-- `physics/` — Pure physics functions (movement, gravity, AABB collision)
-- `world/world.go` — Sparse tile map, chunk loading, terrain queries
-- `world/generator.go` — Procedural tile generation with Gaussian ore distribution
-- `world/hash.go` — Deterministic seeding for reproducible worlds
-- `input/input_state.go` — Platform-agnostic input representation
-- `types/vec2.go` — Custom 2D vector (no Raylib types)
-- `types/aabb.go` — AABB collision primitive (no Raylib types)
-
-### Adapter Layer (`internal/adapters/`)
-**Framework integration — all Raylib code lives here, zero business logic.**
-
-- `input/raylib.go` — Translates Raylib keyboard input to domain InputState
-- `rendering/raylib.go` — Renders domain entities using Raylib graphics
-
-### Application Layer (`cmd/game/main.go`)
-**Simple orchestration: window management, main loop (Input → Update → Render)**
-
-**Key Design Principles:**
-- Domain layer has ZERO Raylib imports (checked at compile time)
-- Adapters only translate, never contain business logic
-- Pure functions in physics enable comprehensive testing
-- Sparse tile map (only stores non-empty tiles) scales to large worlds
-
-## Game Systems and Data Flow
-
-### Per-Frame Flow (60 FPS)
-```
-1. renderer.GetFrameTime()            → delta time
-2. inputAdapter.ReadInput()           → keyboard → InputState
-3. game.Update(dt, inputState)        → chunk loading → digging → physics
-4. renderer.Render(game)              → extract entities → draw with Raylib
-```
-
-### Game Update Order
-1. **Chunk Loading**: Proactively load 3×3 grid of chunks around player (16×16 tile chunks)
-2. **Downward Digging**: Remove tiles below player, align player to grid (S/Down key)
-3. **Horizontal Digging**: Remove tiles left/right of player when grounded (Left/Right/A/D keys)
-4. **Physics System Order**:
-   - Movement: Apply horizontal acceleration/damping (input-driven)
-   - Vertical Movement: Apply upward thrust when jumping
-   - Gravity: Apply downward acceleration every frame
-   - **Axis-Separated Collision**: X-axis integration → collision → resolve, then Y-axis integration → collision → resolve
-
-### World & AABB Collision
-- **Tile Size**: 64×64 pixels
-- **Sparse Map**: `map[[2]int]*entities.Tile` (only stores non-empty tiles)
-- **Collision Type**: AABB (Axis-Aligned Bounding Box) for player and tiles
-- **Detection**: CheckCollisions() finds all solid tiles intersecting player AABB (max 4 tiles)
-- **Resolution**: Axis-separated (X then Y) to prevent corner-catching and enable wall sliding
-- **Ground Detection**: Vertical collision with `dy > 0` (pushed upward) sets OnGround
-- **Wall/Ceiling**: Horizontal collision stops X movement, ceiling collision stops Y movement
-
-### Procedural World Generation
-- **Chunk-Based**: 16×16 tile chunks generated on-demand when player enters area
-- **Deterministic**: `seed + coordinates → unique RNG state` ensures reproducible worlds
-- **Ore Distribution**: 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
-  - Each ore has Gaussian distribution centered at depth (e.g., Gold peaks at depth 300)
-  - Distribution formula: `weight = maxWeight × e^(-(depth - peak)² / (2σ²))`
-- **Tile Mix Underground**:
-  - 20% Empty (air pockets, caves)
-  - 65% Dirt (filler, solid ground)
-  - 15% Ore (procedurally distributed by depth using Gaussian weighting)
-- **Above Ground**: Always Empty (sky)
-- **Ground Level (Y=10)**: Always solid Dirt (safe spawning/landing)
-- **Sparse Storage**: Empty tiles not stored (only solid tiles in map) — saves ~20% memory
-
-## Testing Strategy
-
-**31 unit tests + 7 integration tests, zero framework dependencies**:
-
-**Physics & Types (17 tests)** — `internal/domain/physics/` and `internal/domain/types/`:
-- `collision_test.go` — AABB collision detection, axis-separated resolution, wall/ceiling/ground
-- `movement_test.go` — Acceleration, damping, speed capping
-- `gravity_test.go` — Gravity effects, position integration
-- `types/aabb_test.go` — AABB intersection, penetration calculation
-
-**World Generation (14 tests)** — `internal/domain/world/`:
-- `generator_test.go` — Gaussian distribution, determinism, ore selection, hash functions
-- `world_test.go` — Chunk loading, lazy loading, proactive loading
-- `integration_test.go` — End-to-end world generation, determinism, ore distribution validation
-
-**Run specific test suite:**
+**Key Constraint:** Domain layer CANNOT import Raylib or adapters. Verify with:
 ```bash
-go test ./internal/domain/physics -v
-go test ./internal/domain/world -v
-go test ./internal/domain/world -run "TestIntegration" -v
+grep -r "raylib" internal/domain/
 ```
 
-**Performance Benchmarks:**
-```bash
-go test ./internal/domain/world -bench=. -benchmem
-# Chunk generation: ~2.2ms per 16×16 chunk
-# Cached tile lookup: ~38ns per tile
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete technical details.
+
+## Key Files by Task
+
+**Game Logic:**
+- `internal/domain/engine/game.go` — Game loop orchestration, system coordination
+- `internal/domain/systems/physics.go` — Movement, gravity, AABB collision
+- `internal/domain/systems/digging.go` — Tile destruction, ore collection, grid alignment
+- `internal/domain/systems/fuel.go` — Fuel consumption based on activity level
+
+**Entities:**
+- `internal/domain/entities/player.go` — Player state (AABB, inventory, money, fuel)
+- `internal/domain/entities/tile.go` — Tile types (Empty, Dirt, Ore)
+- `internal/domain/entities/shop.go` — Shop interaction (AABB-based)
+
+**World:**
+- `internal/domain/world/world.go` — Sparse tile map, chunk loading
+- `internal/domain/world/generator.go` — Procedural generation, Gaussian ore distribution
+- `internal/domain/world/hash.go` — Deterministic seeding
+
+**Adapters:**
+- `internal/adapters/input/raylib.go` — Keyboard input translation
+- `internal/adapters/rendering/raylib.go` — Raylib rendering
+
+**Physics:**
+- `internal/domain/physics/constants.go` — Physics tuning values
+- `internal/domain/physics/` — Movement, gravity, collision functions
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete system descriptions.
+
+## Game Configuration
+
+### Physics Constants (`internal/domain/physics/constants.go`)
+
 ```
-
-**Key Testing Pattern**: Pure functions that take input values and return results. No Raylib initialization required.
-
-## Physics Constants
-
-Located in `internal/domain/physics/constants.go`:
-
-```go
 Gravity               = 800 pixels/sec²
 MaxMoveSpeed          = 450 pixels/sec
 MoveAcceleration      = 2500 pixels/sec²
@@ -148,157 +83,114 @@ MaxUpwardVelocity     = -600 pixels/sec (negative = upward)
 FlyDamping            = 300 pixels/sec²
 ```
 
-## Extending the System
+### Player Configuration
 
-### Adding a New Entity
-1. Create `internal/domain/entities/newentity.go`
-2. Implement `PhysicsEntity` interface (Position, Velocity, Height methods)
-3. Add to `internal/domain/engine/game.go` Game struct
-4. Update physics system to process it
-5. Add rendering in `internal/adapters/rendering/raylib.go`
+- **Size**: 64×64 pixels (matches tile size)
+- **Start Position**: (640, 576) — center X, just above ground
+- **Max Move Speed**: 300 px/sec
+- **Jump/Fly Speed**: -300 px/sec (upward)
+- **Inventory**: 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
+- **Money**: Currency from selling ores (starts at $0)
+- **Fuel**: Tank capacity 10.0 liters (starts full)
 
-### Adding a New Game System
-1. Create `internal/domain/systems/newsystem.go` package
-2. Wire into `Game.Update()` in correct order
-3. Test pure functions in `internal/domain/newsystem/` without framework
-4. Keep framework code in adapters only
+### Shop Configuration
 
-### Swapping Rendering Backend
-1. Create new adapter: `internal/adapters/rendering/myframework.go`
-2. Implement same interface as `RaylibRenderer` (Render, InitWindow, etc.)
-3. Update `cmd/game/main.go` to use new adapter
-4. Domain logic unchanged
+- **Position**: (960, 576) — 3 tiles right of player spawn, ground level
+- **Size**: 320×192 pixels (5 tiles wide × 3 tiles tall)
+- **Interaction**: E key to sell entire inventory when overlapping
 
-## Input System
+### Ore Values & Distribution
 
-**InputState** (`internal/domain/input/input_state.go`):
-```go
-type InputState struct {
-    Left  bool  // Move left
-    Right bool  // Move right
-    Up    bool  // Fly/jump
-    Dig   bool  // Dig tile below
-    Sell  bool  // Sell inventory at shop
-}
-```
+| Ore | Value | Depth |
+|-----|-------|-------|
+| Copper | $10 | 50-100 tiles |
+| Iron | $25 | 100-150 tiles |
+| Silver | $75 | 150-250 tiles |
+| Gold | $250 | 250-350 tiles |
+| Mythril | $1000 | 350-450 tiles |
+| Platinum | $5000 | 450-550 tiles |
+| Diamond | $30000 | 550+ tiles |
 
-**Input Adapter Maps** (`internal/adapters/input/raylib.go`):
-- `Left` ← Arrow Left OR A key (move left, or dig left when grounded against wall)
-- `Right` ← Arrow Right OR D key (move right, or dig right when grounded against wall)
-- `Up` ← Arrow Up OR W key (fly/jump)
-- `Dig` ← Down arrow OR S key (dig downward with grid alignment)
-- `Sell` ← E key (sell inventory at shop when inside shop area)
+**Distribution**: Gaussian around depth preference, rarer ores appear deeper.
 
-**Digging Behavior:**
-- **Downward** (S/Down): Always available, snaps player to tile grid horizontally
-- **Horizontal Left/Right** (A/D or Left/Right): Only when grounded, auto-digs blocking tiles without grid snap
+### Fuel System
 
-**Shop Interaction:**
-- **Sell** (E key): Press to sell entire inventory when overlapping with shop (any AABB penetration)
+- **Tank Capacity**: 10.0 liters
+- **Active Consumption**: 0.333 L/sec (Left, Right, Up, or Dig inputs)
+- **Idle Consumption**: 0.0833 L/sec (no movement inputs)
+- **Sell input (E)**: Does NOT trigger active consumption
 
-## Game Configuration
+### Controls & Input
 
-**Window & Display** (`cmd/game/main.go`):
-- Screen: 1280×720 pixels
-- Target FPS: 60
-- Ground Level: 640.0 (10 × TileSize for clean grid alignment)
+| Input | Action |
+|-------|--------|
+| **Left** (A or ←) | Move left / Dig left (when grounded) |
+| **Right** (D or →) | Move right / Dig right (when grounded) |
+| **Up** (W or ↑) | Jump/Fly (hold to fly) |
+| **Dig** (S or ↓) | Dig downward, snap to grid |
+| **Sell** (E) | Sell inventory at shop |
 
-**Player** (`internal/domain/entities/player.go`):
-- Size: 64×64 pixels (matches tile size)
-- Start Position: Center X, just above ground level
-- Max Move Speed: 300 px/sec
-- Jump/Fly Speed: -300 px/sec (upward)
-- Inventory: Tracks 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
-- Money: Currency earned from selling ores at shop (initialized to $0)
-- Fuel: Tank capacity 10.0 liters (initialized to full)
+## Development Quick Reference
 
-**Shop** (`internal/domain/entities/shop.go`):
-- Position: ~3 tiles to the right of player spawn, at ground level
-- Size: 320×192 pixels (5 tiles wide × 3 tiles high)
-- Appearance: Forest green rectangle with dark green border
-- Function: Purchase with E key while overlapping to sell entire inventory
-- Ore Values: Copper=$10, Iron=$25, Silver=$75, Gold=$250, Mythril=$1000, Platinum=$5000, Diamond=$30000
+**Running/Testing:**
+- Run game: `go run cmd/game/main.go`
+- All tests: `go test ./...`
+- Physics tests: `go test ./internal/domain/physics -v`
+- World tests: `go test ./internal/domain/world -v`
+- Single test: `go test -v ./path -run TestName`
 
-**Fuel System** (`internal/domain/systems/fuel.go`):
-- Tank Capacity: 10.0 liters (starts full)
-- Active Input Consumption: 10L in 30 seconds = 0.33333 L/s (Left, Right, Up, or Dig)
-- Idle Consumption: 10L in 120 seconds = 0.08333 L/s (no movement inputs)
-- Note: Movement/digging inputs take priority; Sell input does not trigger active consumption
-- Fuel display: Shows current level with 2 decimal precision in debug HUD alongside money
-- Game behavior when fuel reaches zero: (To be implemented in future phase)
+**Debugging:**
+- Add logs via `log/slog`: `slog.Info("message", "key", value)`
+- Raylib check: `grep -r "raylib" internal/domain/` (should be empty)
+- Breakpoint debug: `dlv debug cmd/game/main.go`
 
-## Documentation Files
+**Performance:**
+- Benchmarks: `go test ./internal/domain/world -bench=. -benchmem`
+- CPU profile: `go test -cpuprofile=cpu.prof ./...`
+- Analyze: `go tool pprof cpu.prof`
 
-- **`docs/ARCHITECTURE.md`** (730 lines) — Detailed system design, data flow, testing strategy
-- **`docs/GAME_DESIGN.md`** — Mechanics, progression, ore system, hazards, upgrades
-- **`README.md`** — Project overview, roadmap, getting started
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed workflows.
 
-## Common Development Tasks
+## Design Principles (Condensed)
 
-### Debugging Physics
-1. Add `log/slog` output to `internal/domain/physics/` functions
-2. Run via `go run cmd/game/main.go` (logs to stdout)
-3. Check position/velocity values in movement, gravity, collision
+1. **Framework Independence** — Domain layer has zero Raylib dependencies
+2. **Testability** — All business logic testable without framework initialization
+3. **Separation of Concerns** — Domain (logic) → Adapters (framework) → Application (orchestration)
+4. **Value Types** — Small types (Vec2, AABB) as values, large types (Player, Game) as pointers
+5. **Pure Functions** — Physics functions are deterministic, no side effects
+6. **Clear Data Flow** — Unidirectional: domain → adapters → application
 
-### Testing Physics Changes
-1. Write test in `internal/domain/physics/*_test.go`
-2. Run: `go test ./internal/domain/physics -v -run TestName`
-3. Verify builds and existing tests still pass: `go test ./...`
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full rationale and examples.
 
-### Profiling Performance
-Use Go's built-in profiling via `go test -cpuprofile=cpu.prof ./...` and analyze with `go tool pprof`.
+## Current Implementation Status
 
-## Code Style & Conventions
-
-- **Domain Types**: Small types use values (Vec2), larger types use pointers (Player, World, Game)
-- **Methods on Entities**: Data + behavior colocated (Player methods, Tile methods)
-- **Pure Functions**: Physics functions are deterministic, no side effects
-- **Interfaces**: Named, explicit contracts (PhysicsEntity)
-- **Error Handling**: Minimal in game loop; domain functions can return errors
-- **Constants**: Grouped logically (physics constants in one place, colors in adapter)
-
-## Architecture Verification
-
-To verify hexagonal architecture is maintained:
-1. Domain layer imports: `internal/domain/*` only, no `internal/adapters`
-2. Adapters import: `internal/domain/*` and framework code
-3. Application layer: imports both adapters and domain
-4. No Raylib imports in `internal/domain/`
-
-Run: `grep -r "raylib" internal/domain/` — should return nothing (except comments).
-
-## Roadmap Context
-
-**Phase 1 (Complete)**: Core gameplay & world generation
+**Phase 1 (Complete):**
 - ✅ Game loop, player movement, physics
-- ✅ Tile-based world, AABB collision system
-- ✅ Digging system with player grid alignment
-- ✅ Axis-separated collision (walls, ceiling, ground)
-- ✅ Procedural chunk-based world generation
+- ✅ AABB collision system, axis-separated resolution
+- ✅ Tile-based world with sparse storage
+- ✅ Procedural chunk-based generation (deterministic seeding)
 - ✅ 7 ore types with Gaussian depth distribution
-- ✅ Deterministic seeding for reproducible worlds
 
-**Phase 2**: Progression system (ore collection, inventory, upgrades, shop)
-- ✅ Ore inventory system (with real-time debug display)
-- ✅ Shop entity (visible on map, interactable)
-- ✅ Ore value/selling mechanics (sell all inventory for money at shop)
-- ✅ Money system and display
-- ✅ Fuel system (consumption based on activity level)
-- Mining duration per ore type
-- Game over behavior when fuel depletes
-- Fuel refill mechanics (shop or surface replenishment)
-- Upgrade system
+**Phase 2 (In Progress):**
+- ✅ Ore inventory system with real-time display
+- ✅ Shop entity and selling mechanics
+- ✅ Money system
+- ✅ Fuel system (consumption based on activity)
+- ⏳ Mining duration per ore type
+- ⏳ Fuel depletion game-over behavior
 
-**Phase 3**: Polish (particles, sound, UI)
-- Particle effects for digging
-- Sound effects and music
-- HUD improvements
-- Settings menu
+**Phase 3+:** Polish, hazards, upgrades, more content
 
-**Phase 4**: Extended content (more ores, hazards, achievements)
-- Biome variations
-- Environmental hazards (lava, gas, etc.)
-- Achievement system
-- More ore types or special materials
+See [README.md](README.md) for full roadmap.
 
-When adding features, maintain domain purity and hexagonal architecture. New game systems go in `internal/domain/systems/`, framework integration in `internal/adapters/`.
+## Documentation Guide
+
+- **[CLAUDE.md](CLAUDE.md)** — This file, quick reference for AI assistants
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Complete technical architecture and design
+- **[docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)** — Game mechanics, progression, upgrades
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** — Development workflows, testing, debugging
+- **[README.md](README.md)** — Project overview, installation, roadmap
+
+## Key Design Decision
+
+**Single Source of Truth:** Each piece of information lives in exactly one documentation file. CLAUDE.md is a reference that links to detailed docs, not a copy. This maintains consistency and reduces context bloat.

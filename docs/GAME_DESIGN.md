@@ -1,5 +1,7 @@
 # Game Design
 
+> For implementation details, physics constants, and configuration values, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Core Concept
 
 A 2D vertical mining game inspired by Motherload. Players control a small drilling vehicle on a planet rich with ores. The core loop is simple but addictive: mine ores, return to surface, sell for currency, upgrade your vehicle, and venture deeper for rarer treasures.
@@ -93,18 +95,19 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **No Carrying Limit**: Store unlimited ore, but must return to shop to convert to currency (future: cargo upgrades)
 
 ### Fuel System
-- **Tank Capacity**: 10 liters (displays with 2 decimal precision)
-- **Active Movement Consumption**: 0.333 L/s when pressing movement/dig inputs (Left, Right, Up, Down)
-  - **Full Duration**: 10 liters lasts 30 seconds of active movement
-- **Idle Consumption**: 0.0833 L/s when standing still (no movement inputs)
-  - **Full Duration**: 10 liters lasts 120 seconds of idle time
-- **Shop Interaction**: Pressing E to sell does not consume fuel at active rate (uses idle rate if standing still)
-- **Display**: Current fuel level shown in debug overlay alongside money
-- **No Resource Limit**: Can have unlimited ore, but fuel is limited (creates time pressure)
-- **Future Mechanics** (not yet implemented):
-  - Game over or limitations when fuel reaches zero
-  - Refueling mechanic (shop or surface station)
-  - Fuel efficiency upgrades (use less fuel per second)
+
+Fuel is a limited resource that creates time pressure for each expedition. Tank capacity is 10 liters with consumption rates that vary based on activity level.
+
+**Consumption Rates:**
+- Active movement (moving/digging): 0.333 L/sec
+- Idle (standing still): 0.0833 L/sec
+
+**Future Mechanics** (not yet implemented):
+- Game over or limitations when fuel reaches zero
+- Refueling mechanic (shop or surface station)
+- Fuel efficiency upgrades
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed fuel system implementation and configuration.
 
 ## World
 
@@ -121,24 +124,14 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 
 ### Ore Types & Distribution
 
-Ores are distributed using Gaussian curves centered at specific depths, creating smooth transitions:
+Seven ore types are distributed using Gaussian curves, creating depth-based progression. Copper appears near the surface, while Diamond only exists at extreme depths. Each ore type has specific value and rarity.
 
-| Ore Type    | Peak Depth (tiles) | Sigma (spread) | Color      | Rarity |
-|-------------|-------------------|----------------|------------|--------|
-| Copper      | -50 (surface)     | 150            | Orange     | Very Common |
-| Iron        | 0 (ground level)  | 200            | Gray       | Common |
-| Silver      | 150               | 180            | Light Gray | Uncommon |
-| Gold        | 300               | 150            | Gold       | Uncommon |
-| Mythril     | 500               | 200            | Cyan       | Rare |
-| Platinum    | 700               | 180            | White      | Very Rare |
-| Diamond     | 900               | 150            | Blue       | Legendary |
+**Game Design:**
+- Early game: Copper and Iron provide quick income and skill practice
+- Mid game: Silver and Gold increase risk/reward as you venture deeper
+- Late game: Mythril, Platinum, and Diamond are high-value targets for endgame progression
 
-**Distribution Formula:**
-```
-weight(ore, depth) = maxWeight × e^(-(depth - peakDepth)² / (2σ²))
-```
-
-*Ores overlap significantly, creating multi-ore layers that become deeper-rare. Copper is available near surface; Diamond only appears at extreme depths.*
+See [ARCHITECTURE.md](ARCHITECTURE.md) for ore types table, values, distribution parameters, and depth preferences.
 
 ## Environmental Hazards
 
