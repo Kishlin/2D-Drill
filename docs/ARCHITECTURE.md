@@ -84,7 +84,8 @@ drill-game/
 │       │   └── physics.go                   # PhysicsSystem
 │       ├── entities/
 │       │   ├── player.go                    # Player entity (AABB-based)
-│       │   └── tile.go                      # Tile entity
+│       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
+│       │   └── ore_type.go                  # Ore types & Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
 │       │   ├── movement.go                  # Movement functions
@@ -100,7 +101,12 @@ drill-game/
 │       ├── input/
 │       │   └── input_state.go               # InputState struct (framework-agnostic)
 │       └── world/
-│           └── world.go                     # World data and methods
+│           ├── world.go                     # World: chunk loading, sparse tile map
+│           ├── generator.go                 # Procedural tile generation
+│           ├── hash.go                      # Deterministic seeding (FNV-1a)
+│           ├── generator_test.go            # Generator unit tests
+│           ├── world_test.go                # Chunk loading tests
+│           └── integration_test.go          # End-to-end world generation tests
 │
 ├── docs/
 │   ├── ARCHITECTURE.md                      # This file
@@ -128,10 +134,10 @@ main.go Loop:
 ┌─────────────────────────────────────────┐
 │ 2. Update Domain Logic                  │
 │    game.Update(dt, inputState)          │
+│    • Load chunks around player (3×3)    │
+│    • Digging system processes input     │
 │    • Physics system applies forces      │
-│    • Gravity                            │
-│    • Movement                           │
-│    • Collision detection & resolution   │
+│    • Gravity, movement, collision       │
 │    • Updates Player position/velocity   │
 └────────────┬────────────────────────────┘
              │
@@ -140,8 +146,9 @@ main.go Loop:
 │ 3. Render via Adapter                   │
 │    renderer.Render(game)                │
 │    • Extracts Player, World from game   │
-│    • Converts to Raylib types           │
-│    • Draws everything                   │
+│    • Renders tiles with ore colors      │
+│    • Draws player, entities             │
+│    • Camera follows player              │
 └─────────────────────────────────────────┘
 ```
 

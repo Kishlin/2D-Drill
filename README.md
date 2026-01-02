@@ -8,14 +8,21 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 
 **Current Status**: 🚧 Early Development
 
-## Features (Planned)
+## Features
 
-- ⛏️ Deep mining gameplay with procedurally generated worlds
-- 💎 Diverse ore types with rarity based on depth
+### Implemented ✅
+- ⛏️ **Procedurally Generated Worlds**: Seeded chunk-based generation for infinite depth
+- 💎 **7 Ore Types**: Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond with Gaussian depth distribution
+- 🎮 **Smooth Gameplay**: 60 FPS player movement, physics, and digging with AABB collision
+- 🗺️ **Chunk Loading**: Lazy 16×16 chunk loading around player (3×3 grid)
+- 📐 **Deterministic Generation**: Same seed = reproducible worlds
+
+### Planned (Phase 2+)
 - 🔧 Comprehensive upgrade system (speed, drilling, survivability, cargo)
 - 🌡️ Environmental hazards (heat, pressure)
-- 📊 Progression curve from surface to legendary depths
-- 🎮 Smooth controls and satisfying game feel
+- 📊 Progression curve with ore collection and selling
+- 💰 Currency and shop system
+- 🎮 Expanded content and polish
 
 ## Tech Stack
 
@@ -83,21 +90,26 @@ drill-game/
 
 ## Roadmap
 
-### Phase 1: Core Gameplay (Current)
-- [ ] Basic game loop and window
-- [ ] Player movement and controls
-- [ ] World generation and rendering
-- [ ] Tile-based collision and drilling
-- [ ] Simple ore collection
+### Phase 1: Core Gameplay & World Generation ✅ Complete
+- [x] Game loop and window management
+- [x] Player movement, controls, and physics
+- [x] Procedurally generated worlds with seeded RNG
+- [x] 7 ore types with Gaussian depth distribution
+- [x] Tile-based collision (AABB) and axis-separated resolution
+- [x] Digging system with player grid alignment
+- [x] Chunk loading (16×16 chunks, 3×3 proactive grid)
+- [x] 31 unit tests + 7 integration tests
+- [x] Deterministic world generation
 
-### Phase 2: Progression
-- [ ] Ore variety and rarity system
-- [ ] Currency and shop system
-- [ ] Upgrade mechanics
-- [ ] Heat hazard system
+### Phase 2: Progression System (Planned)
+- [ ] Ore inventory system
+- [ ] Currency and shop
+- [ ] Upgrade mechanics (speed, drilling, capacity)
+- [ ] Mining duration per ore type
+- [ ] Ore selling mechanics
 - [ ] Save/load functionality
 
-### Phase 3: Polish
+### Phase 3: Polish & Effects (Planned)
 - [ ] Particle effects and juice
 - [ ] Sound effects and music
 - [ ] UI/UX improvements

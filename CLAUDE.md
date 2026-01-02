@@ -35,9 +35,12 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 - `systems/physics.go` — Physics system (movement, gravity, AABB collision)
 - `systems/digging.go` — Tile destruction and player grid alignment
 - `entities/player.go` — Player data (AABB-based) and behavior
-- `entities/tile.go` — Tile types (Empty, Dirt) with solid/diggable state
+- `entities/tile.go` — Tile types (Empty, Dirt, Ore) with solid/diggable state
+- `entities/ore_type.go` — 7 ore types with Gaussian distribution parameters
 - `physics/` — Pure physics functions (movement, gravity, AABB collision)
-- `world/world.go` — Sparse tile map, grid-based terrain, collision queries
+- `world/world.go` — Sparse tile map, chunk loading, terrain queries
+- `world/generator.go` — Procedural tile generation with Gaussian ore distribution
+- `world/hash.go` — Deterministic seeding for reproducible worlds
 - `input/input_state.go` — Platform-agnostic input representation
 - `types/vec2.go` — Custom 2D vector (no Raylib types)
 - `types/aabb.go` — AABB collision primitive (no Raylib types)
@@ -61,18 +64,20 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 
 ### Per-Frame Flow (60 FPS)
 ```
-1. renderer.GetFrameTime()       → delta time
-2. inputAdapter.ReadInput()      → keyboard → InputState
-3. game.Update(dt, inputState)   → digging system → physics system
-4. renderer.Render(game)         → extract entities → draw with Raylib
+1. renderer.GetFrameTime()            → delta time
+2. inputAdapter.ReadInput()           → keyboard → InputState
+3. game.Update(dt, inputState)        → chunk loading → digging → physics
+4. renderer.Render(game)              → extract entities → draw with Raylib
 ```
 
-### Physics System Order
-1. Digging: Remove tiles, align player to grid (before physics)
-2. Movement: Apply horizontal acceleration/damping (input-driven)
-3. Vertical Movement: Apply upward thrust when jumping
-4. Gravity: Apply downward acceleration every frame
-5. **Axis-Separated Collision**: X-axis integration → collision → resolve, then Y-axis integration → collision → resolve
+### Game Update Order
+1. **Chunk Loading**: Proactively load 3×3 grid of chunks around player (16×16 tile chunks)
+2. **Digging**: Remove tiles, align player to grid (before physics)
+3. **Physics System Order**:
+   - Movement: Apply horizontal acceleration/damping (input-driven)
+   - Vertical Movement: Apply upward thrust when jumping
+   - Gravity: Apply downward acceleration every frame
+   - **Axis-Separated Collision**: X-axis integration → collision → resolve, then Y-axis integration → collision → resolve
 
 ### World & AABB Collision
 - **Tile Size**: 64×64 pixels
@@ -83,18 +88,47 @@ go build -o drill-game cmd/game/main.go && ./drill-game
 - **Ground Detection**: Vertical collision with `dy > 0` (pushed upward) sets OnGround
 - **Wall/Ceiling**: Horizontal collision stops X movement, ceiling collision stops Y movement
 
+### Procedural World Generation
+- **Chunk-Based**: 16×16 tile chunks generated on-demand when player enters area
+- **Deterministic**: `seed + coordinates → unique RNG state` ensures reproducible worlds
+- **Ore Distribution**: 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
+  - Each ore has Gaussian distribution centered at depth (e.g., Gold peaks at depth 300)
+  - Distribution formula: `weight = maxWeight × e^(-(depth - peak)² / (2σ²))`
+- **Tile Mix Underground**:
+  - 20% Empty (air pockets, caves)
+  - 65% Dirt (filler, solid ground)
+  - 15% Ore (procedurally distributed by depth using Gaussian weighting)
+- **Above Ground**: Always Empty (sky)
+- **Ground Level (Y=10)**: Always solid Dirt (safe spawning/landing)
+- **Sparse Storage**: Empty tiles not stored (only solid tiles in map) — saves ~20% memory
+
 ## Testing Strategy
 
-**17 unit tests, zero framework dependencies** — all tests in `internal/domain/physics/` and `internal/domain/types/`:
+**31 unit tests + 7 integration tests, zero framework dependencies**:
 
+**Physics & Types (17 tests)** — `internal/domain/physics/` and `internal/domain/types/`:
+- `collision_test.go` — AABB collision detection, axis-separated resolution, wall/ceiling/ground
 - `movement_test.go` — Acceleration, damping, speed capping
 - `gravity_test.go` — Gravity effects, position integration
-- `collision_test.go` — AABB collision detection, axis-separated resolution, wall/ceiling/ground
 - `types/aabb_test.go` — AABB intersection, penetration calculation
 
-**Run tests:**
+**World Generation (14 tests)** — `internal/domain/world/`:
+- `generator_test.go` — Gaussian distribution, determinism, ore selection, hash functions
+- `world_test.go` — Chunk loading, lazy loading, proactive loading
+- `integration_test.go` — End-to-end world generation, determinism, ore distribution validation
+
+**Run specific test suite:**
 ```bash
 go test ./internal/domain/physics -v
+go test ./internal/domain/world -v
+go test ./internal/domain/world -run "TestIntegration" -v
+```
+
+**Performance Benchmarks:**
+```bash
+go test ./internal/domain/world -bench=. -benchmem
+# Chunk generation: ~2.2ms per 16×16 chunk
+# Cached tile lookup: ~38ns per tile
 ```
 
 **Key Testing Pattern**: Pure functions that take input values and return results. No Raylib initialization required.
@@ -207,14 +241,31 @@ Run: `grep -r "raylib" internal/domain/` — should return nothing (except comme
 
 ## Roadmap Context
 
-**Phase 1 (Current)**: Core gameplay
+**Phase 1 (Complete)**: Core gameplay & world generation
 - ✅ Game loop, player movement, physics
 - ✅ Tile-based world, AABB collision system
 - ✅ Digging system with player grid alignment
 - ✅ Axis-separated collision (walls, ceiling, ground)
+- ✅ Procedural chunk-based world generation
+- ✅ 7 ore types with Gaussian depth distribution
+- ✅ Deterministic seeding for reproducible worlds
 
-**Phase 2**: Progression system (ore types, upgrades, shop)
+**Phase 2**: Progression system (ore collection, inventory, upgrades, shop)
+- Ore inventory system
+- Mining duration per ore type
+- Ore value/selling mechanics
+- Upgrade system
+
 **Phase 3**: Polish (particles, sound, UI)
+- Particle effects for digging
+- Sound effects and music
+- HUD improvements
+- Settings menu
+
 **Phase 4**: Extended content (more ores, hazards, achievements)
+- Biome variations
+- Environmental hazards (lava, gas, etc.)
+- Achievement system
+- More ore types or special materials
 
 When adding features, maintain domain purity and hexagonal architecture. New game systems go in `internal/domain/systems/`, framework integration in `internal/adapters/`.

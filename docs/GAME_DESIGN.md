@@ -64,28 +64,30 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - Tiles become harder to drill with depth
 
 ### Tile Types
-- **Empty**: No collision, can move through
-- **Dirt**: Easy to drill, no value
-- **Stone**: Harder to drill, no value
-- **Ore Tiles**: Contain valuable ores when destroyed
+- **Empty**: No collision, can move through (air pockets, caves)
+- **Dirt**: Solid, diggable, no value (filler)
+- **Ore**: Solid, diggable, contains valuable resources
 
-### Ore Types & Rarity
+### Ore Types & Distribution
 
-Ores become progressively rarer and more valuable with depth:
+Ores are distributed using Gaussian curves centered at specific depths, creating smooth transitions:
 
-| Ore Type    | Depth Range  | Value | Color      | Rarity |
-|-------------|--------------|-------|------------|--------|
-| Iron        | 0-100m       | $10   | Gray       | Common |
-| Copper      | 50-200m      | $25   | Orange     | Common |
-| Silver      | 100-400m     | $50   | Silver     | Uncommon |
-| Gold        | 200-600m     | $100  | Gold       | Uncommon |
-| Platinum    | 400-1000m    | $250  | White      | Rare |
-| Emerald     | 600-1500m    | $500  | Green      | Rare |
-| Ruby        | 1000-2500m   | $1000 | Red        | Very Rare |
-| Diamond     | 2000-5000m   | $2500 | Blue       | Very Rare |
-| Unobtainium | 5000m+       | $10000| Purple     | Legendary |
+| Ore Type    | Peak Depth (tiles) | Sigma (spread) | Color      | Rarity |
+|-------------|-------------------|----------------|------------|--------|
+| Copper      | -50 (surface)     | 150            | Orange     | Very Common |
+| Iron        | 0 (ground level)  | 200            | Gray       | Common |
+| Silver      | 150               | 180            | Light Gray | Uncommon |
+| Gold        | 300               | 150            | Gold       | Uncommon |
+| Mythril     | 500               | 200            | Cyan       | Rare |
+| Platinum    | 700               | 180            | White      | Very Rare |
+| Diamond     | 900               | 150            | Blue       | Legendary |
 
-*Note: Depth ranges overlap to create smooth progression*
+**Distribution Formula:**
+```
+weight(ore, depth) = maxWeight × e^(-(depth - peakDepth)² / (2σ²))
+```
+
+*Ores overlap significantly, creating multi-ore layers that become deeper-rare. Copper is available near surface; Diamond only appears at extreme depths.*
 
 ## Environmental Hazards
 
