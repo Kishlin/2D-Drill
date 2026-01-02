@@ -11,9 +11,9 @@ const ChunkSize = 16 // 16x16 tiles per chunk
 
 // ChunkGenerator handles procedural tile generation using Gaussian ore distribution
 type ChunkGenerator struct {
-	seed        int64
-	emptyRate   float32
-	groundTileY int
+	seed                int64
+	emptyRate, dirtRate float32
+	groundTileY         int
 }
 
 // NewChunkGenerator creates a generator with the given world seed and ground level
@@ -21,6 +21,7 @@ func NewChunkGenerator(seed int64, groundLevel float32) *ChunkGenerator {
 	return &ChunkGenerator{
 		seed:        seed,
 		emptyRate:   0.20, // 20% of underground tiles are empty
+		dirtRate:    0.65, // 65% of underground tiles are dirt
 		groundTileY: int(groundLevel / TileSize),
 	}
 }
@@ -41,10 +42,19 @@ func (cg *ChunkGenerator) GenerateTile(tileX, tileY int) *entities.Tile {
 	// Seed RNG deterministically for this tile
 	rng := cg.seedRNG(tileX, tileY)
 
-	// Roll for empty tile (20% chance)
-	if rng.Float32() < cg.emptyRate {
+	// Roll the tile type (empty, dirt, ore) using cumulative probability ranges
+	random := rng.Float32()
+	if random < cg.emptyRate {
+		// Range [0.0, 0.20) → Empty
 		return entities.NewTile(entities.TileTypeEmpty)
 	}
+	// Range [0.20, 0.85) → Dirt
+	// Note: Must include emptyRate in threshold, otherwise dirtRate would only apply to the
+	// remaining (1-emptyRate) portion, giving ~45% dirt instead of the intended 65%
+	if random < cg.emptyRate+cg.dirtRate {
+		return entities.NewTile(entities.TileTypeDirt)
+	}
+	// Range [0.85, 1.0) → Ore (distributed by Gaussian weight)
 
 	// Calculate ore weights at this depth
 	weights := cg.calculateOreWeights(tileY)
