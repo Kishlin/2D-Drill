@@ -103,6 +103,8 @@ Start here based on what you need:
 - [x] Ore inventory system
 - [x] Currency and shop system
 - [x] Ore selling mechanics
+- [x] Fuel consumption system
+- [x] Fuel station (refueling mechanic)
 - [ ] Upgrade mechanics (speed, drilling, capacity)
 - [ ] Mining duration per ore type
 - [ ] Save/load functionality

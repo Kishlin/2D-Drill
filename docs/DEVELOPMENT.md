@@ -108,6 +108,11 @@ go tool cover -html=coverage.out
 - `world_test.go` — Chunk loading, lazy loading, proactive loading
 - `integration_test.go` — End-to-end generation and validation
 
+**Systems** (`internal/domain/systems/`):
+- `digging_test.go` — Digging mechanics and ore collection
+- `fuel_test.go` — Fuel consumption (active vs idle rates)
+- `fuel_station_test.go` — Refueling transactions, cost calculation, edge cases
+
 ### Writing New Tests
 
 ```go

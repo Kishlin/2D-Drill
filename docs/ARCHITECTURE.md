@@ -221,6 +221,9 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     // Shop selling interaction
     g.shopSystem.ProcessSelling(g.player, inputState)
 
+    // Fuel station refueling interaction
+    g.fuelStationSystem.ProcessRefueling(g.player, inputState)
+
     // Physics with axis-separated collision
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
@@ -403,6 +406,62 @@ func (fs *FuelSystem) ConsumeFuel(
 - Fuel clamped at zero (no negative values)
 - Direct field mutation for simplicity (no getters/setters)
 - Pure logic - could be replaced without affecting game structure
+
+#### Fuel Station System (`domain/systems/fuel_station.go`)
+
+Manages refueling transactions at the fuel station:
+
+```go
+type FuelStationSystem struct {
+    fuelStation *entities.FuelStation
+}
+
+func (fss *FuelStationSystem) ProcessRefueling(
+    player *entities.Player,
+    inputState input.InputState,
+) {
+    if !inputState.Sell {
+        return
+    }
+
+    if !fss.fuelStation.IsPlayerInRange(player) {
+        return
+    }
+
+    // Calculate liters needed to fill tank
+    litersNeeded := entities.FuelCapacity - player.Fuel
+    
+    // Calculate cost (1 money per liter, rounded up)
+    cost := int(math.Ceil(float64(litersNeeded)))
+
+    // Check if player has enough money
+    if player.Money < cost {
+        return // Cannot afford refueling
+    }
+
+    // Deduct money and refuel
+    player.Money -= cost
+    player.Fuel = entities.FuelCapacity
+}
+```
+
+**Transaction Rules:**
+- **Cost**: $1 per liter needed (rounded up using `math.Ceil`)
+- **Examples**:
+  - Full tank (0L needed) = $0 (no transaction)
+  - Empty tank (10L needed) = $10
+  - 6.8L current (3.2L needed) = $4 (ceil of 3.2)
+  - 9.9L current (0.1L needed) = $1 (ceil of 0.1)
+- **Rejection**: Transaction rejected if player has insufficient money
+- **Instant Fill**: Fuel immediately set to `FuelCapacity` (10L) on success
+
+**Why this design:**
+- Mirrors ShopSystem pattern (AABB + interaction key)
+- Uses same E key as shop (no spatial conflict due to separation)
+- Called before physics (consistent with shop processing)
+- Simple rounding up ensures player always pays at least $1 if not full
+- Direct field mutation for clarity
+- Fully testable without framework (6 comprehensive unit tests)
 
 #### Pure Physics Functions (`domain/physics/`)
 
@@ -1282,7 +1341,7 @@ See `internal/domain/physics/constants.go` for the source of truth.
 | **Right** (D or →) | Move right / Dig right | Dig only when grounded against wall |
 | **Up** (W or ↑) | Jump/Fly | Hold to fly continuously |
 | **Dig** (S or ↓) | Dig downward | Always available, snaps to grid |
-| **Sell** (E) | Sell inventory | Only works at shop (AABB overlap) |
+| **Interact** (E) | Sell / Refuel | Sell at shop, refuel at station (AABB overlap) |
 
 **Digging Behavior:**
 - **Downward (S/Down)**: Always available, auto-aligns player to tile grid

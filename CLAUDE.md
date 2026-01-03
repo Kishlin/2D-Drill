@@ -176,6 +176,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full rationale and examples
 - ✅ Shop entity and selling mechanics
 - ✅ Money system
 - ✅ Fuel system (consumption based on activity)
+- ✅ Fuel station (refueling with cost)
 - ⏳ Mining duration per ore type
 - ⏳ Fuel depletion game-over behavior
 

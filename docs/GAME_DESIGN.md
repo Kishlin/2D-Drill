@@ -50,7 +50,9 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - **Left (A) / Right (D)**: When grounded against a wall, automatically dig through the blocking tile
   - **Up (W)**: Fly/jump upward
 - **Down (S) / Down Arrow**: Dig downward (with player grid alignment)
-- **E**: Sell entire inventory at shop (when inside shop area)
+- **E**: Interact
+  - At shop: Sell entire inventory
+  - At fuel station: Refuel tank (if affordable)
 
 ### Vehicle Mechanics
 - Gravity pulls vehicle downward
