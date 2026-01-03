@@ -53,6 +53,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **E**: Interact
   - At shop: Sell entire inventory
   - At fuel station: Refuel tank (if affordable)
+  - At hospital: Heal to full HP (if affordable)
 
 ### Vehicle Mechanics
 - Gravity pulls vehicle downward
@@ -112,7 +113,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed fuel system implementation a
 
 ### Damage & Health System
 
-Players have 10 hit points. Taking damage from falls creates risk when mining deep.
+Players have 10 hit points. Taking damage from falls creates risk when mining deep, but hospitals provide recovery.
 
 **Fall Damage:**
 - **Threshold**: 500 px/sec downward velocity (small falls are safe)
@@ -123,10 +124,22 @@ Players have 10 hit points. Taking damage from falls creates risk when mining de
   - 700 px/sec fall → 10 damage (lethal)
 - **Clamping**: HP never goes below 0 (no negative health)
 
+**Healing System:**
+- **Hospital Location**: Visible on the surface (crimson rectangle, 5 tiles left of fuel station)
+- **Interaction**: Press E while overlapping hospital to heal
+- **Healing Cost**: $2 per hit point needed (rounded up)
+  - 0 HP needed (already max) = $0 (no transaction)
+  - 10 HP needed (at 0 HP) = $20
+  - 2.8 HP needed (at 7.2 HP) = $6 (ceil of 5.6)
+  - 0.1 HP needed (at 9.9 HP) = $1 (ceil of 0.2)
+- **Instant Heal**: HP immediately restored to max (10.0) on successful transaction
+- **Rejection**: Cannot heal if insufficient money (healing prevented, no partial transaction)
+
 **Future Mechanics** (not yet implemented):
 - Game over when HP reaches 0
-- Healing mechanics (healing stations, consumables)
 - Invulnerability frames after respawn
+- Multiple healing tiers (partial vs full healing)
+- Healing over time consumables
 
 ## World
 

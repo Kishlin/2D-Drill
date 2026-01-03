@@ -19,6 +19,7 @@ var (
 	GridColor        = rl.NewColor(100, 65, 30, 128) // Semi-transparent grid lines
 	ShopColor        = rl.NewColor(34, 139, 34, 255) // Forest Green
 	FuelStationColor = rl.NewColor(255, 165, 0, 255) // Orange
+	HospitalColor    = rl.NewColor(220, 20, 60, 255) // Crimson
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -104,6 +105,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderTiles(game.GetWorld())
 	r.renderShop(game.GetShop())
 	r.renderFuelStation(game.GetFuelStation())
+	r.renderHospital(game.GetHospital())
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -167,6 +169,20 @@ func (r *RaylibRenderer) renderFuelStation(fuelStation *entities.FuelStation) {
 		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
 		2.0,
 		rl.Orange,
+	)
+}
+
+func (r *RaylibRenderer) renderHospital(hospital *entities.Hospital) {
+	aabb := hospital.AABB
+	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
+	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
+
+	rl.DrawRectangleV(rlPos, rlSize, HospitalColor)
+
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
+		2.0,
+		rl.White,
 	)
 }
 

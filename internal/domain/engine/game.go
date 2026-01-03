@@ -15,6 +15,7 @@ type Game struct {
 	shopSystem        *systems.ShopSystem
 	fuelSystem        *systems.FuelSystem
 	fuelStationSystem *systems.FuelStationSystem
+	hospitalSystem    *systems.HospitalSystem
 }
 
 func NewGame(w *world.World) *Game {
@@ -32,6 +33,11 @@ func NewGame(w *world.World) *Game {
 	fuelStationY := w.GetGroundLevel() - entities.FuelStationHeight
 	fuelStation := entities.NewFuelStation(fuelStationX, fuelStationY)
 
+	// Create hospital to the left of fuel station
+	hospitalX := fuelStationX - 360.0 // ~5 tiles + gap to the left
+	hospitalY := w.GetGroundLevel() - entities.HospitalHeight
+	hospital := entities.NewHospital(hospitalX, hospitalY)
+
 	return &Game{
 		world:             w,
 		player:            entities.NewPlayer(spawnX, spawnY),
@@ -40,6 +46,7 @@ func NewGame(w *world.World) *Game {
 		shopSystem:        systems.NewShopSystem(shop),
 		fuelSystem:        systems.NewFuelSystem(),
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
+		hospitalSystem:    systems.NewHospitalSystem(hospital),
 	}
 }
 
@@ -61,10 +68,13 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 4. Handle fuel station refueling (before physics, so player position is stable)
 	g.fuelStationSystem.ProcessRefueling(g.player, inputState)
 
-	// 5. Update physics
+	// 5. Handle hospital healing (before physics, so player position is stable)
+	g.hospitalSystem.ProcessHealing(g.player, inputState)
+
+	// 6. Update physics
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-	// 6. Consume fuel based on activity
+	// 7. Consume fuel based on activity
 	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
 	return nil
@@ -84,4 +94,8 @@ func (g *Game) GetShop() *entities.Shop {
 
 func (g *Game) GetFuelStation() *entities.FuelStation {
 	return g.fuelStationSystem.GetFuelStation()
+}
+
+func (g *Game) GetHospital() *entities.Hospital {
+	return g.hospitalSystem.GetHospital()
 }

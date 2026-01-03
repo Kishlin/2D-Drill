@@ -181,6 +181,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full rationale and examples
 - ✅ Fuel system (consumption based on activity)
 - ✅ Fuel station (refueling with cost)
 - ✅ Fall damage system (10 HP with 500 px/sec threshold)
+- ✅ Hospital (healing HP for $2 per HP)
 - ⏳ Mining duration per ore type
 - ⏳ Game-over behavior (fuel depletion, HP reaching 0)
 

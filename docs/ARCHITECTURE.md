@@ -85,13 +85,19 @@ drill-game/
 │       │   ├── digging.go                   # DiggingSystem (ore collection)
 │       │   ├── shop.go                      # ShopSystem (selling inventory)
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
+│       │   ├── fuel_station.go              # FuelStationSystem (refueling)
+│       │   ├── hospital.go                  # HospitalSystem (healing HP)
 │       │   ├── digging_test.go              # Digging & ore collection tests
-│       │   └── fuel_test.go                 # Fuel consumption tests
+│       │   ├── fuel_test.go                 # Fuel consumption tests
+│       │   ├── fuel_station_test.go         # Fuel station transaction tests
+│       │   └── hospital_test.go             # Hospital healing transaction tests
 │       ├── entities/
-│       │   ├── player.go                    # Player entity (AABB-based + inventory + money + fuel)
+│       │   ├── player.go                    # Player entity (AABB-based + inventory + money + fuel + HP)
 │       │   ├── player_test.go               # Player inventory tests
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   ├── shop.go                      # Shop entity (AABB-based interactable)
+│       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
+│       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
@@ -146,6 +152,8 @@ main.go Loop:
 │    • Downward digging (S/Down key)      │
 │    • Horizontal digging (L/R when grounded)
 │    • Shop selling (E key + overlap)     │
+│    • Fuel station refueling (E key)     │
+│    • Hospital healing (E key)           │
 │    • Physics system applies forces      │
 │    • Gravity, movement, collision       │
 │    • Updates Player position/velocity   │
@@ -197,12 +205,14 @@ Orchestrates domain systems without any framework knowledge:
 
 ```go
 type Game struct {
-    world          *world.World
-    player         *entities.Player
-    physicsSystem  *systems.PhysicsSystem
-    diggingSystem  *systems.DiggingSystem
-    shopSystem     *systems.ShopSystem
-    fuelSystem     *systems.FuelSystem
+    world             *world.World
+    player            *entities.Player
+    physicsSystem     *systems.PhysicsSystem
+    diggingSystem     *systems.DiggingSystem
+    shopSystem        *systems.ShopSystem
+    fuelSystem        *systems.FuelSystem
+    fuelStationSystem *systems.FuelStationSystem
+    hospitalSystem    *systems.HospitalSystem
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
@@ -223,6 +233,9 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
     // Fuel station refueling interaction
     g.fuelStationSystem.ProcessRefueling(g.player, inputState)
+
+    // Hospital healing interaction
+    g.hospitalSystem.ProcessHealing(g.player, inputState)
 
     // Physics with axis-separated collision
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
@@ -500,6 +513,67 @@ func (fss *FuelStationSystem) ProcessRefueling(
 - Simple rounding up ensures player always pays at least $1 if not full
 - Direct field mutation for clarity
 - Fully testable without framework (6 comprehensive unit tests)
+
+#### Hospital System (`domain/systems/hospital.go`)
+
+Manages healing transactions at the hospital:
+
+```go
+type HospitalSystem struct {
+    hospital *entities.Hospital
+}
+
+func (hs *HospitalSystem) ProcessHealing(
+    player *entities.Player,
+    inputState input.InputState,
+) {
+    if !inputState.Sell {
+        return
+    }
+
+    if !hs.hospital.IsPlayerInRange(player) {
+        return
+    }
+
+    // Calculate HP needed to reach max HP
+    hpNeeded := entities.MaxHP - player.HP
+
+    // Early exit: Already at max HP (no healing needed)
+    if hpNeeded <= 0 {
+        return
+    }
+
+    // Calculate cost: $2 per HP, rounded up
+    cost := int(math.Ceil(float64(hpNeeded) * 2.0))
+
+    // Early exit: Insufficient money
+    if player.Money < cost {
+        return // Cannot afford healing
+    }
+
+    // Execute transaction: Deduct money and restore HP to max
+    player.Money -= cost
+    player.HP = entities.MaxHP
+}
+```
+
+**Transaction Rules:**
+- **Cost**: $2 per HP needed (rounded up using `math.Ceil`)
+- **Examples**:
+  - Max HP (0 HP needed) = $0 (no transaction)
+  - Zero HP (10 HP needed) = $20
+  - 7.2 HP (2.8 HP needed) = $6 (ceil of 5.6)
+  - 9.9 HP (0.1 HP needed) = $1 (ceil of 0.2)
+- **Rejection**: Transaction rejected if player has insufficient money
+- **Instant Heal**: HP immediately set to `MaxHP` (10.0) on success
+
+**Why this design:**
+- Mirrors FuelStationSystem pattern (AABB + interaction key)
+- Uses same E key as shop and fuel station (no spatial conflict due to separation)
+- Called before physics (consistent with shop/fuel station processing)
+- Simple rounding up ensures player always pays at least $1 if not at max HP
+- Direct field mutation for clarity
+- Fully testable without framework (7 comprehensive unit tests)
 
 #### Pure Physics Functions (`domain/physics/`)
 
