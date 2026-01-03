@@ -74,13 +74,15 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete system description
 ### Physics Constants (`internal/domain/physics/constants.go`)
 
 ```
-Gravity               = 800 pixels/sec²
-MaxMoveSpeed          = 450 pixels/sec
-MoveAcceleration      = 2500 pixels/sec²
-MoveDamping           = 1000 pixels/sec²
-FlyAcceleration       = 2500 pixels/sec²
-MaxUpwardVelocity     = -600 pixels/sec (negative = upward)
-FlyDamping            = 300 pixels/sec²
+Gravity                = 800 pixels/sec²
+MaxMoveSpeed           = 450 pixels/sec
+MoveAcceleration       = 2500 pixels/sec²
+MoveDamping            = 1000 pixels/sec²
+FlyAcceleration        = 2500 pixels/sec²
+MaxUpwardVelocity      = -600 pixels/sec (negative = upward)
+FlyDamping             = 300 pixels/sec²
+FallDamageThreshold    = 500 pixels/sec (min speed to take damage)
+FallDamageDivisor      = 20.0 (damage scaling: (speed - threshold) / divisor)
 ```
 
 ### Player Configuration
@@ -92,6 +94,7 @@ FlyDamping            = 300 pixels/sec²
 - **Inventory**: 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
 - **Money**: Currency from selling ores (starts at $0)
 - **Fuel**: Tank capacity 10.0 liters (starts full)
+- **Health**: 10.0 hit points (starts full)
 
 ### Shop Configuration
 
@@ -177,8 +180,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full rationale and examples
 - ✅ Money system
 - ✅ Fuel system (consumption based on activity)
 - ✅ Fuel station (refueling with cost)
+- ✅ Fall damage system (10 HP with 500 px/sec threshold)
 - ⏳ Mining duration per ore type
-- ⏳ Fuel depletion game-over behavior
+- ⏳ Game-over behavior (fuel depletion, HP reaching 0)
 
 **Phase 3+:** Polish, hazards, upgrades, more content
 

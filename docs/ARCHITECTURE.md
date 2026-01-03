@@ -326,7 +326,7 @@ func (ds *DiggingSystem) ProcessHorizontalDigging(
 
 #### Physics System (`domain/systems/physics.go`)
 
-Orchestrates pure physics functions with axis-separated collision:
+Orchestrates pure physics functions with axis-separated collision and fall damage:
 
 ```go
 type PhysicsSystem struct {
@@ -353,7 +353,17 @@ func (ps *PhysicsSystem) UpdatePhysics(
     // Y-axis: integrate position → check → resolve
     player.AABB.Y += player.Velocity.Y * dt
     collisionsY := physics.CheckCollisions(player.AABB, ps.world)
+
+    // Capture state before Y-resolution for fall damage calculation
+    wasAirborne := !player.OnGround
+    ySpeedBeforeLanding := player.Velocity.Y
+
     player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
+
+    // Apply fall damage on landing transition
+    if wasAirborne && player.OnGround {
+        ps.applyFallDamage(player, ySpeedBeforeLanding)
+    }
 }
 ```
 
@@ -363,6 +373,34 @@ func (ps *PhysicsSystem) UpdatePhysics(
 - Pure physics functions fully testable without framework
 - Accepts `InputState` (not Raylib types)
 - Works with `*Player` directly (no interface needed)
+
+**Fall Damage Implementation:**
+
+Damage is calculated when a landing transition occurs (airborne → grounded):
+
+```go
+func (ps *PhysicsSystem) applyFallDamage(player *entities.Player, ySpeed float32) {
+    // Only apply damage if falling fast enough (500 px/sec threshold)
+    if ySpeed < physics.FallDamageThreshold {
+        return
+    }
+
+    // Calculate damage: (ySpeed - threshold) / divisor
+    damage := (ySpeed - physics.FallDamageThreshold) / physics.FallDamageDivisor
+
+    // Apply damage and clamp at zero
+    player.HP -= damage
+    if player.HP < 0 {
+        player.HP = 0
+    }
+}
+```
+
+**Landing Detection:**
+- `wasAirborne = !player.OnGround` captures state before Y resolution
+- `player.OnGround` is set to true by `ResolveCollisionsY()` on ground contact
+- Condition `wasAirborne && player.OnGround` ensures damage only on transition
+- Prevents repeated damage when already grounded
 
 #### Fuel System (`domain/systems/fuel.go`)
 
@@ -491,7 +529,7 @@ func GetOccupiedTileRange(aabb AABB, tileSize float32) (minX, maxX, minY, maxY i
 
 #### Player Entity (`domain/entities/player.go`)
 
-Pure data entity with AABB collision primitive and ore inventory:
+Pure data entity with AABB collision primitive, ore inventory, and health:
 
 ```go
 type Player struct {
@@ -501,6 +539,7 @@ type Player struct {
     OreInventory [7]int      // Ore counts indexed by OreType
     Money        int         // Currency from ore sales
     Fuel         float32     // Current fuel in liters (0-10)
+    HP           float32     // Hit points (0-10), decreased by fall damage
 }
 
 func NewPlayer(startX, startY float32) *Player {
@@ -510,6 +549,7 @@ func NewPlayer(startX, startY float32) *Player {
         OnGround:     false,
         OreInventory: [7]int{},
         Fuel:         FuelCapacity,
+        HP:           MaxHP,
     }
 }
 
@@ -1252,13 +1292,15 @@ All physics tuning values are centralized in `internal/domain/physics/constants.
 
 ```go
 const (
-    Gravity           = 800           // pixels/sec² - downward acceleration
-    MaxMoveSpeed      = 450           // pixels/sec - horizontal movement cap
-    MoveAcceleration  = 2500          // pixels/sec² - how fast player accelerates sideways
-    MoveDamping       = 1000          // pixels/sec² - how fast player slows down
-    FlyAcceleration   = 2500          // pixels/sec² - upward thrust acceleration
-    MaxUpwardVelocity = -600          // pixels/sec - upward velocity cap (negative = upward)
-    FlyDamping        = 300           // pixels/sec² - air resistance when flying
+    Gravity                = 800           // pixels/sec² - downward acceleration
+    MaxMoveSpeed           = 450           // pixels/sec - horizontal movement cap
+    MoveAcceleration       = 2500          // pixels/sec² - how fast player accelerates sideways
+    MoveDamping            = 1000          // pixels/sec² - how fast player slows down
+    FlyAcceleration        = 2500          // pixels/sec² - upward thrust acceleration
+    MaxUpwardVelocity      = -600          // pixels/sec - upward velocity cap (negative = upward)
+    FlyDamping             = 300           // pixels/sec² - air resistance when flying
+    FallDamageThreshold    = 500.0         // pixels/sec - minimum downward speed for damage
+    FallDamageDivisor      = 20.0          // damage scaling: (speed - threshold) / divisor
 )
 ```
 
@@ -1268,6 +1310,8 @@ const (
 - **MoveAcceleration=2500**: Responsive control (reaches max speed in 0.18s)
 - **MoveDamping=1000**: Tight ground control (stops in 0.45s)
 - **MaxUpwardVelocity=-600**: Jump/fly height limited (reaches max height in 0.1s)
+- **FallDamageThreshold=500**: Small falls (under 500 px/sec) are safe
+- **FallDamageDivisor=20**: Scales impact speed into damage (500+ px/sec → 0+ damage points)
 
 See `internal/domain/physics/constants.go` for the source of truth.
 
@@ -1295,6 +1339,7 @@ See `internal/domain/physics/constants.go` for the source of truth.
 | Inventory Capacity | 7 ore types | Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond |
 | Initial Money | $0 | Earned by selling ores |
 | Initial Fuel | 10.0 liters | Full tank |
+| Initial Health | 10.0 HP | Reduced by fall damage |
 
 ### Shop Configuration (`internal/domain/entities/shop.go`)
 

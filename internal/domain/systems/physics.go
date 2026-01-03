@@ -37,7 +37,17 @@ func (ps *PhysicsSystem) UpdatePhysics(
 	// Y-axis: integrate position → check → resolve
 	player.AABB.Y += player.Velocity.Y * dt
 	collisionsY := physics.CheckCollisions(player.AABB, ps.world)
+
+	// Capture state before Y-resolution for fall damage calculation
+	wasAirborne := !player.OnGround
+	ySpeedBeforeLanding := player.Velocity.Y
+
 	player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
+
+	// Apply fall damage on landing transition
+	if wasAirborne && player.OnGround {
+		ps.applyFallDamage(player, ySpeedBeforeLanding)
+	}
 
 	// 3. Enforce world boundary constraints (prevent player from leaving game area)
 	ps.constrainPlayerToWorldBounds(player)
@@ -66,4 +76,22 @@ func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
 	}
 
 	// No maximum Y - player can dig infinitely deep
+}
+
+// applyFallDamage calculates and applies damage based on fall velocity.
+// ySpeed is positive when falling downward (screen coordinates).
+func (ps *PhysicsSystem) applyFallDamage(player *entities.Player, ySpeed float32) {
+	// Only apply damage if falling fast enough
+	if ySpeed < physics.FallDamageThreshold {
+		return
+	}
+
+	// Calculate damage: (ySpeed - threshold) / divisor
+	damage := (ySpeed - physics.FallDamageThreshold) / physics.FallDamageDivisor
+
+	// Apply damage and clamp at zero (same pattern as fuel)
+	player.HP -= damage
+	if player.HP < 0 {
+		player.HP = 0
+	}
 }

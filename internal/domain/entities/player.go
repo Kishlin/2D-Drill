@@ -8,6 +8,7 @@ const (
 	PlayerWidth   = 54.0
 	PlayerHeight  = 54.0
 	FuelCapacity  = 10.0 // Liters
+	MaxHP         = 10.0 // Maximum hit points
 )
 
 type Player struct {
@@ -17,6 +18,7 @@ type Player struct {
 	OreInventory [7]int     // Ore counts indexed by OreType
 	Money        int        // Player's currency from selling ores
 	Fuel         float32    // Current fuel in liters (0.0-10.0)
+	HP           float32    // Current hit points (0.0-10.0)
 }
 
 func NewPlayer(startX, startY float32) *Player {
@@ -26,6 +28,7 @@ func NewPlayer(startX, startY float32) *Player {
 		OnGround:     false,
 		OreInventory: [7]int{},
 		Fuel:         FuelCapacity,
+		HP:           MaxHP,
 	}
 }
 

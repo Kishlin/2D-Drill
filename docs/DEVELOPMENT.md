@@ -146,6 +146,29 @@ go test ./internal/domain/world -bench=. -benchmem
 
 ---
 
+## Testing Fall Damage
+
+To manually test the fall damage system:
+
+1. **Run the game**: `go run cmd/game/main.go`
+2. **Small jump**: Jump from ground level - should take no damage
+3. **Medium fall**: Find a high platform and jump/fall from it - should take damage based on formula
+4. **Check HP display**: Look at top-left debug overlay showing `HP: X.X` value
+5. **Lethal fall**: Fall from extreme height - HP should clamp at 0
+
+**Formula reminder:**
+- Threshold: 500 px/sec downward velocity
+- Below threshold: No damage
+- At threshold: 0 damage
+- Above threshold: `damage = (velocity - 500) / 20`
+
+**Examples:**
+- 600 px/sec fall → 5 damage
+- 700 px/sec fall → 10 damage (lethal)
+- 800 px/sec fall → 15 damage (clamped at 0)
+
+---
+
 ## Debugging
 
 ### Logging Output

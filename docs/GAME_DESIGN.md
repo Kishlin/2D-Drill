@@ -106,10 +106,27 @@ Fuel is a limited resource that creates time pressure for each expedition. Tank 
 
 **Future Mechanics** (not yet implemented):
 - Game over or limitations when fuel reaches zero
-- Refueling mechanic (shop or surface station)
 - Fuel efficiency upgrades
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed fuel system implementation and configuration.
+
+### Damage & Health System
+
+Players have 10 hit points. Taking damage from falls creates risk when mining deep.
+
+**Fall Damage:**
+- **Threshold**: 500 px/sec downward velocity (small falls are safe)
+- **Formula**: `damage = (velocity - 500) / 20`
+- **Examples**:
+  - 500 px/sec fall → 0 damage (safe landing)
+  - 600 px/sec fall → 5 damage
+  - 700 px/sec fall → 10 damage (lethal)
+- **Clamping**: HP never goes below 0 (no negative health)
+
+**Future Mechanics** (not yet implemented):
+- Game over when HP reaches 0
+- Healing mechanics (healing stations, consumables)
+- Invulnerability frames after respawn
 
 ## World
 
