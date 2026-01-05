@@ -48,11 +48,14 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete technical details.
 - `internal/domain/systems/physics.go` — Movement, gravity, AABB collision
 - `internal/domain/systems/digging.go` — Tile destruction, ore collection, grid alignment
 - `internal/domain/systems/fuel.go` — Fuel consumption based on activity level
+- `internal/domain/systems/upgrade.go` — Upgrade purchasing at upgrade shops
 
 **Entities:**
-- `internal/domain/entities/player.go` — Player state (AABB, inventory, money, fuel)
+- `internal/domain/entities/player.go` — Player state (AABB, inventory, money, fuel, upgrades)
 - `internal/domain/entities/tile.go` — Tile types (Empty, Dirt, Ore)
 - `internal/domain/entities/shop.go` — Shop interaction (AABB-based)
+- `internal/domain/entities/upgrade_shop.go` — Upgrade shop entity
+- `internal/domain/entities/upgrade_tiers.go` — Upgrade tier definitions and stats
 
 **World:**
 - `internal/domain/world/world.go` — Sparse tile map, chunk loading
@@ -74,27 +77,26 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete system description
 ### Physics Constants (`internal/domain/physics/constants.go`)
 
 ```
-Gravity                = 800 pixels/sec²
-MaxMoveSpeed           = 450 pixels/sec
-MoveAcceleration       = 2500 pixels/sec²
-MoveDamping            = 1000 pixels/sec²
-FlyAcceleration        = 2500 pixels/sec²
-MaxUpwardVelocity      = -600 pixels/sec (negative = upward)
-FlyDamping             = 300 pixels/sec²
-FallDamageThreshold    = 500 pixels/sec (min speed to take damage)
-FallDamageDivisor      = 20.0 (damage scaling: (speed - threshold) / divisor)
+Gravity             = 800 pixels/sec²
+MoveDamping         = 1000 pixels/sec²
+FlyDamping          = 300 pixels/sec²
+FallDamageThreshold = 500 pixels/sec (min speed to take damage)
+FallDamageDivisor   = 20.0 (damage scaling)
 ```
+
+**Note:** Movement speeds and accelerations are defined in `entities/upgrade_tiers.go` as part of the upgrade system. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for upgrade details.
 
 ### Player Configuration
 
-- **Size**: 64×64 pixels (matches tile size)
-- **Start Position**: (640, 576) — center X, just above ground
-- **Max Move Speed**: 300 px/sec
-- **Jump/Fly Speed**: -300 px/sec (upward)
+- **Size**: 54×54 pixels
 - **Inventory**: 7 ore types (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
-- **Money**: Currency from selling ores (starts at $0)
-- **Fuel**: Tank capacity 10.0 liters (starts full)
-- **Health**: 10.0 hit points (starts full)
+- **Upgrades**: Engine, Hull, Fuel Tank (each with Mk1-Mk5 tiers)
+
+Base stats (upgradeable):
+- **Max Move Speed**: 450 px/sec (Engine)
+- **Max Upward Speed**: -600 px/sec (Engine)
+- **Fuel Capacity**: 10.0 liters (Fuel Tank)
+- **Max HP**: 10.0 (Hull)
 
 ### Shop Configuration
 
@@ -118,10 +120,9 @@ FallDamageDivisor      = 20.0 (damage scaling: (speed - threshold) / divisor)
 
 ### Fuel System
 
-- **Tank Capacity**: 10.0 liters
+- **Base Tank Capacity**: 10.0 liters (upgradeable via Fuel Tank)
 - **Active Consumption**: 0.333 L/sec (Left, Right, Up, or Dig inputs)
 - **Idle Consumption**: 0.0833 L/sec (no movement inputs)
-- **Sell input (E)**: Does NOT trigger active consumption
 
 ### Controls & Input
 
@@ -182,10 +183,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full rationale and examples
 - ✅ Fuel station (refueling with cost)
 - ✅ Fall damage system (10 HP with 500 px/sec threshold)
 - ✅ Hospital (healing HP for $2 per HP)
+- ✅ Upgrade system (Engine, Hull, Fuel Tank with Mk1-Mk5 tiers)
 - ⏳ Mining duration per ore type
 - ⏳ Game-over behavior (fuel depletion, HP reaching 0)
 
-**Phase 3+:** Polish, hazards, upgrades, more content
+**Phase 3+:** Polish, hazards, more content
 
 See [README.md](README.md) for full roadmap.
 

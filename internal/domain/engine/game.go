@@ -16,6 +16,7 @@ type Game struct {
 	fuelSystem        *systems.FuelSystem
 	fuelStationSystem *systems.FuelStationSystem
 	hospitalSystem    *systems.HospitalSystem
+	upgradeSystem     *systems.UpgradeSystem
 }
 
 func NewGame(w *world.World) *Game {
@@ -38,6 +39,17 @@ func NewGame(w *world.World) *Game {
 	hospitalY := w.GetGroundLevel() - entities.HospitalHeight
 	hospital := entities.NewHospital(hospitalX, hospitalY)
 
+	// Create upgrade shops to the right of the ore shop
+	upgradeShopY := w.GetGroundLevel() - entities.UpgradeShopHeight
+	engineShopX := shopX + 360.0
+	engineShop := entities.NewUpgradeShop(engineShopX, upgradeShopY, entities.UpgradeTypeEngine)
+
+	hullShopX := engineShopX + 360.0
+	hullShop := entities.NewUpgradeShop(hullShopX, upgradeShopY, entities.UpgradeTypeHull)
+
+	fuelTankShopX := hullShopX + 360.0
+	fuelTankShop := entities.NewUpgradeShop(fuelTankShopX, upgradeShopY, entities.UpgradeTypeFuelTank)
+
 	return &Game{
 		world:             w,
 		player:            entities.NewPlayer(spawnX, spawnY),
@@ -47,6 +59,7 @@ func NewGame(w *world.World) *Game {
 		fuelSystem:        systems.NewFuelSystem(),
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
 		hospitalSystem:    systems.NewHospitalSystem(hospital),
+		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop),
 	}
 }
 
@@ -71,10 +84,13 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 5. Handle hospital healing (before physics, so player position is stable)
 	g.hospitalSystem.ProcessHealing(g.player, inputState)
 
-	// 6. Update physics
+	// 6. Handle upgrade purchases (before physics, so player position is stable)
+	g.upgradeSystem.ProcessUpgrade(g.player, inputState)
+
+	// 7. Update physics
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-	// 7. Consume fuel based on activity
+	// 8. Consume fuel based on activity
 	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
 	return nil
@@ -98,4 +114,16 @@ func (g *Game) GetFuelStation() *entities.FuelStation {
 
 func (g *Game) GetHospital() *entities.Hospital {
 	return g.hospitalSystem.GetHospital()
+}
+
+func (g *Game) GetEngineShop() *entities.UpgradeShop {
+	return g.upgradeSystem.GetEngineShop()
+}
+
+func (g *Game) GetHullShop() *entities.UpgradeShop {
+	return g.upgradeSystem.GetHullShop()
+}
+
+func (g *Game) GetFuelTankShop() *entities.UpgradeShop {
+	return g.upgradeSystem.GetFuelTankShop()
 }

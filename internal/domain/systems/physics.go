@@ -16,15 +16,20 @@ func NewPhysicsSystem(w *world.World) *PhysicsSystem {
 }
 
 // UpdatePhysics applies physics using axis-separated AABB collision
-// Now works with *Player directly instead of interface
 func (ps *PhysicsSystem) UpdatePhysics(
 	player *entities.Player,
 	inputState input.InputState,
 	dt float32,
 ) {
 	// 1. Apply movement and gravity to velocity
-	player.Velocity = physics.ApplyHorizontalMovement(player.Velocity, inputState, dt)
-	player.Velocity = physics.ApplyVerticalMovement(player.Velocity, inputState, dt)
+	player.Velocity = physics.ApplyHorizontalMovement(
+		player.Velocity, inputState, dt,
+		player.GetMaxMoveSpeed(), player.GetMoveAcceleration(),
+	)
+	player.Velocity = physics.ApplyVerticalMovement(
+		player.Velocity, inputState, dt,
+		player.GetFlyAcceleration(), player.GetMaxUpwardSpeed(),
+	)
 	player.Velocity = physics.ApplyGravity(player.Velocity, dt)
 
 	// 2. AXIS-SEPARATED COLLISION RESOLUTION

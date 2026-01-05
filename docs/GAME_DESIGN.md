@@ -54,6 +54,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - At shop: Sell entire inventory
   - At fuel station: Refuel tank (if affordable)
   - At hospital: Heal to full HP (if affordable)
+  - At upgrade shop: Buy next upgrade tier (if affordable)
 
 ### Vehicle Mechanics
 - Gravity pulls vehicle downward
@@ -99,7 +100,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 
 ### Fuel System
 
-Fuel is a limited resource that creates time pressure for each expedition. Tank capacity is 10 liters with consumption rates that vary based on activity level.
+Fuel is a limited resource that creates time pressure for each expedition. Base tank capacity is 10 liters (upgradeable to 65L via Fuel Tank upgrades) with consumption rates that vary based on activity level.
 
 **Consumption Rates:**
 - Active movement (moving/digging): 0.333 L/sec
@@ -113,7 +114,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed fuel system implementation a
 
 ### Damage & Health System
 
-Players have 10 hit points. Taking damage from falls creates risk when mining deep, but hospitals provide recovery.
+Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Taking damage from falls creates risk when mining deep, but hospitals provide recovery.
 
 **Fall Damage:**
 - **Threshold**: 500 px/sec downward velocity (small falls are safe)
@@ -184,42 +185,73 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for ore types table, values, distribution
 
 ## Upgrade System
 
-### Upgrade Categories
+### Overview
 
-#### 1. Movement Upgrades
-- **Engine Power**: Increase horizontal speed
-- **Thruster Power**: Improve vertical movement (fight gravity)
-- **Fuel Capacity**: Increase tank size beyond 10L (future upgrade)
-- **Fuel Efficiency**: Reduce consumption rates (future upgrade)
+Three upgrade types are available, each with 6 tiers (Base + Mk1 through Mk5). Upgrades must be purchased in order at dedicated upgrade shops on the surface. Press E while overlapping an upgrade shop to purchase the next tier.
 
-#### 2. Drilling Upgrades
+### Engine Upgrades
+
+Improves movement speed, acceleration, and flying capability.
+
+| Tier | Max Speed | Acceleration | Fly Accel | Max Upward | Cost |
+|------|-----------|--------------|-----------|------------|------|
+| Base | 450 px/s | 2500 px/s² | 2500 px/s² | 600 px/s | - |
+| Mk1 | 500 px/s | 2750 px/s² | 2750 px/s² | 650 px/s | $100 |
+| Mk2 | 550 px/s | 3000 px/s² | 3000 px/s² | 700 px/s | $300 |
+| Mk3 | 600 px/s | 3500 px/s² | 3500 px/s² | 775 px/s | $750 |
+| Mk4 | 675 px/s | 4000 px/s² | 4000 px/s² | 850 px/s | $1,500 |
+| Mk5 | 750 px/s | 5000 px/s² | 5000 px/s² | 1000 px/s | $5,000 |
+
+### Hull Upgrades
+
+Increases maximum hit points.
+
+| Tier | Max HP | Cost |
+|------|--------|------|
+| Base | 10 | - |
+| Mk1 | 15 | $150 |
+| Mk2 | 20 | $400 |
+| Mk3 | 30 | $1,000 |
+| Mk4 | 45 | $2,500 |
+| Mk5 | 75 | $8,000 |
+
+**Note:** Upgrading hull does NOT auto-heal. Visit the hospital to restore HP to new maximum.
+
+### Fuel Tank Upgrades
+
+Increases fuel tank capacity.
+
+| Tier | Capacity | Cost |
+|------|----------|------|
+| Base | 10L | - |
+| Mk1 | 15L | $100 |
+| Mk2 | 22L | $250 |
+| Mk3 | 32L | $600 |
+| Mk4 | 45L | $1,500 |
+| Mk5 | 65L | $4,000 |
+
+**Note:** Upgrading tank does NOT auto-refuel. Visit the fuel station to fill to new capacity.
+
+### Upgrade Shops
+
+Three separate upgrade shops are located on the surface (right of the ore shop):
+- **Engine Shop** (Steel Blue): Engine upgrades
+- **Hull Shop** (Dim Gray): Hull upgrades
+- **Fuel Tank Shop** (Tomato): Fuel tank upgrades
+
+### Future Upgrades (Not Yet Implemented)
+
+#### Drilling Upgrades
 - **Drill Strength**: Drill through tiles faster
 - **Drill Efficiency**: Reduced heat generation while drilling
-- **Drill Radius**: Larger drilling area (future)
 
-#### 3. Survivability Upgrades
-- **Hull Plating**: Increase maximum health
+#### Survivability Upgrades
 - **Heat Shielding**: Resist higher temperatures
-- **Auto-Repair**: Slowly regenerate health over time (expensive)
+- **Auto-Repair**: Slowly regenerate health over time
 
-#### 4. Cargo Upgrades
+#### Cargo Upgrades
 - **Cargo Hold**: Carry more ore per trip
-- **Ore Detector**: Highlight valuable ores on screen (future)
-- **Magnetic Field**: Attract nearby ore (future)
-
-### Upgrade Progression
-
-Upgrades have multiple tiers with exponential pricing:
-
-```
-Tier 1: $100    (+10% improvement)
-Tier 2: $250    (+20% improvement)
-Tier 3: $600    (+30% improvement)
-Tier 4: $1,500  (+40% improvement)
-Tier 5: $4,000  (+50% improvement)
-Tier 6: $10,000 (+60% improvement)
-...exponential growth
-```
+- **Ore Detector**: Highlight valuable ores on screen
 
 ## Progression Curve
 

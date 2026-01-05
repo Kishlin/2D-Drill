@@ -7,22 +7,23 @@ import (
 
 // ApplyHorizontalMovement updates velocity based on horizontal input (left/right)
 // Applies acceleration when input is active, damping when no input
-func ApplyHorizontalMovement(velocity types.Vec2, inputState input.InputState, dt float32) types.Vec2 {
+// maxSpeed and acceleration are passed as parameters to support upgrades
+func ApplyHorizontalMovement(velocity types.Vec2, inputState input.InputState, dt float32, maxSpeed, acceleration float32) types.Vec2 {
 	vel := velocity
 
 	if inputState.Right {
 		// Accelerate to the right
-		vel.X += MoveAcceleration * dt
+		vel.X += acceleration * dt
 		// Cap at max speed
-		if vel.X > MaxMoveSpeed {
-			vel.X = MaxMoveSpeed
+		if vel.X > maxSpeed {
+			vel.X = maxSpeed
 		}
 	} else if inputState.Left {
 		// Accelerate to the left
-		vel.X -= MoveAcceleration * dt
+		vel.X -= acceleration * dt
 		// Cap at max speed (in negative direction)
-		if vel.X < -MaxMoveSpeed {
-			vel.X = -MaxMoveSpeed
+		if vel.X < -maxSpeed {
+			vel.X = -maxSpeed
 		}
 	} else {
 		// No input: apply damping to gradually slow down
@@ -48,15 +49,16 @@ func ApplyHorizontalMovement(velocity types.Vec2, inputState input.InputState, d
 
 // ApplyVerticalMovement updates velocity based on vertical input (flying)
 // Applies upward acceleration when input is active, damping when no input
-func ApplyVerticalMovement(velocity types.Vec2, inputState input.InputState, dt float32) types.Vec2 {
+// flyAcceleration and maxUpwardVelocity are passed as parameters to support upgrades
+func ApplyVerticalMovement(velocity types.Vec2, inputState input.InputState, dt float32, flyAcceleration, maxUpwardVelocity float32) types.Vec2 {
 	vel := velocity
 
 	if inputState.Up {
 		// Increase upward velocity (decrease Y velocity, which is negative)
-		vel.Y -= FlyAcceleration * dt
+		vel.Y -= flyAcceleration * dt
 		// Cap the maximum upward speed
-		if vel.Y < MaxUpwardVelocity {
-			vel.Y = MaxUpwardVelocity
+		if vel.Y < maxUpwardVelocity {
+			vel.Y = maxUpwardVelocity
 		}
 	} else {
 		// When key is released, apply damping to gradually slow down upward movement

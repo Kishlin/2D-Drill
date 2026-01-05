@@ -87,17 +87,22 @@ drill-game/
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
 │       │   ├── fuel_station.go              # FuelStationSystem (refueling)
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
+│       │   ├── upgrade.go                   # UpgradeSystem (purchase upgrades at shops)
 │       │   ├── digging_test.go              # Digging & ore collection tests
 │       │   ├── fuel_test.go                 # Fuel consumption tests
 │       │   ├── fuel_station_test.go         # Fuel station transaction tests
-│       │   └── hospital_test.go             # Hospital healing transaction tests
+│       │   ├── hospital_test.go             # Hospital healing transaction tests
+│       │   └── upgrade_test.go              # Upgrade purchase tests
 │       ├── entities/
-│       │   ├── player.go                    # Player entity (AABB-based + inventory + money + fuel + HP)
+│       │   ├── player.go                    # Player entity (AABB-based + inventory + money + fuel + HP + upgrades)
 │       │   ├── player_test.go               # Player inventory tests
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   ├── shop.go                      # Shop entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
+│       │   ├── upgrade_shop.go              # UpgradeShop entity (AABB-based, per upgrade type)
+│       │   ├── upgrades.go                  # Upgrade levels and player upgrades struct
+│       │   ├── upgrade_tiers.go             # Tier definitions (stats and costs for each level)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
@@ -213,6 +218,7 @@ type Game struct {
     fuelSystem        *systems.FuelSystem
     fuelStationSystem *systems.FuelStationSystem
     hospitalSystem    *systems.HospitalSystem
+    upgradeSystem     *systems.UpgradeSystem
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
@@ -236,6 +242,9 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
     // Hospital healing interaction
     g.hospitalSystem.ProcessHealing(g.player, inputState)
+
+    // Upgrade purchases at upgrade shops
+    g.upgradeSystem.ProcessUpgrade(g.player, inputState)
 
     // Physics with axis-separated collision
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
@@ -351,9 +360,15 @@ func (ps *PhysicsSystem) UpdatePhysics(
     inputState input.InputState,
     dt float32,
 ) {
-    // 1. Apply movement and gravity to velocity
-    player.Velocity = physics.ApplyHorizontalMovement(player.Velocity, inputState, dt)
-    player.Velocity = physics.ApplyVerticalMovement(player.Velocity, inputState, dt)
+    // 1. Apply movement and gravity to velocity (using player's upgrade-based stats)
+    player.Velocity = physics.ApplyHorizontalMovement(
+        player.Velocity, inputState, dt,
+        player.GetMaxMoveSpeed(), player.GetMoveAcceleration(),
+    )
+    player.Velocity = physics.ApplyVerticalMovement(
+        player.Velocity, inputState, dt,
+        player.GetFlyAcceleration(), player.GetMaxUpwardSpeed(),
+    )
     player.Velocity = physics.ApplyGravity(player.Velocity, dt)
 
     // 2. AXIS-SEPARATED COLLISION RESOLUTION
@@ -575,14 +590,67 @@ func (hs *HospitalSystem) ProcessHealing(
 - Direct field mutation for clarity
 - Fully testable without framework (7 comprehensive unit tests)
 
+#### Upgrade System (`domain/systems/upgrade.go`)
+
+Manages upgrade purchases at dedicated upgrade shops:
+
+```go
+type UpgradeSystem struct {
+    engineShop   *entities.UpgradeShop
+    hullShop     *entities.UpgradeShop
+    fuelTankShop *entities.UpgradeShop
+}
+
+func (us *UpgradeSystem) ProcessUpgrade(
+    player *entities.Player,
+    inputState input.InputState,
+) {
+    if !inputState.Sell {
+        return
+    }
+
+    // Check each shop and attempt upgrade (only one can be in range at a time)
+    if us.engineShop.IsPlayerInRange(player) {
+        us.tryUpgradeEngine(player)
+        return
+    }
+    // ... similar for hullShop and fuelTankShop
+}
+
+func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
+    cost := entities.GetEngineNextCost(player.Upgrades.Engine)
+    if cost == 0 {
+        return // Already at max level
+    }
+    if player.Money < cost {
+        return // Cannot afford
+    }
+    player.Money -= cost
+    player.Upgrades.Engine++
+}
+```
+
+**Upgrade Rules:**
+- **Sequential**: Must buy Mk1 before Mk2, etc.
+- **Permanent**: Upgrades cannot be undone
+- **No Auto-Restore**: Hull/Tank upgrades don't restore HP/Fuel to new max
+
+**Why this design:**
+- Mirrors Hospital/FuelStation pattern (AABB + E key interaction)
+- Three separate shops prevent spatial conflict
+- Called before physics (consistent with other interactions)
+- Tier data centralized in `upgrade_tiers.go`
+- Fully testable without framework (5 comprehensive unit tests)
+
 #### Pure Physics Functions (`domain/physics/`)
 
 Framework-independent mathematical functions:
 
 ```go
 // movement.go - Pure functions, no Raylib, fully testable
-func ApplyHorizontalMovement(velocity Vec2, inputState InputState, dt float32) Vec2
-func ApplyVerticalMovement(velocity Vec2, inputState InputState, dt float32) Vec2
+// Parameters for max speed/acceleration come from player upgrades
+func ApplyHorizontalMovement(velocity Vec2, inputState InputState, dt float32, maxSpeed, acceleration float32) Vec2
+func ApplyVerticalMovement(velocity Vec2, inputState InputState, dt float32, flyAcceleration, maxUpwardVelocity float32) Vec2
 
 // gravity.go - Pure functions
 func ApplyGravity(velocity Vec2, dt float32) Vec2
@@ -612,9 +680,18 @@ type Player struct {
     OnGround     bool        // Collision state - direct access
     OreInventory [7]int      // Ore counts indexed by OreType
     Money        int         // Currency from ore sales
-    Fuel         float32     // Current fuel in liters (0-10)
-    HP           float32     // Hit points (0-10), decreased by fall damage
+    Fuel         float32     // Current fuel in liters (dynamic max via upgrades)
+    HP           float32     // Hit points (dynamic max via upgrades)
+    Upgrades     Upgrades    // Engine, Hull, FuelTank upgrade levels
 }
+
+// Stat accessors return values based on current upgrade levels
+func (p *Player) GetMaxMoveSpeed() float32    // From EngineTiers[p.Upgrades.Engine]
+func (p *Player) GetMoveAcceleration() float32
+func (p *Player) GetFlyAcceleration() float32
+func (p *Player) GetMaxUpwardSpeed() float32
+func (p *Player) GetMaxHP() float32           // From HullTiers[p.Upgrades.Hull]
+func (p *Player) GetFuelCapacity() float32    // From FuelTankTiers[p.Upgrades.FuelTank]
 
 func NewPlayer(startX, startY float32) *Player {
     return &Player{
@@ -1362,32 +1439,39 @@ Rendering and feel testing requires manual play:
 
 ## Physics Constants
 
-All physics tuning values are centralized in `internal/domain/physics/constants.go`:
+Physics tuning values are split between two locations:
+
+**Fixed constants** (`internal/domain/physics/constants.go`):
 
 ```go
 const (
-    Gravity                = 800           // pixels/sec² - downward acceleration
-    MaxMoveSpeed           = 450           // pixels/sec - horizontal movement cap
-    MoveAcceleration       = 2500          // pixels/sec² - how fast player accelerates sideways
-    MoveDamping            = 1000          // pixels/sec² - how fast player slows down
-    FlyAcceleration        = 2500          // pixels/sec² - upward thrust acceleration
-    MaxUpwardVelocity      = -600          // pixels/sec - upward velocity cap (negative = upward)
-    FlyDamping             = 300           // pixels/sec² - air resistance when flying
-    FallDamageThreshold    = 500.0         // pixels/sec - minimum downward speed for damage
-    FallDamageDivisor      = 20.0          // damage scaling: (speed - threshold) / divisor
+    Gravity             = 800     // pixels/sec² - downward acceleration
+    MoveDamping         = 1000    // pixels/sec² - how fast player slows down
+    FlyDamping          = 300     // pixels/sec² - air resistance when flying
+    FallDamageThreshold = 500.0   // pixels/sec - minimum downward speed for damage
+    FallDamageDivisor   = 20.0    // damage scaling: (speed - threshold) / divisor
 )
 ```
 
+**Dynamic values** (`internal/domain/entities/upgrade_tiers.go`):
+
+Movement stats are defined per engine upgrade tier:
+
+| Stat | Base | Mk5 (Max) |
+|------|------|-----------|
+| MaxMoveSpeed | 450 px/s | 750 px/s |
+| MoveAcceleration | 2500 px/s² | 5000 px/s² |
+| FlyAcceleration | 2500 px/s² | 5000 px/s² |
+| MaxUpwardVelocity | -600 px/s | -1000 px/s |
+
 **How these affect gameplay:**
 - **Gravity=800**: Heavy downward pull (1.25× Earth gravity) makes falling quick
-- **MaxMoveSpeed=450**: Fast horizontal movement, allows quick digging
-- **MoveAcceleration=2500**: Responsive control (reaches max speed in 0.18s)
 - **MoveDamping=1000**: Tight ground control (stops in 0.45s)
-- **MaxUpwardVelocity=-600**: Jump/fly height limited (reaches max height in 0.1s)
 - **FallDamageThreshold=500**: Small falls (under 500 px/sec) are safe
 - **FallDamageDivisor=20**: Scales impact speed into damage (500+ px/sec → 0+ damage points)
+- **Engine upgrades**: Better engines allow faster movement and climbing
 
-See `internal/domain/physics/constants.go` for the source of truth.
+See `internal/domain/physics/constants.go` and `internal/domain/entities/upgrade_tiers.go` for source of truth.
 
 ---
 
@@ -1408,12 +1492,17 @@ See `internal/domain/physics/constants.go` for the source of truth.
 |----------|-------|-------|
 | Size | 64×64 pixels | Matches tile size |
 | Start Position | (640, 576) | Center X, just above ground |
-| Max Move Speed | 300 px/sec | Horizontal movement cap |
-| Jump/Fly Speed | -300 px/sec | Upward velocity (negative = up) |
 | Inventory Capacity | 7 ore types | Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond |
 | Initial Money | $0 | Earned by selling ores |
-| Initial Fuel | 10.0 liters | Full tank |
-| Initial Health | 10.0 HP | Reduced by fall damage |
+| Initial Fuel | 10.0 liters | Full tank (upgradeable to 65L) |
+| Initial Health | 10.0 HP | Full HP (upgradeable to 75 HP) |
+| Initial Upgrades | All Base | Engine, Hull, FuelTank at level 0 |
+
+**Movement stats** (upgradeable via Engine):
+| Stat | Base | Max (Mk5) |
+|------|------|-----------|
+| Max Move Speed | 450 px/sec | 750 px/sec |
+| Fly Speed | 600 px/sec | 1000 px/sec |
 
 ### Shop Configuration (`internal/domain/entities/shop.go`)
 
@@ -1442,9 +1531,9 @@ See `internal/domain/physics/constants.go` for the source of truth.
 
 | Setting | Value | Formula |
 |---------|-------|---------|
-| Tank Capacity | 10.0 liters | Full tank |
-| Active Consumption | 0.33333 L/s | 10L depletes in 30 seconds with active input |
-| Idle Consumption | 0.08333 L/s | 10L depletes in 120 seconds with no input |
+| Base Tank Capacity | 10.0 liters | Upgradeable to 65L via FuelTank |
+| Active Consumption | 0.33333 L/s | Base tank depletes in 30s with active input |
+| Idle Consumption | 0.08333 L/s | Base tank depletes in 120s with no input |
 | Active Input Triggers | Left, Right, Up, Dig | Movement/digging inputs only |
 
 **Consumption Behavior:**

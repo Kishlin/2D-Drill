@@ -27,7 +27,9 @@ func (hs *HospitalSystem) ProcessHealing(
 		return
 	}
 
-	hpNeeded := entities.MaxHP - player.HP
+	// Use player's upgraded max HP
+	maxHP := player.GetMaxHP()
+	hpNeeded := maxHP - player.HP
 
 	if hpNeeded <= 0 {
 		return
@@ -41,7 +43,7 @@ func (hs *HospitalSystem) ProcessHealing(
 	}
 
 	player.Money -= cost
-	player.HP = entities.MaxHP
+	player.HP = maxHP
 }
 
 func (hs *HospitalSystem) GetHospital() *entities.Hospital {

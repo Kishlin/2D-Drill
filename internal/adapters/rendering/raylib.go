@@ -12,14 +12,17 @@ import (
 )
 
 var (
-	PlayerColor      = rl.Red
-	GroundColor      = rl.Brown
-	SkyColor         = rl.SkyBlue
-	DirtColor        = rl.NewColor(139, 90, 43, 255) // Brown dirt
-	GridColor        = rl.NewColor(100, 65, 30, 128) // Semi-transparent grid lines
-	ShopColor        = rl.NewColor(34, 139, 34, 255) // Forest Green
-	FuelStationColor = rl.NewColor(255, 165, 0, 255) // Orange
-	HospitalColor    = rl.NewColor(220, 20, 60, 255) // Crimson
+	PlayerColor       = rl.Red
+	GroundColor       = rl.Brown
+	SkyColor          = rl.SkyBlue
+	DirtColor         = rl.NewColor(139, 90, 43, 255) // Brown dirt
+	GridColor         = rl.NewColor(100, 65, 30, 128) // Semi-transparent grid lines
+	ShopColor         = rl.NewColor(34, 139, 34, 255) // Forest Green
+	FuelStationColor  = rl.NewColor(255, 165, 0, 255) // Orange
+	HospitalColor     = rl.NewColor(220, 20, 60, 255) // Crimson
+	EngineShopColor   = rl.NewColor(70, 130, 180, 255)  // Steel Blue
+	HullShopColor     = rl.NewColor(105, 105, 105, 255) // Dim Gray
+	FuelTankShopColor = rl.NewColor(255, 99, 71, 255)   // Tomato
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -106,6 +109,9 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderShop(game.GetShop())
 	r.renderFuelStation(game.GetFuelStation())
 	r.renderHospital(game.GetHospital())
+	r.renderUpgradeShop(game.GetEngineShop(), EngineShopColor, rl.DarkBlue)
+	r.renderUpgradeShop(game.GetHullShop(), HullShopColor, rl.DarkGray)
+	r.renderUpgradeShop(game.GetFuelTankShop(), FuelTankShopColor, rl.Maroon)
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -183,6 +189,20 @@ func (r *RaylibRenderer) renderHospital(hospital *entities.Hospital) {
 		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
 		2.0,
 		rl.White,
+	)
+}
+
+func (r *RaylibRenderer) renderUpgradeShop(shop *entities.UpgradeShop, fillColor, borderColor rl.Color) {
+	aabb := shop.AABB
+	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
+	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
+
+	rl.DrawRectangleV(rlPos, rlSize, fillColor)
+
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
+		2.0,
+		borderColor,
 	)
 }
 
@@ -302,4 +322,10 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	// Draw player money, fuel, and HP
 	moneyFuelHPText := fmt.Sprintf("Money: $%d | Fuel: %.2fL | HP: %.1f", player.Money, player.Fuel, player.HP)
 	rl.DrawText(moneyFuelHPText, posX, posY, fontSize, textColor)
+	posY += lineHeight
+
+	// Draw upgrade levels
+	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d",
+		player.Upgrades.Engine, player.Upgrades.Hull, player.Upgrades.FuelTank)
+	rl.DrawText(upgradeText, posX, posY, fontSize, textColor)
 }
