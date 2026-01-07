@@ -20,8 +20,8 @@ type ChunkGenerator struct {
 func NewChunkGenerator(seed int64, groundLevel float32) *ChunkGenerator {
 	return &ChunkGenerator{
 		seed:        seed,
-		emptyRate:   0.20, // 20% of underground tiles are empty
-		dirtRate:    0.65, // 65% of underground tiles are dirt
+		emptyRate:   0.23, // 23% of underground tiles are empty
+		dirtRate:    0.67, // 67% of underground tiles are dirt
 		groundTileY: int(groundLevel / TileSize),
 	}
 }

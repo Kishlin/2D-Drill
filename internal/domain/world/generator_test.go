@@ -16,9 +16,9 @@ func TestGaussianWeight_AtPeak(t *testing.T) {
 		depth     float32
 		minWeight float32
 	}{
-		{"Copper at peak", entities.OreCopper, -50, 9.5},  // Should be ~10.0
-		{"Gold at peak", entities.OreGold, 300, 3.5},      // Should be ~4.0
-		{"Diamond at peak", entities.OreDiamond, 900, 0.9}, // Should be ~1.0
+		{"Copper at peak", entities.OreCopper, -75, 7.5},   // Should be ~8.0
+		{"Gold at peak", entities.OreGold, 230, 2.5},       // Should be ~3.0
+		{"Diamond at peak", entities.OreDiamond, 600, 0.1}, // Should be ~0.15 (extremely rare)
 	}
 
 	for _, tt := range tests {
@@ -37,13 +37,14 @@ func TestGaussianWeight_Symmetry(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
 	meta := entities.OreDistributions[entities.OreGold]
 
-	// Weight should be equal at equal distance from peak (300)
-	weightAbove := gen.gaussianWeight(200, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
-	weightBelow := gen.gaussianWeight(400, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+	// Weight should be equal at equal distance from peak (230)
+	// Test at ±50 tiles from peak: 180 and 280
+	weightAbove := gen.gaussianWeight(180, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+	weightBelow := gen.gaussianWeight(280, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
 
 	diff := weightAbove - weightBelow
 	if diff < -0.01 || diff > 0.01 {
-		t.Errorf("Gaussian should be symmetric: weight at 200=%f, weight at 400=%f", weightAbove, weightBelow)
+		t.Errorf("Gaussian should be symmetric: weight at 180=%f, weight at 280=%f", weightAbove, weightBelow)
 	}
 }
 
@@ -51,10 +52,10 @@ func TestGaussianWeight_FarFromPeak(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
 	meta := entities.OreDistributions[entities.OreDiamond]
 
-	// Diamond peaks at 900, should have very low weight at 100
+	// Diamond peaks at 600, should have very low weight at 100 (500px away)
 	weight := gen.gaussianWeight(100, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
 
-	if weight > 0.01 {
+	if weight > 0.005 {
 		t.Errorf("Weight far from peak should be near zero, got %f", weight)
 	}
 }
@@ -62,16 +63,16 @@ func TestGaussianWeight_FarFromPeak(t *testing.T) {
 func TestCalculateOreWeights_MultipleOres(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
 
-	// At depth 300 (gold's peak), multiple ores should have weights
-	weights := gen.calculateOreWeights(300)
+	// At depth 230 (gold's peak), multiple ores should have weights
+	weights := gen.calculateOreWeights(int(230 / 64)) // Convert pixels to tile coordinates
 
 	if len(weights) == 0 {
-		t.Error("Expected multiple ores at depth 300, got none")
+		t.Error("Expected multiple ores at gold's peak depth, got none")
 	}
 
 	// Gold should have weight at its peak
 	if _, hasGold := weights[entities.OreGold]; !hasGold {
-		t.Error("Expected gold to have weight at depth 300")
+		t.Error("Expected gold to have weight at depth 230")
 	}
 }
 
@@ -123,10 +124,10 @@ func TestGenerateTile_EmptyRate(t *testing.T) {
 		}
 	}
 
-	// Should be ~20% (allow 15-25% margin)
+	// Should be ~23% (allow 18-28% margin for sampling variance)
 	emptyRate := float32(emptyCount) / float32(totalTiles)
-	if emptyRate < 0.15 || emptyRate > 0.25 {
-		t.Errorf("Empty rate = %f, expected ~0.20 (15-25%% range)", emptyRate)
+	if emptyRate < 0.18 || emptyRate > 0.28 {
+		t.Errorf("Empty rate = %f, expected ~0.23 (18-28%% range)", emptyRate)
 	}
 }
 

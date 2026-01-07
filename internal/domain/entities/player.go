@@ -16,7 +16,7 @@ type Player struct {
 	Velocity     types.Vec2 // Pixels per second
 	OnGround     bool       // Collision state
 	IsDigging    bool       // Dig animation state
-	OreInventory [7]int     // Ore counts indexed by OreType
+	OreInventory [6]int     // Ore counts indexed by OreType
 	Money        int        // Player's currency from selling ores
 	Fuel         float32    // Current fuel in liters
 	HP           float32    // Current hit points
@@ -38,7 +38,7 @@ func NewPlayer(startX, startY float32) *Player {
 		AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
 		Velocity:     types.Zero(),
 		OnGround:     false,
-		OreInventory: [7]int{},
+		OreInventory: [6]int{},
 		Fuel:         fuelTank.Capacity(),
 		HP:           hull.MaxHP(),
 		Engine:       engine,
@@ -135,7 +135,7 @@ func (p *Player) GetTotalOreCount() int {
 // AddOre increments ore count for given type if capacity allows
 // Returns true if ore was added, false if cargo is full
 func (p *Player) AddOre(oreType OreType) bool {
-	if oreType < 0 || oreType >= 7 {
+	if oreType < 0 || oreType >= 6 {
 		return false
 	}
 	if p.GetTotalOreCount() >= p.CargoHold.Capacity() {
@@ -149,5 +149,5 @@ func (p *Player) AddOre(oreType OreType) bool {
 func (p *Player) SellInventory() {
 	totalValue := CalculateInventoryValue(p.OreInventory)
 	p.Money += totalValue
-	p.OreInventory = [7]int{}
+	p.OreInventory = [6]int{}
 }

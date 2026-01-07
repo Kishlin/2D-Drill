@@ -32,7 +32,6 @@ var (
 	OreColors = map[entities.OreType]rl.Color{
 		entities.OreCopper:   rl.NewColor(255, 140, 0, 255),   // Orange
 		entities.OreIron:     rl.NewColor(128, 128, 128, 255), // Gray
-		entities.OreSilver:   rl.NewColor(192, 192, 192, 255), // Light Gray
 		entities.OreGold:     rl.NewColor(255, 215, 0, 255),   // Gold
 		entities.OreMythril:  rl.NewColor(0, 255, 255, 255),   // Cyan
 		entities.OrePlatinum: rl.NewColor(230, 230, 250, 255), // White-ish
@@ -309,10 +308,9 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	posY += lineHeight
 
 	// Draw ore inventory
-	inventoryText := fmt.Sprintf("Ore: Cu=%d Fe=%d Ag=%d Au=%d My=%d Pt=%d Di=%d",
+	inventoryText := fmt.Sprintf("Ore: Cu=%d Fe=%d Au=%d My=%d Pt=%d Di=%d",
 		player.OreInventory[entities.OreCopper],
 		player.OreInventory[entities.OreIron],
-		player.OreInventory[entities.OreSilver],
 		player.OreInventory[entities.OreGold],
 		player.OreInventory[entities.OreMythril],
 		player.OreInventory[entities.OrePlatinum],

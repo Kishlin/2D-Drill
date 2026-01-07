@@ -813,7 +813,7 @@ type Player struct {
     AABB         types.AABB  // Position and dimensions
     Velocity     types.Vec2  // Pixels per second
     OnGround     bool        // Collision state
-    OreInventory [7]int      // Ore counts indexed by OreType
+    OreInventory [6]int      // Ore counts indexed by OreType
     Money        int         // Currency from ore sales
     Fuel         float32     // Current fuel in liters
     HP           float32     // Hit points
@@ -874,7 +874,7 @@ func NewPlayer(startX, startY float32) *Player {
 
 // AddOre increments ore count for given type
 func (p *Player) AddOre(oreType OreType, amount int) {
-    if oreType >= 0 && oreType < 7 {
+    if oreType >= 0 && oreType < 6 {
         p.OreInventory[oreType] += amount
     }
 }
@@ -887,7 +887,7 @@ func (p *Player) AddOre(oreType OreType, amount int) {
 - Zero Raylib dependency
 - Direct field access (no getters/setters) for simplicity
 - AABB enables proper collision detection (not just ground)
-- `OreInventory [7]int` stores counts for all 7 ore types efficiently
+- `OreInventory [6]int` stores counts for all 6 ore types efficiently
 - `AddOre()` is the only ore collection method (simple, one-purpose)
 
 #### Types (`domain/types/`)
@@ -1461,11 +1461,48 @@ The game world extends far beyond the screen:
 | Dimension | Size | Tiles |
 |-----------|------|-------|
 | Width | 7680 pixels | 120 tiles wide (6× screen width) |
-| Height | 64000 pixels | 1000 tiles deep |
+| Height | 51200 pixels | 800 tiles deep |
 | Ground Level | 640 pixels | 10 tiles up from bottom |
 | Tile Size | 64×64 pixels | Standard |
 
 **Sparse tile storage:** Only non-empty tiles are stored in memory, enabling efficient large worlds.
+
+---
+
+## World Generation
+
+### Tile Composition
+
+Underground tiles (below ground level) are generated with the following distribution:
+
+| Tile Type | Rate | Purpose |
+|-----------|------|---------|
+| Empty (caves) | 23% | Air pockets and caves for navigation |
+| Dirt | 67% | Solid filler material |
+| Ore | 10% | Valuable resources distributed by Gaussian curves |
+
+**Distribution:** Empty and Dirt are generated uniformly at all depths. Ore types are selected using weighted Gaussian distributions based on depth, creating depth-based progression.
+
+### Ore Distribution Parameters
+
+Each ore type uses a Gaussian distribution with three parameters:
+
+| Ore | Peak Depth (px) | Sigma (spread) | Max Weight (rarity) | Notes |
+|-----|-----------------|----------------|-------------------|-------|
+| Copper | -75 | 120 | 8.0 | Near surface, very common |
+| Iron | 70 | 90 | 5.0 | Shallow, common |
+| Gold | 230 | 80 | 3.0 | Mid-shallow, uncommon |
+| Mythril | 360 | 70 | 2.2 | Mid-depth, rare |
+| Platinum | 500 | 80 | 1.8 | Deep, very rare |
+| Diamond | 600 | 180 | 0.15 | Mid-deep, extremely rare |
+
+**Formula:** `weight = maxWeight × e^(-(depth - peakDepth)² / (2σ²))`
+
+**Design rationale:**
+- Tight sigma values (70-120) create distinct depth bands where specific ores dominate
+- Diamond's wider sigma (180) means it appears in a broader zone but remains extremely rare (0.15 weight)
+- Lower ore spawn rates (10% vs 15% previously) create more exploration challenge
+- All ores appear shallower overall, compressing progression into 800-tile world
 
 ---
 
@@ -1660,7 +1697,7 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 |----------|-------|-------|
 | Size | 64×64 pixels | Matches tile size |
 | Start Position | (640, 576) | Center X, just above ground |
-| Inventory Types | 7 ore types | Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond |
+| Inventory Types | 6 ore types | Copper, Iron, Gold, Mythril, Platinum, Diamond |
 | Initial Cargo Capacity | 10 ore | Upgradeable to 75 ore |
 | Initial Money | $1,000,000 | For development; earned by selling ores in game |
 | Initial Fuel | 10.0 liters | Full tank (upgradeable to 65L) |
@@ -1684,17 +1721,16 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 
 ### Ore Values
 
-| Ore | Value | Depth Preference |
-|-----|-------|------------------|
-| Copper | $10 | 50-100 tiles |
-| Iron | $25 | 100-150 tiles |
-| Silver | $75 | 150-250 tiles |
-| Gold | $250 | 250-350 tiles |
-| Mythril | $1000 | 350-450 tiles |
-| Platinum | $5000 | 450-550 tiles |
-| Diamond | $30000 | 550+ tiles |
+| Ore | Value | Peak Depth (tiles) | Availability |
+|-----|-------|------------------|--------------|
+| Copper | $25 | -1.2 (surface) | Very common |
+| Iron | $75 | 1.1 | Common |
+| Gold | $300 | 3.6 | Uncommon |
+| Mythril | $1500 | 5.6 | Rare |
+| Platinum | $10000 | 7.8 | Very rare |
+| Diamond | $30000 | 9.4 | Extremely rare |
 
-**Distribution:** Each ore type uses Gaussian distribution centered at depth preference. Rarer ores appear deeper and are worth more.
+**Distribution:** Each ore type uses Gaussian distribution with tight sigma values (70-180), creating distinct depth bands. Diamond is concentrated around tile 600px with MaxWeight 0.15, making it extremely rare even at peak depth.
 
 ### Fuel System (`internal/domain/systems/fuel.go`)
 

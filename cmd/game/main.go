@@ -17,7 +17,7 @@ const (
 
 	// Extended world dimensions (6× width, 1000 tiles deep)
 	worldWidth  = screenWidth * 6 // 7680 pixels
-	worldHeight = 64 * 1000       // 64000 pixels (1000 tiles × 64px)
+	worldHeight = 64 * 800        // 51200 pixels (800 tiles × 64px)
 	groundLevel = 640.0           // Aligned to tile boundary (10 * TileSize)
 
 	worldSeed = int64(42) // Seed for procedural world generation

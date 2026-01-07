@@ -65,7 +65,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **Ore Collection**: Ores are automatically collected into inventory when dug
   - Each tile dug = 1 ore collected (1:1 ratio)
   - Dirt tiles are destroyed but not collected
-  - Inventory displays counts for all 7 ore types in real-time
+  - Inventory displays counts for all 6 ore types in real-time
   - Collection respects cargo hold capacity (ore lost if cargo full)
 - **Cargo Management**: Cargo hold limits total ore you can carry per trip
   - Base capacity: 10 ore (upgradeable to 75)
@@ -99,7 +99,7 @@ Both vertical and horizontal digging feature a 1-second smooth animation where t
 
 ### Ore Inventory System
 - **Automatic Collection**: When any ore tile is dug, it's automatically added to the player's inventory
-- **Storage**: Inventory tracks count of each ore type (Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond)
+- **Storage**: Inventory tracks count of each ore type (Copper, Iron, Gold, Mythril, Platinum, Diamond)
 - **Display**: Current ore counts shown in debug overlay at top-left of screen
 - **Simple Economy**: 1 tile dug = 1 ore collected (no partial ores, no quantity variance)
 - **Dirt Ignored**: Only ore tiles contribute to inventory (dirt is destroyed but not collected)
@@ -111,12 +111,11 @@ Both vertical and horizontal digging feature a 1-second smooth animation where t
 - **Ore Values**:
   | Ore      | Value |
   |----------|-------|
-  | Copper   | $10   |
-  | Iron     | $25   |
-  | Silver   | $75   |
-  | Gold     | $250  |
-  | Mythril  | $1000 |
-  | Platinum | $5000 |
+  | Copper   | $25   |
+  | Iron     | $75   |
+  | Gold     | $300  |
+  | Mythril  | $1500 |
+  | Platinum | $10000|
   | Diamond  | $30000|
 - **Money Display**: Current balance shown in debug overlay
 - **Cargo Limit**: Carry capacity determined by cargo hold upgrades (base: 10 ore, max: 75 ore)
@@ -180,12 +179,12 @@ Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Takin
 
 ### Ore Types & Distribution
 
-Seven ore types are distributed using Gaussian curves, creating depth-based progression. Copper appears near the surface, while Diamond only exists at extreme depths. Each ore type has specific value and rarity.
+Six ore types are distributed using Gaussian curves, creating depth-based progression. Copper appears near the surface, while Diamond is found at mid-to-deep depths but remains extremely rare. Each ore type has specific value and rarity.
 
 **Game Design:**
-- Early game: Copper and Iron provide quick income and skill practice
-- Mid game: Silver and Gold increase risk/reward as you venture deeper
-- Late game: Mythril, Platinum, and Diamond are high-value targets for endgame progression
+- Early game: Copper and Iron provide quick income and skill practice (shallower, tighter distributions)
+- Mid game: Gold and Mythril increase risk/reward as you venture deeper
+- Late game: Platinum and Diamond are high-value targets requiring deeper exploration
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for ore types table, values, distribution parameters, and depth preferences.
 
@@ -357,23 +356,23 @@ Five separate upgrade shops are located on the surface (right of the ore shop), 
 
 ## Progression Curve
 
-### Early Game (0-500m)
+### Early Game (Surface to 5000px / ~78 tiles)
 - **Goal**: Learn mechanics, earn first upgrades
-- **Ores**: Iron, Copper, Silver
+- **Primary Ores**: Copper, Iron
 - **Focus**: Speed and drill power upgrades
-- **Challenge**: Learning to navigate, avoiding damage
+- **Challenge**: Learning to navigate, fuel management
 
-### Mid Game (500-2000m)
-- **Goal**: Optimize mining routes, build up funds
-- **Ores**: Gold, Platinum, Emerald
+### Mid Game (5000-20000px / 78-312 tiles)
+- **Goal**: Build up funds, explore efficiently
+- **Primary Ores**: Gold, Mythril
 - **Focus**: Heat resistance, cargo capacity
-- **Challenge**: Managing heat, deeper dives
+- **Challenge**: Deeper dives, temperature management
 
-### Late Game (2000m+)
-- **Goal**: Max out upgrades, find legendary ores
-- **Ores**: Ruby, Diamond, Unobtainium
-- **Focus**: Max-tier upgrades, efficiency
-- **Challenge**: Extreme heat, long journeys, risk management
+### Late Game (20000px+ / 312+ tiles)
+- **Goal**: Max out upgrades, hunt for rare ores
+- **Primary Ores**: Platinum, Diamond
+- **Focus**: Max-tier heat shield, fuel efficiency
+- **Challenge**: Extreme heat, finding rare Diamond deposits, long journeys
 
 ## UI/UX
 
