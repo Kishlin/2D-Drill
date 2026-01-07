@@ -28,17 +28,17 @@ type Player struct {
 }
 
 func NewPlayer(startX, startY float32) *Player {
-	engine := NewEngineBase()
-	hull := NewHullBase()
-	fuelTank := NewFuelTankBase()
-	cargoHold := NewCargoHoldBase()
-	heatShield := NewHeatShieldBase()
+	engine := NewEngineMk3()
+	hull := NewHullMk2()
+	fuelTank := NewFuelTankMk4()
+	cargoHold := NewCargoHoldMk2()
+	heatShield := NewHeatShieldMk1()
 
 	return &Player{
 		AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
 		Velocity:     types.Zero(),
 		OnGround:     false,
-		OreInventory: [6]int{},
+		OreInventory: [6]int{2, 5, 3, 0, 1, 0},
 		Fuel:         fuelTank.Capacity(),
 		HP:           hull.MaxHP(),
 		Engine:       engine,
@@ -46,7 +46,7 @@ func NewPlayer(startX, startY float32) *Player {
 		FuelTank:     fuelTank,
 		CargoHold:    cargoHold,
 		HeatShield:   heatShield,
-		Money:        1000000,
+		Money:        1854,
 	}
 }
 
