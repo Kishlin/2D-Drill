@@ -162,3 +162,42 @@ func (s *CargoHoldUpgradeShop) GetNextCargoHold(currentTier int) *CargoHoldCatal
 	}
 	return nil // Max level reached
 }
+
+// HeatShield Upgrade Shop
+
+type HeatShieldCatalogEntry struct {
+	Price      int
+	HeatShield HeatShield
+}
+
+type HeatShieldUpgradeShop struct {
+	AABB    types.AABB
+	Catalog []HeatShieldCatalogEntry
+}
+
+func NewHeatShieldUpgradeShop(x, y float32) *HeatShieldUpgradeShop {
+	return &HeatShieldUpgradeShop{
+		AABB: types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
+		Catalog: []HeatShieldCatalogEntry{
+			{Price: 200, HeatShield: NewHeatShieldMk1()},
+			{Price: 500, HeatShield: NewHeatShieldMk2()},
+			{Price: 1200, HeatShield: NewHeatShieldMk3()},
+			{Price: 3000, HeatShield: NewHeatShieldMk4()},
+			{Price: 7500, HeatShield: NewHeatShieldMk5()},
+		},
+	}
+}
+
+func (s *HeatShieldUpgradeShop) IsPlayerInRange(player *Player) bool {
+	return s.AABB.Intersects(player.AABB)
+}
+
+func (s *HeatShieldUpgradeShop) GetNextHeatShield(currentTier int) *HeatShieldCatalogEntry {
+	nextTier := currentTier + 1
+	for i := range s.Catalog {
+		if s.Catalog[i].HeatShield.Tier() == nextTier {
+			return &s.Catalog[i]
+		}
+	}
+	return nil // Max level reached
+}

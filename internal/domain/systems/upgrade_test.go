@@ -14,8 +14,9 @@ func createTestUpgradeSystem() (*systems.UpgradeSystem, *entities.Player) {
 	hullShop := entities.NewHullUpgradeShop(400, 0)
 	fuelTankShop := entities.NewFuelTankUpgradeShop(800, 0)
 	cargoHoldShop := entities.NewCargoHoldUpgradeShop(1200, 0)
+	heatShieldShop := entities.NewHeatShieldUpgradeShop(1600, 0)
 
-	system := systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop)
+	system := systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop, heatShieldShop)
 	player := entities.NewPlayer(0, 0)
 
 	return system, player

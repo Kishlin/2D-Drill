@@ -6,10 +6,11 @@ import (
 )
 
 type UpgradeSystem struct {
-	engineShop    *entities.EngineUpgradeShop
-	hullShop      *entities.HullUpgradeShop
-	fuelTankShop  *entities.FuelTankUpgradeShop
-	cargoHoldShop *entities.CargoHoldUpgradeShop
+	engineShop     *entities.EngineUpgradeShop
+	hullShop       *entities.HullUpgradeShop
+	fuelTankShop   *entities.FuelTankUpgradeShop
+	cargoHoldShop  *entities.CargoHoldUpgradeShop
+	heatShieldShop *entities.HeatShieldUpgradeShop
 }
 
 func NewUpgradeSystem(
@@ -17,12 +18,14 @@ func NewUpgradeSystem(
 	hullShop *entities.HullUpgradeShop,
 	fuelTankShop *entities.FuelTankUpgradeShop,
 	cargoHoldShop *entities.CargoHoldUpgradeShop,
+	heatShieldShop *entities.HeatShieldUpgradeShop,
 ) *UpgradeSystem {
 	return &UpgradeSystem{
-		engineShop:    engineShop,
-		hullShop:      hullShop,
-		fuelTankShop:  fuelTankShop,
-		cargoHoldShop: cargoHoldShop,
+		engineShop:     engineShop,
+		hullShop:       hullShop,
+		fuelTankShop:   fuelTankShop,
+		cargoHoldShop:  cargoHoldShop,
+		heatShieldShop: heatShieldShop,
 	}
 }
 
@@ -48,6 +51,10 @@ func (us *UpgradeSystem) ProcessUpgrade(
 	}
 	if us.cargoHoldShop.IsPlayerInRange(player) {
 		us.tryUpgradeCargoHold(player)
+		return
+	}
+	if us.heatShieldShop.IsPlayerInRange(player) {
+		us.tryUpgradeHeatShield(player)
 		return
 	}
 }
@@ -104,6 +111,19 @@ func (us *UpgradeSystem) tryUpgradeCargoHold(player *entities.Player) {
 	player.BuyCargoHold(entry.CargoHold, entry.Price)
 }
 
+func (us *UpgradeSystem) tryUpgradeHeatShield(player *entities.Player) {
+	entry := us.heatShieldShop.GetNextHeatShield(player.HeatShield.Tier())
+	if entry == nil {
+		return // Max level reached
+	}
+
+	if !player.CanAfford(entry.Price) {
+		return
+	}
+
+	player.BuyHeatShield(entry.HeatShield, entry.Price)
+}
+
 func (us *UpgradeSystem) GetEngineShop() *entities.EngineUpgradeShop {
 	return us.engineShop
 }
@@ -118,4 +138,8 @@ func (us *UpgradeSystem) GetFuelTankShop() *entities.FuelTankUpgradeShop {
 
 func (us *UpgradeSystem) GetCargoHoldShop() *entities.CargoHoldUpgradeShop {
 	return us.cargoHoldShop
+}
+
+func (us *UpgradeSystem) GetHeatShieldShop() *entities.HeatShieldUpgradeShop {
+	return us.heatShieldShop
 }

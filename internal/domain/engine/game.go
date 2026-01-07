@@ -53,6 +53,9 @@ func NewGame(w *world.World) *Game {
 	cargoHoldShopX := fuelTankShopX + 360.0
 	cargoHoldShop := entities.NewCargoHoldUpgradeShop(cargoHoldShopX, upgradeShopY)
 
+	heatShieldShopX := cargoHoldShopX + 360.0
+	heatShieldShop := entities.NewHeatShieldUpgradeShop(heatShieldShopX, upgradeShopY)
+
 	return &Game{
 		world:             w,
 		player:            entities.NewPlayer(spawnX, spawnY),
@@ -62,7 +65,7 @@ func NewGame(w *world.World) *Game {
 		fuelSystem:        systems.NewFuelSystem(),
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
 		hospitalSystem:    systems.NewHospitalSystem(hospital),
-		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop),
+		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop, heatShieldShop),
 	}
 }
 
@@ -90,7 +93,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 6. Handle upgrade purchases (before physics, so player position is stable)
 	g.upgradeSystem.ProcessUpgrade(g.player, inputState)
 
-	// 7. Update physics
+	// 7. Update physics (includes heat damage)
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
 	// 8. Consume fuel based on activity
@@ -133,4 +136,8 @@ func (g *Game) GetFuelTankShop() *entities.FuelTankUpgradeShop {
 
 func (g *Game) GetCargoHoldShop() *entities.CargoHoldUpgradeShop {
 	return g.upgradeSystem.GetCargoHoldShop()
+}
+
+func (g *Game) GetHeatShieldShop() *entities.HeatShieldUpgradeShop {
+	return g.upgradeSystem.GetHeatShieldShop()
 }

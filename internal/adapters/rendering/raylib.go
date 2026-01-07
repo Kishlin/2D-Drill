@@ -8,6 +8,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
+	"github.com/Kishlin/drill-game/internal/domain/physics"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
@@ -25,6 +26,7 @@ var (
 	HullShopColor      = rl.NewColor(105, 105, 105, 255) // Dim Gray
 	FuelTankShopColor  = rl.NewColor(255, 99, 71, 255)   // Tomato
 	CargoHoldShopColor = rl.NewColor(148, 0, 211, 255)   // Dark Violet
+	HeatShieldShopColor = rl.NewColor(255, 69, 0, 255)   // Orange Red
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -115,6 +117,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderUpgradeShop(game.GetHullShop().AABB, HullShopColor, rl.DarkGray)
 	r.renderUpgradeShop(game.GetFuelTankShop().AABB, FuelTankShopColor, rl.Maroon)
 	r.renderUpgradeShop(game.GetCargoHoldShop().AABB, CargoHoldShopColor, rl.NewColor(75, 0, 130, 255))
+	r.renderUpgradeShop(game.GetHeatShieldShop().AABB, HeatShieldShopColor, rl.Red)
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -329,7 +332,14 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	posY += lineHeight
 
 	// Draw upgrade levels
-	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d Cargo=%d",
-		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier(), player.CargoHold.Tier())
+	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d Cargo=%d Heat=%d",
+		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier(), player.CargoHold.Tier(), player.HeatShield.Tier())
 	rl.DrawText(upgradeText, posX, posY, fontSize, textColor)
+	posY += lineHeight
+
+	// Draw temperature
+	temperature := physics.CalculateTemperature(player.AABB.Y)
+	tempText := fmt.Sprintf("Temperature: %.1f°C (Resistance: %.1f°C)",
+		temperature, player.HeatShield.HeatResistance())
+	rl.DrawText(tempText, posX, posY, fontSize, textColor)
 }
