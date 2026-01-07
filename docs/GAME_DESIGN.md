@@ -257,11 +257,11 @@ Improves movement speed, acceleration, and flying capability.
 | Tier | Max Speed | Acceleration | Fly Accel | Max Upward | Cost |
 |------|-----------|--------------|-----------|------------|------|
 | Base | 450 px/s | 2500 px/s² | 2500 px/s² | 600 px/s | - |
-| Mk1 | 500 px/s | 2750 px/s² | 2750 px/s² | 650 px/s | $100 |
-| Mk2 | 550 px/s | 3000 px/s² | 3000 px/s² | 700 px/s | $300 |
-| Mk3 | 600 px/s | 3500 px/s² | 3500 px/s² | 775 px/s | $750 |
-| Mk4 | 675 px/s | 4000 px/s² | 4000 px/s² | 850 px/s | $1,500 |
-| Mk5 | 750 px/s | 5000 px/s² | 5000 px/s² | 1000 px/s | $5,000 |
+| Mk1 | 475 px/s | 2667 px/s² | 2667 px/s² | 635 px/s | $100 |
+| Mk2 | 500 px/s | 2833 px/s² | 2833 px/s² | 670 px/s | $300 |
+| Mk3 | 525 px/s | 3000 px/s² | 3000 px/s² | 705 px/s | $750 |
+| Mk4 | 562 px/s | 3250 px/s² | 3250 px/s² | 740 px/s | $1,500 |
+| Mk5 | 600 px/s | 3500 px/s² | 3500 px/s² | 775 px/s | $5,000 |
 
 ### Hull Upgrades
 
@@ -300,11 +300,11 @@ Increases ore cargo capacity (maximum amount of ore you can carry per trip).
 | Tier | Capacity | Cost |
 |------|----------|------|
 | Base | 10 ore | - |
-| Mk1 | 15 ore | $125 |
-| Mk2 | 22 ore | $350 |
-| Mk3 | 35 ore | $800 |
-| Mk4 | 50 ore | $2,000 |
-| Mk5 | 75 ore | $6,000 |
+| Mk1 | 14 ore | $125 |
+| Mk2 | 18 ore | $350 |
+| Mk3 | 24 ore | $800 |
+| Mk4 | 31 ore | $2,000 |
+| Mk5 | 40 ore | $6,000 |
 
 **Behavior:**
 - When cargo is full, newly dug ore is lost (no auto-drop mechanic)

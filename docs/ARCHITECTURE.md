@@ -829,8 +829,8 @@ type Engine struct {
     tier, name, maxSpeed, acceleration, flyAcceleration, maxUpwardSpeed
 }
 func NewEngineBase() Engine  // tier 0, 450 px/s max speed, etc.
-func NewEngineMk1() Engine   // tier 1, 500 px/s max speed, etc.
-// ... through NewEngineMk5()
+func NewEngineMk1() Engine   // tier 1, 475 px/s max speed, etc.
+// ... through NewEngineMk5() - tier 5, 600 px/s max speed, etc.
 
 // Stats accessed via components
 player.Engine.MaxSpeed()      // 450.0 for base engine
@@ -1664,10 +1664,10 @@ Movement stats are defined per engine upgrade tier via named constructors:
 
 | Stat | Base | Mk5 (Max) |
 |------|------|-----------|
-| MaxMoveSpeed | 450 px/s | 750 px/s |
-| MoveAcceleration | 2500 px/s² | 5000 px/s² |
-| FlyAcceleration | 2500 px/s² | 5000 px/s² |
-| MaxUpwardVelocity | -600 px/s | -1000 px/s |
+| MaxMoveSpeed | 450 px/s | 600 px/s |
+| MoveAcceleration | 2500 px/s² | 3500 px/s² |
+| FlyAcceleration | 2500 px/s² | 3500 px/s² |
+| MaxUpwardVelocity | -600 px/s | -775 px/s |
 
 **How these affect gameplay:**
 - **Gravity=800**: Heavy downward pull (1.25× Earth gravity) makes falling quick
@@ -1707,8 +1707,8 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 **Movement stats** (upgradeable via Engine):
 | Stat | Base | Max (Mk5) |
 |------|------|-----------|
-| Max Move Speed | 450 px/sec | 750 px/sec |
-| Fly Speed | 600 px/sec | 1000 px/sec |
+| Max Move Speed | 450 px/sec | 600 px/sec |
+| Fly Speed | 600 px/sec | 775 px/sec |
 
 ### Market Configuration (`internal/domain/entities/market.go`)
 
