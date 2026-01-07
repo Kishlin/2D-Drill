@@ -55,18 +55,18 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingUp(t *testing.T) {
 	}
 }
 
-func TestFuelSystem_ConsumesMovingRateWhenDigging(t *testing.T) {
+func TestFuelSystem_ConsumesMovingRateWhenDrilling(t *testing.T) {
 	fs := NewFuelSystem()
 	player := entities.NewPlayer(0, 0)
 	fuelCapacity := player.FuelTank.Capacity()
 
-	// Digging should use movement rate (active work)
-	inputState := input.InputState{Dig: true}
+	// Drilling should use movement rate (active work)
+	inputState := input.InputState{Drill: true}
 	fs.ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionMoving
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
-		t.Errorf("expected %.4f fuel after 1s digging, got %.4f", expectedFuel, player.Fuel)
+		t.Errorf("expected %.4f fuel after 1s drilling, got %.4f", expectedFuel, player.Fuel)
 	}
 }
 

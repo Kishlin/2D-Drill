@@ -15,7 +15,7 @@ type Player struct {
 	AABB         types.AABB // Position and dimensions
 	Velocity     types.Vec2 // Pixels per second
 	OnGround     bool       // Collision state
-	IsDigging    bool       // Dig animation state
+	IsDrilling   bool       // Drilling animation state
 	OreInventory [6]int     // Ore counts indexed by OreType
 	Money        int        // Player's currency from selling ores
 	Fuel         float32    // Current fuel in liters

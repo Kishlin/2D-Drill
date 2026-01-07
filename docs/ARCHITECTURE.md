@@ -165,7 +165,7 @@ main.go Loop:
 │    • Animate player over 1 second       │
 │    • Remove tile on animation complete  │
 │    • Collect ore if available           │
-│    • (Block other inputs during dig)    │
+│    • (Block other inputs during drill)   │
 │    • Market selling (E key + overlap)   │
 │    • Fuel station refueling (E key)     │
 │    • Hospital healing (E key)           │
@@ -236,18 +236,18 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     playerY := g.player.AABB.Y + g.player.AABB.Height/2
     g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-    // 1. Physics FIRST - handles landing/fall damage before dig can start
-    //    Also applies heat damage and skips movement during dig animation
+    // 1. Physics FIRST - handles landing/fall damage before drilling can start
+    //    Also applies heat damage and skips movement during drilling animation
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-    // 2. Always: fuel consumption (runs even during dig animation)
+    // 2. Always: fuel consumption (runs even during drilling animation)
     g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
     // 3. Handle drilling (vertical + horizontal, with variable animation based on depth/ore)
-    g.drillingSystem.ProcessDigging(g.player, inputState, dt)
+    g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
 
-    // Skip interactions during dig animation
-    if g.player.IsDigging {
+    // Skip interactions during drilling animation
+    if g.player.IsDrilling {
         return nil
     }
 
@@ -325,8 +325,8 @@ The drilling system receives input AFTER physics (which handles landing), ensuri
 // Game loop order (internal/domain/engine/game.go)
 g.physicsSystem.UpdatePhysics(g.player, inputState, dt)      // Physics FIRST
 g.fuelSystem.ConsumeFuel(g.player, inputState, dt)           // Fuel runs always
-g.drillingSystem.ProcessDigging(g.player, inputState, dt)    // Then drilling
-if g.player.IsDigging { return }                             // Block interactions during drill
+g.drillingSystem.ProcessDrilling(g.player, inputState, dt)    // Then drilling
+if g.player.IsDrilling { return }                             // Block interactions during drill
 // ... interaction systems (market, upgrade, etc.)
 ```
 
@@ -357,7 +357,7 @@ playerCenterY := player.AABB.Y + player.AABB.Height/2
 
 if inputState.Left {
     tile := ds.world.GetTileAt(player.AABB.X - 1, playerCenterY)
-    if tile != nil && tile.IsDiggable() {
+    if tile != nil && tile.IsDrillable() {
         // Move to tile center (X) but keep current Y
         tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
         targetX := tileCenterX - player.AABB.Width/2
@@ -381,7 +381,7 @@ player.AABB.X = ds.animation.StartX + (ds.animation.TargetX - ds.animation.Start
 player.AABB.Y = ds.animation.StartY + (ds.animation.TargetY - ds.animation.StartY) * progress
 
 // On completion (progress >= 1.0)
-if dugTile, success := ds.world.DigTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
+if dugTile, success := ds.world.DrillTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
     ds.collectOreIfPresent(player, dugTile)
 }
 ```
@@ -390,18 +390,18 @@ if dugTile, success := ds.world.DigTileAtGrid(ds.animation.TargetGridX, ds.anima
 
 The player has two state flags set by systems:
 - `player.OnGround` — Set by physics system on ground contact
-- `player.IsDigging` — Set by drilling system during animation
+- `player.IsDrilling` — Set by drilling system during animation
 
 This allows both physics and rendering to query state directly:
 
 ```go
 // Physics checks drilling state to skip movement
-if player.IsDigging {
+if player.IsDrilling {
     return  // Skip velocity/collision, but heat damage still applies
 }
 
 // Rendering displays state
-fmt.Sprintf("IsDigging: %v", player.IsDigging)
+fmt.Sprintf("IsDrilling: %v", player.IsDrilling)
 ```
 
 **Why This Design:**
@@ -595,8 +595,8 @@ func (fs *FuelSystem) ConsumeFuel(
 ```
 
 **Consumption Rates:**
-- **Active Input** (Left, Right, Up, Dig): 10L in 30 seconds = 0.333 L/s
-- **Idle** (no movement/digging): 10L in 120 seconds = 0.0833 L/s
+- **Active Input** (Left, Right, Up, Drill): 10L in 30 seconds = 0.333 L/s
+- **Idle** (no movement/drilling): 10L in 120 seconds = 0.0833 L/s
 - **Sell Input** (E key): Uses idle rate (not active activity)
 
 **Why this design:**
@@ -936,13 +936,13 @@ type InputState struct {
     Left  bool  // A or Arrow Left - move left
     Right bool  // D or Arrow Right - move right
     Up    bool  // W or Arrow Up - jump/fly
-    Dig   bool  // S or Arrow Down - dig downward
+    Drill bool  // S or Arrow Down - drill downward
     Sell  bool  // E - sell inventory at market
 }
 
-// HasMovementInput returns true if player is actively moving or digging
+// HasMovementInput returns true if player is actively moving or drilling
 func (is InputState) HasMovementInput() bool {
-    return is.Left || is.Right || is.Up || is.Dig
+    return is.Left || is.Right || is.Up || is.Drill
 }
 
 // HasHorizontalInput returns true if player is moving left or right
@@ -1430,7 +1430,7 @@ func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
         player.AABB.Y = minY
         player.Velocity.Y = 0
     }
-    // No maximum Y - player can dig infinitely deep
+    // No maximum Y - player can drill infinitely deep
 }
 ```
 
@@ -1739,10 +1739,10 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 | Base Tank Capacity | 10.0 liters | Upgradeable to 65L via FuelTank |
 | Active Consumption | 0.33333 L/s | Base tank depletes in 30s with active input |
 | Idle Consumption | 0.08333 L/s | Base tank depletes in 120s with no input |
-| Active Input Triggers | Left, Right, Up, Dig | Movement/digging inputs only |
+| Active Input Triggers | Left, Right, Up, Drill | Movement/drilling inputs only |
 
 **Consumption Behavior:**
-- Holding movement keys (Left/Right/Up) or digging (Down/S) = active mode
+- Holding movement keys (Left/Right/Up) or drilling (Down/S) = active mode
 - Pressing Sell (E) does NOT trigger active consumption
 - No movement for 1+ frame = idle consumption applies
 
@@ -1750,15 +1750,15 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 
 | Input | Action | Notes |
 |-------|--------|-------|
-| **Left** (A or ←) | Move left / Dig left | Dig only when grounded against wall |
-| **Right** (D or →) | Move right / Dig right | Dig only when grounded against wall |
+| **Left** (A or ←) | Move left / Drill left | Drill only when grounded against wall |
+| **Right** (D or →) | Move right / Drill right | Drill only when grounded against wall |
 | **Up** (W or ↑) | Jump/Fly | Hold to fly continuously |
-| **Dig** (S or ↓) | Dig downward | Always available, snaps to grid |
+| **Drill** (S or ↓) | Drill downward | Always available, snaps to grid |
 | **Interact** (E) | Sell / Refuel | Sell at market, refuel at station (AABB overlap) |
 
-**Digging Behavior:**
+**Drilling Behavior:**
 - **Downward (S/Down)**: Always available, auto-aligns player to tile grid
-- **Horizontal (A/D or Left/Right)**: Only when grounded, auto-digs blocking tiles
+- **Horizontal (A/D or Left/Right)**: Only when grounded, auto-drills blocking tiles
 
 ---
 

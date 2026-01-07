@@ -35,7 +35,7 @@ go test ./...                # Run all tests
 - `internal/domain/entities/player.go` — Player aggregate root
 - `internal/domain/entities/engine.go`, `hull.go`, `fuel_tank.go`, `cargo_hold.go`, `heat_shield.go` — Component value objects
 - `internal/domain/entities/upgrade_shop.go` — Five shop types with catalogs (Engine, Hull, FuelTank, CargoHold, HeatShield)
-- `internal/domain/systems/` — Physics, digging, fuel, upgrades
+- `internal/domain/systems/` — Physics, drilling, fuel, upgrades
 - `internal/domain/world/` — Chunk-based procedural world
 
 ## Documentation

@@ -125,7 +125,7 @@ func TestIntegration_EmptyTileCollision(t *testing.T) {
 	}
 }
 
-func TestIntegration_DiggingOre(t *testing.T) {
+func TestIntegration_DrillingOre(t *testing.T) {
 	world := NewWorld(7680, 64000, 640, 42)
 
 	// Find an ore tile by scanning underground
@@ -143,21 +143,21 @@ func TestIntegration_DiggingOre(t *testing.T) {
 					t.Error("Ore tile should be solid")
 				}
 
-				// Verify it's diggable
-				if !tile.IsDiggable() {
-					t.Error("Ore tile should be diggable")
+				// Verify it's drillable
+				if !tile.IsDrillable() {
+					t.Error("Ore tile should be drillable")
 				}
 
-				// Dig the tile
-				_, success := world.DigTile(pixelX, pixelY)
+				// Drill the tile
+				_, success := world.DrillTile(pixelX, pixelY)
 				if !success {
-					t.Error("Should successfully dig ore tile")
+					t.Error("Should successfully drill ore tile")
 				}
 
 				// Tile should now be nil (removed from sparse map)
 				tileAfter := world.GetTileAtGrid(x, y)
 				if tileAfter != nil {
-					t.Error("Dug ore tile should be nil (removed from sparse map)")
+					t.Error("Drilled ore tile should be nil (removed from sparse map)")
 				}
 
 				foundOre = true

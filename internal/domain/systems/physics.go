@@ -23,7 +23,7 @@ func (ps *PhysicsSystem) UpdatePhysics(
 ) {
 	physics.ApplyHeatDamage(player, dt)
 
-	if player.IsDigging {
+	if player.IsDrilling {
 		return
 	}
 
@@ -86,5 +86,5 @@ func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
 		player.Velocity.Y = 0 // Stop vertical velocity at top boundary
 	}
 
-	// No maximum Y - player can dig infinitely deep
+	// No maximum Y - player can drill infinitely deep
 }

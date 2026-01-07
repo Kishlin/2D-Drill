@@ -10,7 +10,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 
 ```
 ┌─────────────┐
-│   Descend   │ ──> Dig deeper into the planet
+│   Descend   │ ──> Drill deeper into the planet
 └──────┬──────┘
        │
        v
@@ -47,9 +47,9 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 
 ### Controls
 - **Arrow Keys / WASD**: Move vehicle
-  - **Left (A) / Right (D)**: When grounded against a wall, automatically dig through the blocking tile
+  - **Left (A) / Right (D)**: When grounded against a wall, automatically drill through the blocking tile
   - **Up (W)**: Fly/jump upward
-- **Down (S) / Down Arrow**: Dig downward (with player grid alignment)
+- **Down (S) / Down Arrow**: Drill downward (with player grid alignment)
 - **E**: Interact
   - At market: Sell entire inventory
   - At fuel station: Refuel tank (if affordable)
@@ -60,8 +60,8 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - Gravity pulls vehicle downward
 - Can move left/right freely
 - **Directional Drilling**:
-  - Dig **downward** with explicit S/Down key press (snaps player to grid)
-  - Dig **left/right** by moving into a wall while grounded (automatic, no grid snap)
+  - Drill **downward** with explicit S/Down key press (snaps player to grid)
+  - Drill **left/right** by moving into a wall while grounded (automatic, no grid snap)
 - **Ore Collection**: Ores are automatically collected into inventory when dug
   - Each tile dug = 1 ore collected (1:1 ratio)
   - Dirt tiles are destroyed but not collected
@@ -130,7 +130,7 @@ The player moves toward the tile's center during the animation. The tile is only
 Fuel is a limited resource that creates time pressure for each expedition. Base tank capacity is 10 liters (upgradeable to 65L via Fuel Tank upgrades) with consumption rates that vary based on activity level.
 
 **Consumption Rates:**
-- Active movement (moving/digging): 0.333 L/sec
+- Active movement (moving/drilling): 0.333 L/sec
 - Idle (standing still): 0.0833 L/sec
 
 **Future Mechanics** (not yet implemented):
@@ -179,8 +179,8 @@ Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Takin
 
 ### Tile Types
 - **Empty**: No collision, can move through (air pockets, caves)
-- **Dirt**: Solid, diggable, no value (filler)
-- **Ore**: Solid, diggable, contains valuable resources
+- **Dirt**: Solid, drillable, no value (filler)
+- **Ore**: Solid, drillable, contains valuable resources
 
 ### Ore Types & Distribution
 
@@ -434,7 +434,7 @@ Five separate upgrade shops are located on the surface (right of the ore market)
 ## Inspirations
 
 - **Motherload** (Flash): Core loop, depth-based progression
-- **Steamworld Dig**: Polish, upgrade satisfaction
+- **Steamworld Dig Series**: Polish, upgrade satisfaction
 - **Terraria**: Mining feel, ore variety
 - **Cookie Clicker**: Exponential progression, "one more run" appeal
 

@@ -8,8 +8,8 @@ type TileType int
 
 const (
 	TileTypeEmpty TileType = iota // Air/empty space
-	TileTypeDirt                   // Solid dirt (diggable)
-	TileTypeOre                    // Solid ore (diggable, contains ore)
+	TileTypeDirt                   // Solid dirt (drillable)
+	TileTypeOre                    // Solid ore (drillable, contains ore)
 )
 
 type Tile struct {
@@ -29,7 +29,7 @@ func (t *Tile) IsSolid() bool {
 	return t.Type != TileTypeEmpty
 }
 
-func (t *Tile) IsDiggable() bool {
+func (t *Tile) IsDrillable() bool {
 	return t.Type == TileTypeDirt || t.Type == TileTypeOre
 }
 

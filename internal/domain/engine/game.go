@@ -75,18 +75,18 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	playerY := g.player.AABB.Y + g.player.AABB.Height/2
 	g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-	// 1. Physics FIRST - handles landing/fall damage before dig can start
-	//    Also applies heat damage and skips movement during dig animation
+	// 1. Physics FIRST - handles landing/fall damage before drilling can start
+	//    Also applies heat damage and skips movement during drilling animation
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-	// 2. Always: fuel consumption (runs even during dig animation)
+	// 2. Always: fuel consumption (runs even during drilling animation)
 	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
 	// 3. Handle drilling (vertical + horizontal, with animation)
-	g.drillingSystem.ProcessDigging(g.player, inputState, dt)
+	g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
 
-	// Skip interactions during dig animation
-	if g.player.IsDigging {
+	// Skip interactions during drilling animation
+	if g.player.IsDrilling {
 		return nil
 	}
 

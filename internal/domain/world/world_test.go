@@ -139,7 +139,7 @@ func TestGetTileAt_PixelToGrid(t *testing.T) {
 	_ = tile
 }
 
-func TestDigTile_RemovesFromSparseMap(t *testing.T) {
+func TestDrillTile_RemovesFromSparseMap(t *testing.T) {
 	world := NewWorld(7680, 64000, 640, 42)
 
 	// Ensure ground level chunk is loaded
@@ -150,19 +150,19 @@ func TestDigTile_RemovesFromSparseMap(t *testing.T) {
 	pixelY := float32(640) // Ground level
 
 	tileBefore := world.GetTileAt(pixelX, pixelY)
-	if tileBefore == nil || !tileBefore.IsDiggable() {
-		t.Skip("Ground tile not diggable, skipping test")
+	if tileBefore == nil || !tileBefore.IsDrillable() {
+		t.Skip("Ground tile not drillable, skipping test")
 	}
 
-	// Dig the tile
-	_, success := world.DigTile(pixelX, pixelY)
+	// Drill the tile
+	_, success := world.DrillTile(pixelX, pixelY)
 	if !success {
-		t.Error("Should successfully dig diggable tile")
+		t.Error("Should successfully drill drillable tile")
 	}
 
 	// Tile should now be nil (empty)
 	tileAfter := world.GetTileAt(pixelX, pixelY)
 	if tileAfter != nil {
-		t.Error("Dug tile should be nil (removed from sparse map)")
+		t.Error("Drilled tile should be nil (removed from sparse map)")
 	}
 }

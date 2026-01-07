@@ -109,7 +109,7 @@ go tool cover -html=coverage.out
 - `integration_test.go` — End-to-end generation and validation
 
 **Systems** (`internal/domain/systems/`):
-- `digging_test.go` — Digging mechanics and ore collection
+- `drilling_test.go` — Drilling mechanics and ore collection
 - `fuel_test.go` — Fuel consumption (active vs idle rates)
 - `fuel_station_test.go` — Refueling transactions, cost calculation, edge cases
 
@@ -174,34 +174,34 @@ To manually test the fall damage system:
 To manually test the drilling animation system:
 
 1. **Run the game**: `go run cmd/game/main.go`
-2. **Vertical Digging** (S/Down key):
+2. **Vertical Drilling** (S/Down key):
    - Stand above a dirt or ore tile
    - Press S/Down key
    - Observe player animate smoothly to tile center over ~1 second
    - Tile disappears when animation completes
    - Ore collected if it was an ore tile
-3. **Horizontal Digging** (A/D when grounded against wall):
-   - Stand on ground next to a diggable wall
+3. **Horizontal Drilling** (A/D when grounded against wall):
+   - Stand on ground next to a drillable wall
    - Press A/D to move into the wall
    - Animation starts: player moves to tile center while staying grounded
    - After ~1 second: wall breaks, player moves into space
-   - Continue left/right to dig through walls
+   - Continue left/right to drill through walls
 4. **Mid-Air Behavior**:
    - Jump up and press A/D
-   - Player should NOT dig mid-air
+   - Player should NOT drill mid-air
    - Player bounces off solid tiles instead
 5. **Animation Interruption**:
-   - Start digging (animation begins)
+   - Start drilling (animation begins)
    - Try pressing other keys (E, I, etc.)
    - Inputs should be ignored until animation completes
    - Fuel should still consume during animation
 6. **Animation Duration**:
-   - Dig a tile and time it
+   - Drill a tile and time it
    - Should take approximately 1.0 second from start to completion
 
 **Debug Display:**
-- Top-left corner shows: `IsDigging: true/false`
-- Verify IsDigging is true during animation, false otherwise
+- Top-left corner shows: `IsDrilling: true/false`
+- Verify IsDrilling is true during animation, false otherwise
 
 **Formula (1-second animation):**
 ```
@@ -219,11 +219,11 @@ To manually test the heat system:
 
 1. **Run the game**: `go run cmd/game/main.go`
 2. **Surface (safe)**: Start at ground level - no heat damage (15°C)
-3. **Shallow depth**: Dig down 1-2 screens - temperature rises but below 50°C resistance, no damage
-4. **Medium depth**: Dig down 10+ screens - temperature exceeds base resistance (50°C), take gradual damage
+3. **Shallow depth**: Drill down 1-2 screens - temperature rises but below 50°C resistance, no damage
+4. **Medium depth**: Drill down 10+ screens - temperature exceeds base resistance (50°C), take gradual damage
 5. **Deep dive** (before upgrades): Attempt to go very deep without heat upgrades - will take increasing exponential damage
 6. **Buy Heat Shield Mk1**: Return to surface, get $200+, purchase heat shield upgrade (orange-red shop)
-7. **Descend further**: With Mk1 (90°C resistance), can dig deeper before heat kills you
+7. **Descend further**: With Mk1 (90°C resistance), can drill deeper before heat kills you
 8. **Repeat progression**: Each upgrade unlocks approximately 8,000px more safe depth
 
 **Debug Display:**

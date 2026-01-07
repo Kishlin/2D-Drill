@@ -44,8 +44,8 @@ func NewDrillingSystem(w *world.World) *DrillingSystem {
 	return &DrillingSystem{world: w}
 }
 
-// ProcessDigging handles vertical and horizontal drilling with animation
-func (ds *DrillingSystem) ProcessDigging(
+// ProcessDrilling handles vertical and horizontal drilling with animation
+func (ds *DrillingSystem) ProcessDrilling(
 	player *entities.Player,
 	inputState input.InputState,
 	dt float32,
@@ -57,7 +57,7 @@ func (ds *DrillingSystem) ProcessDigging(
 	}
 
 	// Handle vertical drilling (S/Down key)
-	if inputState.Dig && player.OnGround {
+	if inputState.Drill && player.OnGround {
 		ds.processVerticalDrilling(player)
 		return
 	}
@@ -76,7 +76,7 @@ func (ds *DrillingSystem) processVerticalDrilling(player *entities.Player) {
 
 	// Check tile directly below player
 	tile := ds.world.GetTileAt(playerCenterX, playerBottomY)
-	if tile == nil || !tile.IsDiggable() {
+	if tile == nil || !tile.IsDrillable() {
 		return
 	}
 
@@ -107,7 +107,7 @@ func (ds *DrillingSystem) processHorizontalDrilling(
 		// Check tile just left of player's left edge
 		tileX := player.AABB.X - 1
 		tile := ds.world.GetTileAt(tileX, playerCenterY)
-		if tile != nil && tile.IsDiggable() {
+		if tile != nil && tile.IsDrillable() {
 			tileGridX := int(tileX / world.TileSize)
 			tileGridY := int(playerCenterY / world.TileSize)
 
@@ -127,7 +127,7 @@ func (ds *DrillingSystem) processHorizontalDrilling(
 		// Check tile just right of player's right edge
 		tileX := player.AABB.X + player.AABB.Width + 1
 		tile := ds.world.GetTileAt(tileX, playerCenterY)
-		if tile != nil && tile.IsDiggable() {
+		if tile != nil && tile.IsDrillable() {
 			tileGridX := int(tileX / world.TileSize)
 			tileGridY := int(playerCenterY / world.TileSize)
 
@@ -169,7 +169,7 @@ func (ds *DrillingSystem) startDrillAnimation(
 		Tile:        tile,
 	}
 
-	player.IsDigging = true
+	player.IsDrilling = true
 
 	// Zero player velocity to prevent physics interference
 	player.Velocity = types.Vec2{}
@@ -196,14 +196,14 @@ func (ds *DrillingSystem) updateDrillAnimation(player *entities.Player, dt float
 
 func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) {
 	// Remove tile via grid coordinates
-	if dugTile, success := ds.world.DigTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
+	if dugTile, success := ds.world.DrillTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
 		ds.collectOreIfPresent(player, dugTile)
 	}
 
 	// Reset animation state
 	ds.animation = DrillingAnimation{}
 
-	player.IsDigging = false
+	player.IsDrilling = false
 
 	// Zero player velocity to prevent physics residue
 	player.Velocity = types.Vec2{}

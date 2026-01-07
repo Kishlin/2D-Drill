@@ -1,10 +1,10 @@
 # Drill Game 🚜⛏️
 
-A 2D mining progression game built with Go and Raylib. Dig deep, mine ores, upgrade your vehicle, and venture even deeper!
+A 2D mining progression game built with Go and Raylib. Drill deep, mine ores, upgrade your vehicle, and venture even deeper!
 
 ## Overview
 
-Control a small drilling vehicle on a planet rich with valuable ores. The deeper you dig, the rarer the treasures - but also the more dangerous the environment. Mine, sell, upgrade, and repeat in this addictive progression loop inspired by classics like Motherload.
+Control a small drilling vehicle on a planet rich with valuable ores. The deeper you drill, the rarer the treasures - but also the more dangerous the environment. Mine, sell, upgrade, and repeat in this addictive progression loop inspired by classics like Motherload.
 
 **Current Status**: 🚧 Early Development
 
@@ -13,7 +13,7 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 ### Implemented ✅
 - ⛏️ **Procedurally Generated Worlds** — Seeded chunk-based generation for infinite depth
 - 💎 **7 Ore Types** — Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond with Gaussian depth distribution
-- 🎮 **Smooth Gameplay** — 60 FPS movement, physics, directional digging with AABB collision
+- 🎮 **Smooth Gameplay** — 60 FPS movement, physics, directional drilling with AABB collision
 - 🗺️ **Chunk Loading** — Lazy 16×16 chunks around player
 - 📦 **Ore Inventory & Market System** — Automatic collection, sell for currency
 - ⛽ **Fuel System** — Limited tank with activity-based consumption
@@ -66,7 +66,7 @@ drill-game/
 │   ├── domain/                  # Pure business logic
 │   │   ├── engine/              # Game loop orchestration
 │   │   ├── entities/            # Game objects (player, tiles, ores)
-│   │   ├── systems/             # Game systems (physics, digging, fuel)
+│   │   ├── systems/             # Game systems (physics, drilling, fuel)
 │   │   ├── world/               # Procedural generation, chunk loading
 │   │   └── physics/             # Physics functions, collision
 │   └── adapters/                # Framework integration (Raylib only)
@@ -93,9 +93,9 @@ Start here based on what you need:
 - [x] Procedurally generated worlds with seeded RNG
 - [x] 7 ore types with Gaussian depth distribution
 - [x] Tile-based collision (AABB) and axis-separated resolution
-- [x] Directional digging system (downward with grid alignment, left/right while grounded)
+- [x] Directional drilling system (downward with grid alignment, left/right while grounded)
 - [x] Chunk loading (16×16 chunks, 3×3 proactive grid)
-- [x] Ore inventory system (automatic collection on digging)
+- [x] Ore inventory system (automatic collection on drilling)
 - [x] 38 unit tests + 10 integration tests
 - [x] Deterministic world generation
 
@@ -138,9 +138,9 @@ TBD (will be decided before public release)
 ## Credits
 
 - **Developer**: [Your Name]
-- **Inspired by**: Motherload (XGen Studios), Steamworld Dig, Terraria
+- **Inspired by**: Motherload (XGen Studios), Steamworld Dig Series, Terraria
 - **Built with**: [Raylib](https://www.raylib.com/) and [Go](https://go.dev/)
 
 ---
 
-*Dig deep, upgrade hard, repeat! 🚀*
+*Drill deep, upgrade hard, repeat! 🚀*

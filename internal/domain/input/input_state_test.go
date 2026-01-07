@@ -25,10 +25,10 @@ func TestInputState_HasMovementInput_UpInput(t *testing.T) {
 	}
 }
 
-func TestInputState_HasMovementInput_DigInput(t *testing.T) {
-	inputState := InputState{Dig: true}
+func TestInputState_HasMovementInput_DrillInput(t *testing.T) {
+	inputState := InputState{Drill: true}
 	if !inputState.HasMovementInput() {
-		t.Error("expected HasMovementInput() to return true for Dig input")
+		t.Error("expected HasMovementInput() to return true for Drill input")
 	}
 }
 
@@ -65,7 +65,7 @@ func TestInputState_HasMovementInput_AllInputs(t *testing.T) {
 		Left:  true,
 		Right: true,
 		Up:    true,
-		Dig:   true,
+		Drill: true,
 		Sell:  true,
 	}
 	if !inputState.HasMovementInput() {
@@ -73,10 +73,10 @@ func TestInputState_HasMovementInput_AllInputs(t *testing.T) {
 	}
 }
 
-func TestInputState_HasMovementInput_DigWithSell(t *testing.T) {
-	inputState := InputState{Dig: true, Sell: true}
+func TestInputState_HasMovementInput_DrillWithSell(t *testing.T) {
+	inputState := InputState{Drill: true, Sell: true}
 	if !inputState.HasMovementInput() {
-		t.Error("expected HasMovementInput() to return true for Dig + Sell")
+		t.Error("expected HasMovementInput() to return true for Drill + Sell")
 	}
 }
 
@@ -101,12 +101,12 @@ func TestInputState_HasMovementInput_LeftOnly(t *testing.T) {
 	}
 }
 
-func TestInputState_HasMovementInput_DigAndLeftButNoOthers(t *testing.T) {
-	inputState := InputState{Dig: true, Left: true}
+func TestInputState_HasMovementInput_DrillAndLeftButNoOthers(t *testing.T) {
+	inputState := InputState{Drill: true, Left: true}
 	expected := true
 	actual := inputState.HasMovementInput()
 
 	if actual != expected {
-		t.Errorf("Dig + Left: expected HasMovementInput()=%v, got %v", expected, actual)
+		t.Errorf("Drill + Left: expected HasMovementInput()=%v, got %v", expected, actual)
 	}
 }

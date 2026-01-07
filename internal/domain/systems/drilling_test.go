@@ -22,12 +22,12 @@ func TestVerticalDrilling_StartsAnimation(t *testing.T) {
 	w.SetTile(tileX, tileY, entities.NewTile(entities.TileTypeDirt))
 
 	// Start drilling
-	inputState := input.InputState{Dig: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
 	// Animation should be active
-	if !player.IsDigging {
-		t.Error("Drilling animation should be active after ProcessDigging")
+	if !player.IsDrilling {
+		t.Error("Drilling animation should be active after ProcessDrilling")
 	}
 	if !drillingSystem.animation.Active {
 		t.Error("Internal animation state should be active")
@@ -50,8 +50,8 @@ func TestVerticalDrilling_DirtDuration(t *testing.T) {
 	tileY := int(playerBottomY / world.TileSize)
 	w.SetTile(tileX, tileY, entities.NewTile(entities.TileTypeDirt))
 
-	inputState := input.InputState{Dig: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
 	// Dirt at ground level should take 0.8 seconds
 	if drillingSystem.animation.Duration != 0.8 {
@@ -85,8 +85,8 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 		tileY := int(playerBottomY / world.TileSize)
 		w2.SetTile(tileX, tileY, entities.NewOreTile(test.oreType))
 
-		inputState := input.InputState{Dig: true}
-		ds.ProcessDigging(player2, inputState, 0.01)
+		inputState := input.InputState{Drill: true}
+		ds.ProcessDrilling(player2, inputState, 0.01)
 
 		// Use tolerance-based comparison for floats
 		const tolerance = 0.001
@@ -137,9 +137,9 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 
 	// Drill left (start animation)
 	inputState := input.InputState{Left: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	if !player.IsDigging {
+	if !player.IsDrilling {
 		t.Error("Drilling animation should be active")
 	}
 
@@ -150,7 +150,7 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 
 	// Complete animation
 	dt := drillingSystem.animation.Duration + 0.01
-	drillingSystem.ProcessDigging(player, inputState, dt)
+	drillingSystem.ProcessDrilling(player, inputState, dt)
 
 	// Should collect diamond
 	if player.OreInventory[entities.OreDiamond] != 1 {
@@ -158,12 +158,12 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 	}
 
 	// Animation should be complete
-	if player.IsDigging {
-		t.Error("IsDigging should be false after animation completes")
+	if player.IsDrilling {
+		t.Error("IsDrilling should be false after animation completes")
 	}
 }
 
-func TestDrilling_DoesNotStartOnNonDiggableTile(t *testing.T) {
+func TestDrilling_DoesNotStartOnNonDrillableTile(t *testing.T) {
 	w := world.NewWorld(7680, 64000, 640, 42)
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
@@ -172,11 +172,11 @@ func TestDrilling_DoesNotStartOnNonDiggableTile(t *testing.T) {
 	// Place empty tile below player (no tile at all)
 	// This should prevent drilling from starting
 
-	inputState := input.InputState{Dig: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	if player.IsDigging {
-		t.Error("Drilling should not start on empty/non-diggable tile")
+	if player.IsDrilling {
+		t.Error("Drilling should not start on empty/non-drillable tile")
 	}
 }
 
@@ -196,16 +196,16 @@ func TestDrilling_AnimationProgress(t *testing.T) {
 
 	// Start drilling right
 	inputState := input.InputState{Right: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	if !player.IsDigging {
+	if !player.IsDrilling {
 		t.Error("Drilling animation should be active")
 	}
 
 	duration := drillingSystem.animation.Duration
 
 	// Advance animation halfway
-	drillingSystem.ProcessDigging(player, inputState, duration/2)
+	drillingSystem.ProcessDrilling(player, inputState, duration/2)
 
 	// Player should have moved toward target
 	if player.AABB.X <= startX {
@@ -214,10 +214,10 @@ func TestDrilling_AnimationProgress(t *testing.T) {
 
 	// Complete the animation
 	remainingTime := duration/2 + 0.01
-	drillingSystem.ProcessDigging(player, inputState, remainingTime)
+	drillingSystem.ProcessDrilling(player, inputState, remainingTime)
 
 	// Should be at target position now
-	if player.IsDigging {
+	if player.IsDrilling {
 		t.Error("Animation should be complete")
 	}
 }
@@ -242,10 +242,10 @@ func TestDrilling_TileRemovedOnCompletion(t *testing.T) {
 	}
 
 	// Start and complete drilling
-	inputState := input.InputState{Dig: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 	dt := drillingSystem.animation.Duration + 0.01
-	drillingSystem.ProcessDigging(player, inputState, dt)
+	drillingSystem.ProcessDrilling(player, inputState, dt)
 
 	// Tile should be removed
 	tileAfterDrilling := w.GetTileAtGrid(tileX, tileY)
@@ -274,10 +274,10 @@ func TestDrilling_DoesNotCollectDirt(t *testing.T) {
 	}
 
 	// Start and complete drilling
-	inputState := input.InputState{Dig: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 	dt := drillingSystem.animation.Duration + 0.01
-	drillingSystem.ProcessDigging(player, inputState, dt)
+	drillingSystem.ProcessDrilling(player, inputState, dt)
 
 	// Check inventory - should not have changed (dirt not collected)
 	finalTotal := 0
@@ -309,17 +309,17 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 	w.SetTile(tileX, tileY, entities.NewOreTile(entities.OreIron))
 
 	// Start vertical drilling
-	inputState := input.InputState{Dig: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	if !player.IsDigging {
+	if !player.IsDrilling {
 		t.Error("Should start drilling")
 	}
 
 	// While drilling is active, try to start a different drill direction
 	// (right drilling) - it should be ignored
 	inputState = input.InputState{Right: true}
-	drillingSystem.ProcessDigging(player, inputState, 0.01)
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
 	// The original animation should still be progressing (vertical)
 	if drillingSystem.animation.Direction != DrillDown {

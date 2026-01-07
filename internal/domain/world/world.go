@@ -95,25 +95,25 @@ func (w *World) GetTileAtGrid(gridX, gridY int) *entities.Tile {
 	return w.tiles[[2]int{gridX, gridY}]
 }
 
-// DigTile removes tile at pixel coordinates
+// DrillTile removes tile at pixel coordinates
 // Returns the removed tile (if any) and success status
-func (w *World) DigTile(pixelX, pixelY float32) (*entities.Tile, bool) {
+func (w *World) DrillTile(pixelX, pixelY float32) (*entities.Tile, bool) {
 	tileX := int(pixelX / TileSize)
 	tileY := int(pixelY / TileSize)
 
 	tile := w.tiles[[2]int{tileX, tileY}]
-	if tile != nil && tile.IsDiggable() {
+	if tile != nil && tile.IsDrillable() {
 		delete(w.tiles, [2]int{tileX, tileY})
 		return tile, true
 	}
 	return nil, false
 }
 
-// DigTileAtGrid removes tile at grid coordinates
+// DrillTileAtGrid removes tile at grid coordinates
 // Returns the removed tile (if any) and success status
-func (w *World) DigTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
+func (w *World) DrillTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
 	tile := w.tiles[[2]int{gridX, gridY}]
-	if tile != nil && tile.IsDiggable() {
+	if tile != nil && tile.IsDrillable() {
 		delete(w.tiles, [2]int{gridX, gridY})
 		return tile, true
 	}

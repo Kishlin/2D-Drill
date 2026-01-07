@@ -7,7 +7,7 @@ import (
 
 const (
 	// Fuel consumption rates in liters per second
-	FuelConsumptionMoving float32 = 10.0 / 30.0  // 0.33333 L/s when actively moving/digging
+	FuelConsumptionMoving float32 = 10.0 / 30.0  // 0.33333 L/s when actively moving/drilling
 	FuelConsumptionIdle   float32 = 10.0 / 120.0 // 0.08333 L/s when idle (no inputs)
 )
 
@@ -20,7 +20,7 @@ func NewFuelSystem() *FuelSystem {
 }
 
 // ConsumeFuel drains fuel based on player input state
-// Movement inputs (Left, Right, Up, Dig) consume fuel faster than idle state
+// Movement inputs (Left, Right, Up, Drill) consume fuel faster than idle state
 func (fs *FuelSystem) ConsumeFuel(
 	player *entities.Player,
 	inputState input.InputState,
