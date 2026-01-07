@@ -21,6 +21,12 @@ func (ps *PhysicsSystem) UpdatePhysics(
 	inputState input.InputState,
 	dt float32,
 ) {
+	physics.ApplyHeatDamage(player, dt)
+
+	if player.IsDigging {
+		return
+	}
+
 	// 1. Apply movement and gravity to velocity
 	player.Velocity = physics.ApplyHorizontalMovement(
 		player.Velocity, inputState, dt,
@@ -53,9 +59,6 @@ func (ps *PhysicsSystem) UpdatePhysics(
 	if wasAirborne && player.OnGround {
 		physics.ApplyFallDamage(player, ySpeedBeforeLanding)
 	}
-
-	// Apply heat damage continuously based on depth
-	physics.ApplyHeatDamage(player, dt)
 
 	// 3. Enforce world boundary constraints (prevent player from leaving game area)
 	ps.constrainPlayerToWorldBounds(player)

@@ -73,10 +73,29 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - Must return to surface and sell to make room
 - Taking damage from heat, collisions, or hazards
 
-### Directional Digging Details
-- **Grounded Left/Right Digging**: When the player is on solid ground and presses left/right against a diggable wall, the tile is automatically destroyed, allowing the player to move through
-- **Downward Digging**: Can be performed anytime with S/Down key, aligns player to tile grid horizontally
-- **Mid-Air**: Left/Right digging is disabled while airborne; player will bounce off walls instead
+### Directional Digging & Animation
+
+Both vertical and horizontal digging feature a 1-second smooth animation where the player moves toward the tile's center. The tile is only removed when the animation completes, then ore is collected.
+
+**Downward Digging (S/Down Key):**
+- **Availability**: Can start anytime (must be grounded)
+- **Animation**: Player moves to tile center (X-axis) and bottom edge (Y-axis) over 1 second
+- **Completion**: Tile removed, ore collected if cargo permits
+- **Effect**: Player is locked in animation; no other inputs processed
+
+**Left/Right Digging (A/D or Arrow Keys when Grounded):**
+- **Availability**: Only when player is on solid ground (grounded against wall)
+- **Animation**: Player moves to tile center (X-axis) while staying at ground level (Y-axis) over 1 second
+- **Completion**: Tile removed, ore collected if cargo permits
+- **Effect**: Player is locked in animation; no other inputs processed
+- **Mid-Air Disabled**: Left/Right digging blocked while airborne; player bounces off walls instead
+
+**During Animation:**
+- Fuel consumption continues (active rate if drilling, idle otherwise)
+- Heat damage continues (based on depth and resistance)
+- Fall damage does not apply (physics movement skipped)
+- All other interactions blocked (shop, upgrade, healing)
+- Animation cannot be interrupted or cancelled
 
 ### Ore Inventory System
 - **Automatic Collection**: When any ore tile is dug, it's automatically added to the player's inventory

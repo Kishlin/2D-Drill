@@ -169,6 +169,50 @@ To manually test the fall damage system:
 
 ---
 
+## Testing Drilling Animation
+
+To manually test the drilling animation system:
+
+1. **Run the game**: `go run cmd/game/main.go`
+2. **Vertical Digging** (S/Down key):
+   - Stand above a dirt or ore tile
+   - Press S/Down key
+   - Observe player animate smoothly to tile center over ~1 second
+   - Tile disappears when animation completes
+   - Ore collected if it was an ore tile
+3. **Horizontal Digging** (A/D when grounded against wall):
+   - Stand on ground next to a diggable wall
+   - Press A/D to move into the wall
+   - Animation starts: player moves to tile center while staying grounded
+   - After ~1 second: wall breaks, player moves into space
+   - Continue left/right to dig through walls
+4. **Mid-Air Behavior**:
+   - Jump up and press A/D
+   - Player should NOT dig mid-air
+   - Player bounces off solid tiles instead
+5. **Animation Interruption**:
+   - Start digging (animation begins)
+   - Try pressing other keys (E, I, etc.)
+   - Inputs should be ignored until animation completes
+   - Fuel should still consume during animation
+6. **Animation Duration**:
+   - Dig a tile and time it
+   - Should take approximately 1.0 second from start to completion
+
+**Debug Display:**
+- Top-left corner shows: `IsDigging: true/false`
+- Verify IsDigging is true during animation, false otherwise
+
+**Formula (1-second animation):**
+```
+position = start + (target - start) * (elapsed / 1.0)
+```
+- `elapsed = 0` → position = start
+- `elapsed = 0.5` → position = midpoint
+- `elapsed = 1.0` → position = target (tile removed, ore collected)
+
+---
+
 ## Testing Heat Damage & Temperature
 
 To manually test the heat system:

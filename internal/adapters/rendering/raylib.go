@@ -297,14 +297,10 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	rl.DrawText(fpsText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
-	// Draw player position and velocity
-	posVelText := fmt.Sprintf("Pos: X=%.1f, Y=%.1f | Vel: X=%.1f, Y=%.1f", player.AABB.X, player.AABB.Y, player.Velocity.X, player.Velocity.Y)
+	// Draw player position, velocity, onground status, and digging state
+	posVelText := fmt.Sprintf("Pos: X=%.1f, Y=%.1f | Vel: X=%.1f, Y=%.1f | OnGround: %v | IsDigging: %v",
+		player.AABB.X, player.AABB.Y, player.Velocity.X, player.Velocity.Y, player.OnGround, player.IsDigging)
 	rl.DrawText(posVelText, posX, posY, fontSize, textColor)
-	posY += lineHeight
-
-	// Draw on ground status
-	onGroundText := fmt.Sprintf("OnGround: %v", player.OnGround)
-	rl.DrawText(onGroundText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
 	// Draw input state

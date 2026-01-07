@@ -109,6 +109,17 @@ func (w *World) DigTile(pixelX, pixelY float32) (*entities.Tile, bool) {
 	return nil, false
 }
 
+// DigTileAtGrid removes tile at grid coordinates
+// Returns the removed tile (if any) and success status
+func (w *World) DigTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
+	tile := w.tiles[[2]int{gridX, gridY}]
+	if tile != nil && tile.IsDiggable() {
+		delete(w.tiles, [2]int{gridX, gridY})
+		return tile, true
+	}
+	return nil, false
+}
+
 // IsTileSolid checks if there's a solid tile at pixel coordinates
 func (w *World) IsTileSolid(pixelX, pixelY float32) bool {
 	tile := w.GetTileAt(pixelX, pixelY)

@@ -159,15 +159,17 @@ main.go Loop:
 │ 2. Update Domain Logic                  │
 │    game.Update(dt, inputState)          │
 │    • Load chunks around player (3×3)    │
-│    • Downward digging (S/Down key)      │
-│    • Horizontal digging (L/R when grounded)
+│    • Apply physics & fall damage        │
+│    • Consume fuel (active or idle)      │
+│    • Drill downward or horizontal       │
+│    • Animate player over 1 second       │
+│    • Remove tile on animation complete  │
+│    • Collect ore if available           │
+│    • (Block other inputs during dig)    │
 │    • Shop selling (E key + overlap)     │
 │    • Fuel station refueling (E key)     │
 │    • Hospital healing (E key)           │
-│    • Physics system applies forces      │
-│    • Gravity, movement, collision       │
-│    • Updates Player position/velocity   │
-│    • Fuel consumption (based on inputs) │
+│    • Upgrade purchases (E key)          │
 └────────────┬────────────────────────────┘
              │
              ▼
@@ -228,34 +230,38 @@ type Game struct {
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
     // Pure domain logic - zero Raylib
-    // Update chunks around player
+
+    // 0. Update chunks around player (proactive loading)
     playerX := g.player.AABB.X + g.player.AABB.Width/2
     playerY := g.player.AABB.Y + g.player.AABB.Height/2
     g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-    // Downward digging (before physics, so grid alignment works first)
-    g.diggingSystem.ProcessDigging(g.player, inputState)
-
-    // Horizontal digging (auto-dig left/right when grounded against walls)
-    g.diggingSystem.ProcessHorizontalDigging(g.player, inputState)
-
-    // Shop selling interaction
-    g.shopSystem.ProcessSelling(g.player, inputState)
-
-    // Fuel station refueling interaction
-    g.fuelStationSystem.ProcessRefueling(g.player, inputState)
-
-    // Hospital healing interaction
-    g.hospitalSystem.ProcessHealing(g.player, inputState)
-
-    // Upgrade purchases at upgrade shops
-    g.upgradeSystem.ProcessUpgrade(g.player, inputState)
-
-    // Physics with axis-separated collision
+    // 1. Physics FIRST - handles landing/fall damage before dig can start
+    //    Also applies heat damage and skips movement during dig animation
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-    // Fuel consumption based on activity
+    // 2. Always: fuel consumption (runs even during dig animation)
     g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
+
+    // 3. Handle digging (vertical + horizontal, with animation)
+    g.diggingSystem.ProcessDigging(g.player, inputState, dt)
+
+    // Skip interactions during dig animation
+    if g.player.IsDigging {
+        return nil
+    }
+
+    // 4. Handle shop selling
+    g.shopSystem.ProcessSelling(g.player, inputState)
+
+    // 5. Handle fuel station refueling
+    g.fuelStationSystem.ProcessRefueling(g.player, inputState)
+
+    // 6. Handle hospital healing
+    g.hospitalSystem.ProcessHealing(g.player, inputState)
+
+    // 7. Handle upgrade purchases
+    g.upgradeSystem.ProcessUpgrade(g.player, inputState)
 
     return nil
 }
@@ -276,80 +282,137 @@ func (g *Game) GetPlayer() *entities.Player {
 - Game provides getters for adapters to read state
 - All rendering responsibility is external
 
-#### Digging System (`domain/systems/digging.go`)
+#### Drilling System (`domain/systems/digging.go`)
 
-Handles tile destruction for both downward and horizontal digging, and collects ore into player inventory:
+Handles both vertical and horizontal drilling with smooth 1-second animations. When a dig is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
+
+**Core Concepts:**
 
 ```go
 type DiggingSystem struct {
-    world *world.World
+    world     *world.World
+    animation DiggingAnimation
 }
 
-// Downward digging with grid alignment (S/Down key)
-func (ds *DiggingSystem) ProcessDigging(
-    player *entities.Player,
-    inputState input.InputState,
-) {
-    if !inputState.Dig {
-        return
-    }
+// Animation state tracks active digs
+type DiggingAnimation struct {
+    Active      bool
+    Direction   DigDirection  // Down, Left, or Right
+    StartX      float32       // Player position when animation started
+    StartY      float32
+    TargetX     float32       // Where player moves to during animation
+    TargetY     float32
+    TargetGridX int           // Tile coordinates for removal
+    TargetGridY int
+    Elapsed     float32       // Time elapsed in animation
+    Duration    float32       // Total animation duration (1.0 second)
+    Tile        *entities.Tile
+}
 
-    playerCenterX := player.AABB.X + player.AABB.Width/2
-    playerBottomY := player.AABB.Y + player.AABB.Height
+const DigAnimationDuration float32 = 1.0 // seconds
+```
 
-    tile := ds.world.GetTileAt(playerCenterX, playerBottomY)
+**Game Loop Flow:**
+
+The digging system receives input AFTER physics (which handles landing), ensuring:
+1. Player lands on ground (physics)
+2. Fall damage applied if landing from height (physics)
+3. Digging animation can only start when grounded
+4. Player is locked in animation for 1 second
+5. Tile removed on completion, ore collected
+
+```go
+// Game loop order (internal/domain/engine/game.go)
+g.physicsSystem.UpdatePhysics(g.player, inputState, dt)      // Physics FIRST
+g.fuelSystem.ConsumeFuel(g.player, inputState, dt)           // Fuel runs always
+g.diggingSystem.ProcessDigging(g.player, inputState, dt)     // Then digging
+if g.player.IsDigging { return }                             // Block interactions during dig
+// ... interaction systems (shop, upgrade, etc.)
+```
+
+**Vertical Digging (S/Down Key):**
+
+```go
+// Check tile directly below player's center
+playerCenterX := player.AABB.X + player.AABB.Width/2
+playerBottomY := player.AABB.Y + player.AABB.Height
+tile := ds.world.GetTileAt(playerCenterX, playerBottomY)
+
+// Calculate animation targets
+tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
+targetX := tileCenterX - player.AABB.Width/2
+
+tileBottomY := float32(tileGridY+1) * world.TileSize
+targetY := tileBottomY - player.AABB.Height  // Align bottom edges
+
+// Start 1-second animation to target position
+ds.startDigAnimation(player, DigDown, tileGridX, tileGridY, targetX, targetY, tile)
+```
+
+**Horizontal Digging (Left/Right When Grounded):**
+
+```go
+// Check tile beside player
+playerCenterY := player.AABB.Y + player.AABB.Height/2
+
+if inputState.Left {
+    tile := ds.world.GetTileAt(player.AABB.X - 1, playerCenterY)
     if tile != nil && tile.IsDiggable() {
-        // Snap to grid and dig
-        tileGridX := int(playerCenterX / world.TileSize)
+        // Move to tile center (X) but keep current Y
         tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
-        player.AABB.X = tileCenterX - player.AABB.Width/2
+        targetX := tileCenterX - player.AABB.Width/2
+        targetY := player.AABB.Y  // Stay at ground level
 
-        // Dig tile and collect ore if applicable
-        if dugTile, success := ds.world.DigTile(playerCenterX, playerBottomY); success {
-            ds.collectOreIfPresent(player, dugTile)
-        }
+        ds.startDigAnimation(player, DigLeft, tileGridX, tileGridY, targetX, targetY, tile)
     }
 }
+// Similar for Right
+```
 
-// Horizontal digging when grounded (A/D or Left/Right keys)
-func (ds *DiggingSystem) ProcessHorizontalDigging(
-    player *entities.Player,
-    inputState input.InputState,
-) {
-    // Only dig when grounded
-    if !player.OnGround {
-        return
-    }
+**Animation Update (Each Frame):**
 
-    playerCenterY := player.AABB.Y + player.AABB.Height/2
+```go
+// Lerp player position toward target
+ds.animation.Elapsed += dt
+progress := ds.animation.Elapsed / ds.animation.Duration
+if progress > 1.0 { progress = 1.0 }
 
-    if inputState.Left {
-        // Check tile just left of player
-        tile := ds.world.GetTileAt(player.AABB.X-1, playerCenterY)
-        if tile != nil && tile.IsDiggable() {
-            if dugTile, success := ds.world.DigTile(player.AABB.X-1, playerCenterY); success {
-                ds.collectOreIfPresent(player, dugTile)
-            }
-            return
-        }
-    }
+player.AABB.X = ds.animation.StartX + (ds.animation.TargetX - ds.animation.StartX) * progress
+player.AABB.Y = ds.animation.StartY + (ds.animation.TargetY - ds.animation.StartY) * progress
 
-    if inputState.Right {
-        // Check tile just right of player
-        tile := ds.world.GetTileAt(player.AABB.X+player.AABB.Width+1, playerCenterY)
-        if tile != nil && tile.IsDiggable() {
-            ds.world.DigTile(player.AABB.X+player.AABB.Width+1, playerCenterY)
-        }
-    }
+// On completion (progress >= 1.0)
+if dugTile, success := ds.world.DigTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
+    ds.collectOreIfPresent(player, dugTile)
 }
 ```
 
-**Why this design:**
-- Called before physics (so blocked tiles can be removed before collision resolution)
-- Uses direct world coordinate sampling (like downward digging)
-- Horizontal digging only when `player.OnGround == true` (prevents mid-air digging)
-- No collision detection needed (simple world queries)
-- Direct field access for simplicity
+**Player State Flags:**
+
+The player has two state flags set by systems:
+- `player.OnGround` — Set by physics system on ground contact
+- `player.IsDigging` — Set by digging system during animation
+
+This allows both physics and rendering to query state directly:
+
+```go
+// Physics checks digging state to skip movement
+if player.IsDigging {
+    return  // Skip velocity/collision, but heat damage still applies
+}
+
+// Rendering displays state
+fmt.Sprintf("IsDigging: %v", player.IsDigging)
+```
+
+**Why This Design:**
+
+- **Clear State Machine**: Animation lifecycle (start → update → complete) is explicit
+- **Lerp-Based Movement**: Smooth animation feels natural vs teleporting
+- **Grounding Requirement**: Only dig when on ground (prevents mid-air exploits)
+- **Continuous Effects**: Fuel consumption and heat damage run during animation
+- **Fall Damage Protection**: Physics runs first, applies damage before dig starts
+- **One System Responsibility**: All animation logic in DiggingSystem, not scattered
+- **Testable**: Animation state tracked in struct, no external dependencies
 
 #### Physics System (`domain/systems/physics.go`)
 

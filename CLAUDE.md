@@ -27,6 +27,7 @@ go test ./...                # Run all tests
 - **Cargo Capacity Limits** — `AddOre()` respects cargo hold capacity; ore is lost when full (intentional Motherload-style behavior).
 - **Damage Application** — All damage sources (fall, heat, future hazards) call `player.DealDamage(damage)` which applies damage and clamps HP at zero. Physics package calculates damage; Player entity applies it.
 - **Heat System** — Temperature increases with depth; players take exponential damage when temperature exceeds heat resistance. Heat shield is an upgradeable component enabling deeper mining.
+- **Drilling Animation** — Both vertical and horizontal digging is animated over 1 second. Player progressively moves to tile center via lerp. Tile only removed on animation completion. All inputs blocked during dig except fuel/heat (continuous). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#drilling-system) for details.
 
 ## Key Files
 

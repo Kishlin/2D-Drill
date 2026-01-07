@@ -75,29 +75,32 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	playerY := g.player.AABB.Y + g.player.AABB.Height/2
 	g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-	// 1. Handle downward digging (before physics, so alignment happens first)
-	g.diggingSystem.ProcessDigging(g.player, inputState)
-
-	// 2. Handle horizontal digging (before physics, so blocked tiles can be dug)
-	g.diggingSystem.ProcessHorizontalDigging(g.player, inputState)
-
-	// 3. Handle shop selling (before physics, so player position is stable)
-	g.shopSystem.ProcessSelling(g.player, inputState)
-
-	// 4. Handle fuel station refueling (before physics, so player position is stable)
-	g.fuelStationSystem.ProcessRefueling(g.player, inputState)
-
-	// 5. Handle hospital healing (before physics, so player position is stable)
-	g.hospitalSystem.ProcessHealing(g.player, inputState)
-
-	// 6. Handle upgrade purchases (before physics, so player position is stable)
-	g.upgradeSystem.ProcessUpgrade(g.player, inputState)
-
-	// 7. Update physics (includes heat damage)
+	// 1. Physics FIRST - handles landing/fall damage before dig can start
+	//    Also applies heat damage and skips movement during dig animation
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-	// 8. Consume fuel based on activity
+	// 2. Always: fuel consumption (runs even during dig animation)
 	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
+
+	// 3. Handle digging (vertical + horizontal, with animation)
+	g.diggingSystem.ProcessDigging(g.player, inputState, dt)
+
+	// Skip interactions during dig animation
+	if g.player.IsDigging {
+		return nil
+	}
+
+	// 4. Handle shop selling
+	g.shopSystem.ProcessSelling(g.player, inputState)
+
+	// 5. Handle fuel station refueling
+	g.fuelStationSystem.ProcessRefueling(g.player, inputState)
+
+	// 6. Handle hospital healing
+	g.hospitalSystem.ProcessHealing(g.player, inputState)
+
+	// 7. Handle upgrade purchases
+	g.upgradeSystem.ProcessUpgrade(g.player, inputState)
 
 	return nil
 }

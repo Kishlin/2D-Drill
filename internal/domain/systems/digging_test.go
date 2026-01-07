@@ -12,6 +12,7 @@ func TestDiggingSystem_CollectsOre(t *testing.T) {
 	// Create world with known seed
 	w := world.NewWorld(7680, 64000, 640, 42)
 	player := entities.NewPlayer(100, 500)
+	player.OnGround = true // Required to start dig animation
 	diggingSystem := NewDiggingSystem(w)
 
 	// Manually place an ore tile below player
@@ -26,9 +27,22 @@ func TestDiggingSystem_CollectsOre(t *testing.T) {
 		t.Error("Player should start with 0 gold")
 	}
 
-	// Trigger digging
+	// Trigger digging (start animation)
 	inputState := input.InputState{Dig: true}
-	diggingSystem.ProcessDigging(player, inputState)
+	dt := float32(0.01)
+	diggingSystem.ProcessDigging(player, inputState, dt)
+
+	// Animation started, tile not removed yet
+	if !player.IsDigging {
+		t.Error("Digging animation should be active")
+	}
+	if player.OreInventory[entities.OreGold] != 0 {
+		t.Error("Ore should not be collected until animation completes")
+	}
+
+	// Complete animation
+	dt = DigAnimationDuration + 0.01 // More than animation duration
+	diggingSystem.ProcessDigging(player, inputState, dt)
 
 	// Player should have collected 1 gold
 	if player.OreInventory[entities.OreGold] != 1 {
@@ -40,11 +54,17 @@ func TestDiggingSystem_CollectsOre(t *testing.T) {
 	if tileAfter != nil {
 		t.Error("Tile should be removed after digging")
 	}
+
+	// Animation should be complete
+	if player.IsDigging {
+		t.Error("Digging animation should be complete")
+	}
 }
 
 func TestDiggingSystem_DoesNotCollectDirt(t *testing.T) {
 	w := world.NewWorld(7680, 64000, 640, 42)
 	player := entities.NewPlayer(100, 500)
+	player.OnGround = true // Required to start dig animation
 	diggingSystem := NewDiggingSystem(w)
 
 	// Manually place a dirt tile below player
@@ -54,9 +74,10 @@ func TestDiggingSystem_DoesNotCollectDirt(t *testing.T) {
 	tileY := int(playerBottomY / world.TileSize)
 	w.SetTile(tileX, tileY, entities.NewTile(entities.TileTypeDirt))
 
-	// Trigger digging
+	// Trigger digging and complete animation
 	inputState := input.InputState{Dig: true}
-	diggingSystem.ProcessDigging(player, inputState)
+	dt := DigAnimationDuration + 0.01
+	diggingSystem.ProcessDigging(player, inputState, dt)
 
 	// Player should have 0 ores (dirt not collected)
 	totalOre := 0
@@ -80,9 +101,19 @@ func TestHorizontalDigging_CollectsOre(t *testing.T) {
 	tileY := int(playerCenterY / world.TileSize)
 	w.SetTile(tileX, tileY, entities.NewOreTile(entities.OreDiamond))
 
-	// Dig left
+	// Dig left (start animation)
 	inputState := input.InputState{Left: true}
-	diggingSystem.ProcessHorizontalDigging(player, inputState)
+	dt := float32(0.01)
+	diggingSystem.ProcessDigging(player, inputState, dt)
+
+	// Animation should be active
+	if !player.IsDigging {
+		t.Error("Digging animation should be active")
+	}
+
+	// Complete animation
+	dt = DigAnimationDuration + 0.01
+	diggingSystem.ProcessDigging(player, inputState, dt)
 
 	// Should collect diamond
 	if player.OreInventory[entities.OreDiamond] != 1 {
