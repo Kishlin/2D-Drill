@@ -11,7 +11,7 @@ type Game struct {
 	world             *world.World
 	player            *entities.Player
 	physicsSystem     *systems.PhysicsSystem
-	diggingSystem     *systems.DiggingSystem
+	drillingSystem    *systems.DrillingSystem
 	marketSystem      *systems.MarketSystem
 	fuelSystem        *systems.FuelSystem
 	fuelStationSystem *systems.FuelStationSystem
@@ -60,7 +60,7 @@ func NewGame(w *world.World) *Game {
 		world:             w,
 		player:            entities.NewPlayer(spawnX, spawnY),
 		physicsSystem:     systems.NewPhysicsSystem(w),
-		diggingSystem:     systems.NewDiggingSystem(w),
+		drillingSystem:    systems.NewDrillingSystem(w),
 		marketSystem:      systems.NewMarketSystem(market),
 		fuelSystem:        systems.NewFuelSystem(),
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
@@ -82,8 +82,8 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 2. Always: fuel consumption (runs even during dig animation)
 	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
-	// 3. Handle digging (vertical + horizontal, with animation)
-	g.diggingSystem.ProcessDigging(g.player, inputState, dt)
+	// 3. Handle drilling (vertical + horizontal, with animation)
+	g.drillingSystem.ProcessDigging(g.player, inputState, dt)
 
 	// Skip interactions during dig animation
 	if g.player.IsDigging {

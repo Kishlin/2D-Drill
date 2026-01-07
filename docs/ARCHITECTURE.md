@@ -82,13 +82,13 @@ drill-game/
 │       │   └── game.go                      # Game orchestration (domain)
 │       ├── systems/
 │       │   ├── physics.go                   # PhysicsSystem
-│       │   ├── digging.go                   # DiggingSystem (ore collection)
-│       │   ├── market.go                     # MarketSystem (selling inventory)
+│       │   ├── drilling.go                  # DrillingSystem (ore collection)
+│       │   ├── market.go                    # MarketSystem (selling inventory)
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
 │       │   ├── fuel_station.go              # FuelStationSystem (refueling)
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
 │       │   ├── upgrade.go                   # UpgradeSystem (purchase upgrades at shops)
-│       │   ├── digging_test.go              # Digging & ore collection tests
+│       │   ├── drilling_test.go             # Drilling & ore collection tests
 │       │   ├── fuel_test.go                 # Fuel consumption tests
 │       │   ├── fuel_station_test.go         # Fuel station transaction tests
 │       │   ├── hospital_test.go             # Hospital healing transaction tests
@@ -220,7 +220,7 @@ type Game struct {
     world             *world.World
     player            *entities.Player
     physicsSystem     *systems.PhysicsSystem
-    diggingSystem     *systems.DiggingSystem
+    drillingSystem    *systems.DrillingSystem
     marketSystem      *systems.MarketSystem
     fuelSystem        *systems.FuelSystem
     fuelStationSystem *systems.FuelStationSystem
@@ -243,8 +243,8 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     // 2. Always: fuel consumption (runs even during dig animation)
     g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
-    // 3. Handle digging (vertical + horizontal, with animation)
-    g.diggingSystem.ProcessDigging(g.player, inputState, dt)
+    // 3. Handle drilling (vertical + horizontal, with variable animation based on depth/ore)
+    g.drillingSystem.ProcessDigging(g.player, inputState, dt)
 
     // Skip interactions during dig animation
     if g.player.IsDigging {
@@ -282,55 +282,55 @@ func (g *Game) GetPlayer() *entities.Player {
 - Game provides getters for adapters to read state
 - All rendering responsibility is external
 
-#### Drilling System (`domain/systems/digging.go`)
+#### Drilling System (`domain/systems/drilling.go`)
 
-Handles both vertical and horizontal drilling with smooth 1-second animations. When a dig is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
+Handles both vertical and horizontal drilling with variable animation duration based on depth and ore type. Dirt takes 0.8 seconds at ground level, scaling linearly to 30 seconds at max depth. Ore hardness multipliers (Copper 1.2x → Diamond 3.0x) further increase drilling time. When a drill is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
 
 **Core Concepts:**
 
 ```go
-type DiggingSystem struct {
+type DrillingSystem struct {
     world     *world.World
-    animation DiggingAnimation
+    animation DrillingAnimation
 }
 
-// Animation state tracks active digs
-type DiggingAnimation struct {
+// Animation state tracks active drills
+type DrillingAnimation struct {
     Active      bool
-    Direction   DigDirection  // Down, Left, or Right
-    StartX      float32       // Player position when animation started
+    Direction   DrillDirection // Down, Left, or Right
+    StartX      float32        // Player position when animation started
     StartY      float32
-    TargetX     float32       // Where player moves to during animation
+    TargetX     float32        // Where player moves to during animation
     TargetY     float32
-    TargetGridX int           // Tile coordinates for removal
+    TargetGridX int            // Tile coordinates for removal
     TargetGridY int
-    Elapsed     float32       // Time elapsed in animation
-    Duration    float32       // Total animation duration (1.0 second)
+    Elapsed     float32        // Time elapsed in animation
+    Duration    float32        // Variable duration (0.8-30+ seconds based on depth/ore)
     Tile        *entities.Tile
 }
 
-const DigAnimationDuration float32 = 1.0 // seconds
+// Duration is calculated dynamically per tile based on depth and hardness
 ```
 
 **Game Loop Flow:**
 
-The digging system receives input AFTER physics (which handles landing), ensuring:
+The drilling system receives input AFTER physics (which handles landing), ensuring:
 1. Player lands on ground (physics)
 2. Fall damage applied if landing from height (physics)
-3. Digging animation can only start when grounded
-4. Player is locked in animation for 1 second
+3. Drilling animation can only start when grounded
+4. Player is locked in animation (duration varies: 0.8-30+ seconds)
 5. Tile removed on completion, ore collected
 
 ```go
 // Game loop order (internal/domain/engine/game.go)
 g.physicsSystem.UpdatePhysics(g.player, inputState, dt)      // Physics FIRST
 g.fuelSystem.ConsumeFuel(g.player, inputState, dt)           // Fuel runs always
-g.diggingSystem.ProcessDigging(g.player, inputState, dt)     // Then digging
-if g.player.IsDigging { return }                             // Block interactions during dig
+g.drillingSystem.ProcessDigging(g.player, inputState, dt)    // Then drilling
+if g.player.IsDigging { return }                             // Block interactions during drill
 // ... interaction systems (market, upgrade, etc.)
 ```
 
-**Vertical Digging (S/Down Key):**
+**Vertical Drilling (S/Down Key):**
 
 ```go
 // Check tile directly below player's center
@@ -345,11 +345,11 @@ targetX := tileCenterX - player.AABB.Width/2
 tileBottomY := float32(tileGridY+1) * world.TileSize
 targetY := tileBottomY - player.AABB.Height  // Align bottom edges
 
-// Start 1-second animation to target position
-ds.startDigAnimation(player, DigDown, tileGridX, tileGridY, targetX, targetY, tile)
+// Start variable-duration animation (0.8-30+ seconds based on depth/ore)
+ds.startDrillAnimation(player, DrillDown, tileGridX, tileGridY, targetX, targetY, tile)
 ```
 
-**Horizontal Digging (Left/Right When Grounded):**
+**Horizontal Drilling (Left/Right When Grounded):**
 
 ```go
 // Check tile beside player
@@ -363,7 +363,7 @@ if inputState.Left {
         targetX := tileCenterX - player.AABB.Width/2
         targetY := player.AABB.Y  // Stay at ground level
 
-        ds.startDigAnimation(player, DigLeft, tileGridX, tileGridY, targetX, targetY, tile)
+        ds.startDrillAnimation(player, DrillLeft, tileGridX, tileGridY, targetX, targetY, tile)
     }
 }
 // Similar for Right
@@ -390,12 +390,12 @@ if dugTile, success := ds.world.DigTileAtGrid(ds.animation.TargetGridX, ds.anima
 
 The player has two state flags set by systems:
 - `player.OnGround` — Set by physics system on ground contact
-- `player.IsDigging` — Set by digging system during animation
+- `player.IsDigging` — Set by drilling system during animation
 
 This allows both physics and rendering to query state directly:
 
 ```go
-// Physics checks digging state to skip movement
+// Physics checks drilling state to skip movement
 if player.IsDigging {
     return  // Skip velocity/collision, but heat damage still applies
 }
@@ -408,10 +408,10 @@ fmt.Sprintf("IsDigging: %v", player.IsDigging)
 
 - **Clear State Machine**: Animation lifecycle (start → update → complete) is explicit
 - **Lerp-Based Movement**: Smooth animation feels natural vs teleporting
-- **Grounding Requirement**: Only dig when on ground (prevents mid-air exploits)
+- **Grounding Requirement**: Only drill when on ground (prevents mid-air exploits)
 - **Continuous Effects**: Fuel consumption and heat damage run during animation
-- **Fall Damage Protection**: Physics runs first, applies damage before dig starts
-- **One System Responsibility**: All animation logic in DiggingSystem, not scattered
+- **Fall Damage Protection**: Physics runs first, applies damage before drill starts
+- **One System Responsibility**: All animation logic in DrillingSystem, not scattered
 - **Testable**: Animation state tracked in struct, no external dependencies
 
 #### Physics System (`domain/systems/physics.go`)

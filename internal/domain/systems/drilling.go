@@ -3,27 +3,27 @@ package systems
 import (
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
+	"github.com/Kishlin/drill-game/internal/domain/physics"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
 const (
-	// DigAnimationDuration is the base time to complete a dig.
-	// Future: replace with computed value based on ore type and drill upgrades.
-	DigAnimationDuration float32 = 1 // seconds
+	minDrillingDuration = 0.8  // seconds (at ground level)
+	maxDrillingDuration = 30.0 // seconds (at max depth)
 )
 
-type DigDirection int
+type DrillDirection int
 
 const (
-	DigDown DigDirection = iota
-	DigLeft
-	DigRight
+	DrillDown DrillDirection = iota
+	DrillLeft
+	DrillRight
 )
 
-type DiggingAnimation struct {
+type DrillingAnimation struct {
 	Active      bool
-	Direction   DigDirection // Which direction we're digging
+	Direction   DrillDirection // Which direction we're drilling
 	StartX      float32
 	StartY      float32
 	TargetX     float32 // Tile-aligned X
@@ -35,41 +35,41 @@ type DiggingAnimation struct {
 	Tile        *entities.Tile // For ore collection on completion
 }
 
-type DiggingSystem struct {
+type DrillingSystem struct {
 	world     *world.World
-	animation DiggingAnimation
+	animation DrillingAnimation
 }
 
-func NewDiggingSystem(w *world.World) *DiggingSystem {
-	return &DiggingSystem{world: w}
+func NewDrillingSystem(w *world.World) *DrillingSystem {
+	return &DrillingSystem{world: w}
 }
 
-// ProcessDigging handles vertical and horizontal digging with animation
-func (ds *DiggingSystem) ProcessDigging(
+// ProcessDigging handles vertical and horizontal drilling with animation
+func (ds *DrillingSystem) ProcessDigging(
 	player *entities.Player,
 	inputState input.InputState,
 	dt float32,
 ) {
 	// Update animation if in progress
 	if ds.animation.Active {
-		ds.updateDigAnimation(player, dt)
+		ds.updateDrillAnimation(player, dt)
 		return
 	}
 
-	// Handle vertical digging (S/Down key)
+	// Handle vertical drilling (S/Down key)
 	if inputState.Dig && player.OnGround {
-		ds.processVerticalDigging(player)
+		ds.processVerticalDrilling(player)
 		return
 	}
 
-	// Handle horizontal digging (Left/Right when grounded)
+	// Handle horizontal drilling (Left/Right when grounded)
 	if player.OnGround {
-		ds.processHorizontalDigging(player, inputState)
+		ds.processHorizontalDrilling(player, inputState)
 	}
 }
 
-// processVerticalDigging handles downward digging (starts animation)
-func (ds *DiggingSystem) processVerticalDigging(player *entities.Player) {
+// processVerticalDrilling handles downward drilling (starts animation)
+func (ds *DrillingSystem) processVerticalDrilling(player *entities.Player) {
 	// Calculate tile beneath player's center-bottom
 	playerCenterX := player.AABB.X + player.AABB.Width/2
 	playerBottomY := player.AABB.Y + player.AABB.Height
@@ -93,11 +93,11 @@ func (ds *DiggingSystem) processVerticalDigging(player *entities.Player) {
 	targetY := tileBottomY - player.AABB.Height
 
 	// Start animation
-	ds.startDigAnimation(player, DigDown, tileGridX, tileGridY, targetX, targetY, tile)
+	ds.startDrillAnimation(player, DrillDown, tileGridX, tileGridY, targetX, targetY, tile)
 }
 
-// processHorizontalDigging handles left/right digging (starts animation)
-func (ds *DiggingSystem) processHorizontalDigging(
+// processHorizontalDrilling handles left/right drilling (starts animation)
+func (ds *DrillingSystem) processHorizontalDrilling(
 	player *entities.Player,
 	inputState input.InputState,
 ) {
@@ -118,7 +118,7 @@ func (ds *DiggingSystem) processHorizontalDigging(
 			// Y stays at current ground level
 			targetY := player.AABB.Y
 
-			ds.startDigAnimation(player, DigLeft, tileGridX, tileGridY, targetX, targetY, tile)
+			ds.startDrillAnimation(player, DrillLeft, tileGridX, tileGridY, targetX, targetY, tile)
 			return
 		}
 	}
@@ -138,20 +138,24 @@ func (ds *DiggingSystem) processHorizontalDigging(
 			// Y stays at current ground level
 			targetY := player.AABB.Y
 
-			ds.startDigAnimation(player, DigRight, tileGridX, tileGridY, targetX, targetY, tile)
+			ds.startDrillAnimation(player, DrillRight, tileGridX, tileGridY, targetX, targetY, tile)
 			return
 		}
 	}
 }
 
-func (ds *DiggingSystem) startDigAnimation(
+func (ds *DrillingSystem) startDrillAnimation(
 	player *entities.Player,
-	direction DigDirection,
+	direction DrillDirection,
 	tileGridX, tileGridY int,
 	targetX, targetY float32,
 	tile *entities.Tile,
 ) {
-	ds.animation = DiggingAnimation{
+	// Calculate tile Y position and drilling duration
+	tileY := float32(tileGridY) * world.TileSize
+	duration := ds.calculateDrillingDuration(tileY, tile)
+
+	ds.animation = DrillingAnimation{
 		Active:      true,
 		Direction:   direction,
 		StartX:      player.AABB.X,
@@ -161,7 +165,7 @@ func (ds *DiggingSystem) startDigAnimation(
 		TargetGridX: tileGridX,
 		TargetGridY: tileGridY,
 		Elapsed:     0,
-		Duration:    DigAnimationDuration,
+		Duration:    duration,
 		Tile:        tile,
 	}
 
@@ -171,7 +175,7 @@ func (ds *DiggingSystem) startDigAnimation(
 	player.Velocity = types.Vec2{}
 }
 
-func (ds *DiggingSystem) updateDigAnimation(player *entities.Player, dt float32) {
+func (ds *DrillingSystem) updateDrillAnimation(player *entities.Player, dt float32) {
 	ds.animation.Elapsed += dt
 
 	// Calculate progress (0.0 to 1.0)
@@ -186,18 +190,18 @@ func (ds *DiggingSystem) updateDigAnimation(player *entities.Player, dt float32)
 
 	// On completion
 	if progress >= 1.0 {
-		ds.finishDigAnimation(player)
+		ds.finishDrillAnimation(player)
 	}
 }
 
-func (ds *DiggingSystem) finishDigAnimation(player *entities.Player) {
+func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) {
 	// Remove tile via grid coordinates
 	if dugTile, success := ds.world.DigTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
 		ds.collectOreIfPresent(player, dugTile)
 	}
 
 	// Reset animation state
-	ds.animation = DiggingAnimation{}
+	ds.animation = DrillingAnimation{}
 
 	player.IsDigging = false
 
@@ -207,9 +211,50 @@ func (ds *DiggingSystem) finishDigAnimation(player *entities.Player) {
 
 // collectOreIfPresent adds ore to player inventory if the dug tile is ore
 // Ore is lost if cargo is full
-func (ds *DiggingSystem) collectOreIfPresent(player *entities.Player, dugTile *entities.Tile) {
+func (ds *DrillingSystem) collectOreIfPresent(player *entities.Player, dugTile *entities.Tile) {
 	if dugTile != nil && dugTile.Type == entities.TileTypeOre {
 		player.AddOre(dugTile.OreType)
 		// If AddOre returns false (cargo full), ore is silently lost
 	}
+}
+
+// calculateDrillingDuration computes the time to drill a tile based on depth and type
+func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entities.Tile) float32 {
+	baseDuration := ds.calculateBaseDuration(tileY)
+
+	// Apply ore hardness multiplier if applicable
+	if tile.Type == entities.TileTypeOre {
+		hardness, ok := entities.OreHardness[tile.OreType]
+		if !ok {
+			hardness = 1.5 // Fallback for unknown ore types
+		}
+		return baseDuration * hardness
+	}
+
+	return baseDuration
+}
+
+// calculateBaseDuration computes drilling time for dirt based on depth
+// Linear interpolation: 1 second at ground level, 30 seconds at max depth
+func (ds *DrillingSystem) calculateBaseDuration(tileY float32) float32 {
+	groundLevel := ds.world.GroundLevel
+	depthBelowGround := tileY - groundLevel
+
+	// Above ground: use minimum duration
+	if depthBelowGround <= 0 {
+		return minDrillingDuration
+	}
+
+	maxDepth := physics.MaxUndergroundY - groundLevel
+	normalizedDepth := depthBelowGround / maxDepth
+
+	// Clamp normalized depth to [0, 1] in case tile exceeds MaxUndergroundY
+	if normalizedDepth > 1.0 {
+		normalizedDepth = 1.0
+	}
+
+	// Linear interpolation
+	duration := minDrillingDuration + normalizedDepth*(maxDrillingDuration-minDrillingDuration)
+
+	return duration
 }

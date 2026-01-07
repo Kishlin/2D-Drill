@@ -39,6 +39,17 @@ var OreValues = map[OreType]int{
 	OreDiamond:  30000,
 }
 
+// OreHardness maps each ore type to its drilling difficulty multiplier
+// Applied to base dirt drilling time at the same depth
+var OreHardness = map[OreType]float32{
+	OreCopper:   1.2,
+	OreIron:     1.5,
+	OreGold:     1.8,
+	OreMythril:  2.1,
+	OrePlatinum: 2.5,
+	OreDiamond:  3.0,
+}
+
 // GetAllOreTypes returns all ore types for iteration
 func GetAllOreTypes() []OreType {
 	return []OreType{

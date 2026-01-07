@@ -73,22 +73,27 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - Must return to surface and sell to make room
 - Taking damage from heat, collisions, or hazards
 
-### Directional Digging & Animation
+### Directional Drilling & Animation
 
-Both vertical and horizontal digging feature a 1-second smooth animation where the player moves toward the tile's center. The tile is only removed when the animation completes, then ore is collected.
+Both vertical and horizontal drilling feature smooth variable-duration animations based on depth and ore type:
+- **Dirt at ground level**: 0.8 seconds
+- **Dirt at max depth**: 30 seconds (linear scaling with depth)
+- **Ore multipliers**: Copper 1.2x, Iron 1.5x, Gold 1.8x, Mythril 2.1x, Platinum 2.5x, Diamond 3.0x
 
-**Downward Digging (S/Down Key):**
+The player moves toward the tile's center during the animation. The tile is only removed when the animation completes, then ore is collected.
+
+**Downward Drilling (S/Down Key):**
 - **Availability**: Can start anytime (must be grounded)
-- **Animation**: Player moves to tile center (X-axis) and bottom edge (Y-axis) over 1 second
+- **Animation**: Player moves to tile center (X-axis) and bottom edge (Y-axis) over variable duration (0.8-30+ seconds)
 - **Completion**: Tile removed, ore collected if cargo permits
 - **Effect**: Player is locked in animation; no other inputs processed
 
-**Left/Right Digging (A/D or Arrow Keys when Grounded):**
+**Left/Right Drilling (A/D or Arrow Keys when Grounded):**
 - **Availability**: Only when player is on solid ground (grounded against wall)
-- **Animation**: Player moves to tile center (X-axis) while staying at ground level (Y-axis) over 1 second
+- **Animation**: Player moves to tile center (X-axis) while staying at ground level (Y-axis) over variable duration (0.8-30+ seconds)
 - **Completion**: Tile removed, ore collected if cargo permits
 - **Effect**: Player is locked in animation; no other inputs processed
-- **Mid-Air Disabled**: Left/Right digging blocked while airborne; player bounces off walls instead
+- **Mid-Air Disabled**: Left/Right drilling blocked while airborne; player bounces off walls instead
 
 **During Animation:**
 - Fuel consumption continues (active rate if drilling, idle otherwise)
