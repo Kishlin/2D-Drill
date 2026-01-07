@@ -6,13 +6,15 @@ import (
 )
 
 type UpgradeSystem struct {
-	engineShop   *entities.UpgradeShop
-	hullShop     *entities.UpgradeShop
-	fuelTankShop *entities.UpgradeShop
+	engineShop   *entities.EngineUpgradeShop
+	hullShop     *entities.HullUpgradeShop
+	fuelTankShop *entities.FuelTankUpgradeShop
 }
 
 func NewUpgradeSystem(
-	engineShop, hullShop, fuelTankShop *entities.UpgradeShop,
+	engineShop *entities.EngineUpgradeShop,
+	hullShop *entities.HullUpgradeShop,
+	fuelTankShop *entities.FuelTankUpgradeShop,
 ) *UpgradeSystem {
 	return &UpgradeSystem{
 		engineShop:   engineShop,
@@ -29,7 +31,6 @@ func (us *UpgradeSystem) ProcessUpgrade(
 		return
 	}
 
-	// Check each shop and attempt upgrade (only one can be in range at a time)
 	if us.engineShop.IsPlayerInRange(player) {
 		us.tryUpgradeEngine(player)
 		return
@@ -45,55 +46,52 @@ func (us *UpgradeSystem) ProcessUpgrade(
 }
 
 func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
-	cost := entities.GetEngineNextCost(player.Upgrades.Engine)
-	if cost == 0 {
-		return // Already at max level
+	entry := us.engineShop.GetNextEngine(player.Engine.Tier())
+	if entry == nil {
+		return // Max level reached
 	}
 
-	if player.Money < cost {
-		return // Cannot afford
+	if !player.CanAfford(entry.Price) {
+		return
 	}
 
-	player.Money -= cost
-	player.Upgrades.Engine++
+	player.BuyEngine(entry.Engine, entry.Price)
 }
 
 func (us *UpgradeSystem) tryUpgradeHull(player *entities.Player) {
-	cost := entities.GetHullNextCost(player.Upgrades.Hull)
-	if cost == 0 {
-		return // Already at max level
+	entry := us.hullShop.GetNextHull(player.Hull.Tier())
+	if entry == nil {
+		return // Max level reached
 	}
 
-	if player.Money < cost {
-		return // Cannot afford
+	if !player.CanAfford(entry.Price) {
+		return
 	}
 
-	player.Money -= cost
-	player.Upgrades.Hull++
+	player.BuyHull(entry.Hull, entry.Price)
 }
 
 func (us *UpgradeSystem) tryUpgradeFuelTank(player *entities.Player) {
-	cost := entities.GetFuelTankNextCost(player.Upgrades.FuelTank)
-	if cost == 0 {
-		return // Already at max level
+	entry := us.fuelTankShop.GetNextFuelTank(player.FuelTank.Tier())
+	if entry == nil {
+		return // Max level reached
 	}
 
-	if player.Money < cost {
-		return // Cannot afford
+	if !player.CanAfford(entry.Price) {
+		return
 	}
 
-	player.Money -= cost
-	player.Upgrades.FuelTank++
+	player.BuyFuelTank(entry.FuelTank, entry.Price)
 }
 
-func (us *UpgradeSystem) GetEngineShop() *entities.UpgradeShop {
+func (us *UpgradeSystem) GetEngineShop() *entities.EngineUpgradeShop {
 	return us.engineShop
 }
 
-func (us *UpgradeSystem) GetHullShop() *entities.UpgradeShop {
+func (us *UpgradeSystem) GetHullShop() *entities.HullUpgradeShop {
 	return us.hullShop
 }
 
-func (us *UpgradeSystem) GetFuelTankShop() *entities.UpgradeShop {
+func (us *UpgradeSystem) GetFuelTankShop() *entities.FuelTankUpgradeShop {
 	return us.fuelTankShop
 }

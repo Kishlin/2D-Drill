@@ -11,7 +11,7 @@ func TestFuelStationSystem_ProcessRefueling_FullTank(t *testing.T) {
 	// Setup: Player with full tank
 	player := entities.NewPlayer(100, 100)
 	player.Money = 100
-	player.Fuel = entities.FuelCapacity
+	// player.Fuel is already at capacity from NewPlayer
 
 	fuelStation := entities.NewFuelStation(80, 80)
 	system := NewFuelStationSystem(fuelStation)
@@ -19,6 +19,7 @@ func TestFuelStationSystem_ProcessRefueling_FullTank(t *testing.T) {
 	inputState := input.InputState{Sell: true}
 
 	initialMoney := player.Money
+	fuelCapacity := player.FuelTank.Capacity()
 
 	// Execute
 	system.ProcessRefueling(player, inputState)
@@ -27,8 +28,8 @@ func TestFuelStationSystem_ProcessRefueling_FullTank(t *testing.T) {
 	if player.Money != initialMoney {
 		t.Errorf("Expected money %d, got %d", initialMoney, player.Money)
 	}
-	if player.Fuel != entities.FuelCapacity {
-		t.Errorf("Expected fuel %.2f, got %.2f", entities.FuelCapacity, player.Fuel)
+	if player.Fuel != fuelCapacity {
+		t.Errorf("Expected fuel %.2f, got %.2f", fuelCapacity, player.Fuel)
 	}
 }
 
@@ -43,16 +44,18 @@ func TestFuelStationSystem_ProcessRefueling_EmptyTank(t *testing.T) {
 
 	inputState := input.InputState{Sell: true}
 
+	fuelCapacity := player.FuelTank.Capacity()
+
 	// Execute
 	system.ProcessRefueling(player, inputState)
 
 	// Verify: 10 money deducted (10 liters * $1), fuel full
-	expectedMoney := 100 - 10
+	expectedMoney := 100 - int(fuelCapacity)
 	if player.Money != expectedMoney {
 		t.Errorf("Expected money %d, got %d", expectedMoney, player.Money)
 	}
-	if player.Fuel != entities.FuelCapacity {
-		t.Errorf("Expected fuel %.2f, got %.2f", entities.FuelCapacity, player.Fuel)
+	if player.Fuel != fuelCapacity {
+		t.Errorf("Expected fuel %.2f, got %.2f", fuelCapacity, player.Fuel)
 	}
 }
 
@@ -67,6 +70,8 @@ func TestFuelStationSystem_ProcessRefueling_PartialTankRoundedUp(t *testing.T) {
 
 	inputState := input.InputState{Sell: true}
 
+	fuelCapacity := player.FuelTank.Capacity()
+
 	// Execute
 	system.ProcessRefueling(player, inputState)
 
@@ -75,8 +80,8 @@ func TestFuelStationSystem_ProcessRefueling_PartialTankRoundedUp(t *testing.T) {
 	if player.Money != expectedMoney {
 		t.Errorf("Expected money %d, got %d", expectedMoney, player.Money)
 	}
-	if player.Fuel != entities.FuelCapacity {
-		t.Errorf("Expected fuel %.2f, got %.2f", entities.FuelCapacity, player.Fuel)
+	if player.Fuel != fuelCapacity {
+		t.Errorf("Expected fuel %.2f, got %.2f", fuelCapacity, player.Fuel)
 	}
 }
 

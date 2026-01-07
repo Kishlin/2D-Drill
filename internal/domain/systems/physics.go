@@ -24,11 +24,11 @@ func (ps *PhysicsSystem) UpdatePhysics(
 	// 1. Apply movement and gravity to velocity
 	player.Velocity = physics.ApplyHorizontalMovement(
 		player.Velocity, inputState, dt,
-		player.GetMaxMoveSpeed(), player.GetMoveAcceleration(),
+		player.Engine.MaxSpeed(), player.Engine.Acceleration(),
 	)
 	player.Velocity = physics.ApplyVerticalMovement(
 		player.Velocity, inputState, dt,
-		player.GetFlyAcceleration(), player.GetMaxUpwardSpeed(),
+		player.Engine.FlyAcceleration(), player.Engine.MaxUpwardSpeed(),
 	)
 	player.Velocity = physics.ApplyGravity(player.Velocity, dt)
 

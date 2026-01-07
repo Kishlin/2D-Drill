@@ -1,61 +1,102 @@
 package entities
 
 import (
+	"math"
+
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
 const (
 	PlayerWidth  = 54.0
 	PlayerHeight = 54.0
-	FuelCapacity = 10.0 // Liters
-	MaxHP        = 10.0 // Maximum hit points
 )
 
 type Player struct {
-	AABB         types.AABB // Position and dimensions - direct access
-	Velocity     types.Vec2 // Pixels per second - direct access
-	OnGround     bool       // Collision state - direct access
+	AABB         types.AABB // Position and dimensions
+	Velocity     types.Vec2 // Pixels per second
+	OnGround     bool       // Collision state
 	OreInventory [7]int     // Ore counts indexed by OreType
 	Money        int        // Player's currency from selling ores
-	Fuel         float32    // Current fuel in liters (0.0 to FuelCapacity)
-	HP           float32    // Current hit points (0.0 to MaxHP)
-	Upgrades     Upgrades   // Current upgrade levels
+	Fuel         float32    // Current fuel in liters
+	HP           float32    // Current hit points
+	Engine       Engine     // Engine component (exported)
+	Hull         Hull       // Hull component (exported)
+	FuelTank     FuelTank   // FuelTank component (exported)
 }
 
 func NewPlayer(startX, startY float32) *Player {
+	engine := NewEngineBase()
+	hull := NewHullBase()
+	fuelTank := NewFuelTankBase()
+
 	return &Player{
 		AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
 		Velocity:     types.Zero(),
 		OnGround:     false,
 		OreInventory: [7]int{},
-		Fuel:         FuelCapacity,
-		HP:           MaxHP,
-		Upgrades:     NewUpgrades(),
+		Fuel:         fuelTank.Capacity(),
+		HP:           hull.MaxHP(),
+		Engine:       engine,
+		Hull:         hull,
+		FuelTank:     fuelTank,
+		Money:        1000000,
 	}
 }
 
-func (p *Player) GetMaxMoveSpeed() float32 {
-	return GetEngineMaxSpeed(p.Upgrades.Engine)
+// Purchase methods
+
+func (p *Player) CanAfford(cost int) bool {
+	return p.Money >= cost
 }
 
-func (p *Player) GetMoveAcceleration() float32 {
-	return GetEngineAcceleration(p.Upgrades.Engine)
+func (p *Player) BuyEngine(e Engine, cost int) {
+	p.Money -= cost
+	p.Engine = e
 }
 
-func (p *Player) GetFlyAcceleration() float32 {
-	return GetEngineFlyAcceleration(p.Upgrades.Engine)
+func (p *Player) BuyHull(h Hull, cost int) {
+	p.Money -= cost
+	p.Hull = h
 }
 
-func (p *Player) GetMaxUpwardSpeed() float32 {
-	return GetEngineMaxUpwardSpeed(p.Upgrades.Engine)
+func (p *Player) BuyFuelTank(ft FuelTank, cost int) {
+	p.Money -= cost
+	p.FuelTank = ft
 }
 
-func (p *Player) GetMaxHP() float32 {
-	return GetHullMaxHP(p.Upgrades.Hull)
+// Refuel fills the tank if player can afford it, returns success
+func (p *Player) Refuel() bool {
+	fuelCapacity := p.FuelTank.Capacity()
+	litersNeeded := fuelCapacity - p.Fuel
+	cost := int(math.Ceil(float64(litersNeeded)))
+
+	if !p.CanAfford(cost) {
+		return false
+	}
+
+	p.Money -= cost
+	p.Fuel = fuelCapacity
+	return true
 }
 
-func (p *Player) GetFuelCapacity() float32 {
-	return GetFuelTankCapacity(p.Upgrades.FuelTank)
+// Heal restores HP to max if player can afford it, returns success
+func (p *Player) Heal() bool {
+	maxHP := p.Hull.MaxHP()
+	hpNeeded := maxHP - p.HP
+
+	if hpNeeded <= 0 {
+		return true // Already full
+	}
+
+	cost := int(math.Ceil(float64(hpNeeded) * 2.0))
+
+	if !p.CanAfford(cost) {
+		return false
+	}
+
+	p.Money -= cost
+	p.HP = maxHP
+	return true
 }
 
 // AddOre increments ore count for given type

@@ -1,8 +1,6 @@
 package systems
 
 import (
-	"math"
-
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 )
@@ -27,23 +25,7 @@ func (hs *HospitalSystem) ProcessHealing(
 		return
 	}
 
-	// Use player's upgraded max HP
-	maxHP := player.GetMaxHP()
-	hpNeeded := maxHP - player.HP
-
-	if hpNeeded <= 0 {
-		return
-	}
-
-	// Calculate cost: $2 per HP, rounded up
-	cost := int(math.Ceil(float64(hpNeeded) * 2.0))
-
-	if player.Money < cost {
-		return // Cannot afford healing
-	}
-
-	player.Money -= cost
-	player.HP = maxHP
+	player.Heal()
 }
 
 func (hs *HospitalSystem) GetHospital() *entities.Hospital {

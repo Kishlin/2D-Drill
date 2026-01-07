@@ -11,7 +11,7 @@ func TestHospitalSystem_ProcessHealing_FullHP(t *testing.T) {
 	// Setup: Player with full HP
 	player := entities.NewPlayer(100, 100)
 	player.Money = 100
-	player.HP = entities.MaxHP
+	// player.HP is already at max from NewPlayer
 
 	hospital := entities.NewHospital(80, 80)
 	system := NewHospitalSystem(hospital)
@@ -19,6 +19,7 @@ func TestHospitalSystem_ProcessHealing_FullHP(t *testing.T) {
 	inputState := input.InputState{Sell: true}
 
 	initialMoney := player.Money
+	maxHP := player.Hull.MaxHP()
 
 	// Execute
 	system.ProcessHealing(player, inputState)
@@ -27,8 +28,8 @@ func TestHospitalSystem_ProcessHealing_FullHP(t *testing.T) {
 	if player.Money != initialMoney {
 		t.Errorf("Expected money %d, got %d", initialMoney, player.Money)
 	}
-	if player.HP != entities.MaxHP {
-		t.Errorf("Expected HP %.2f, got %.2f", entities.MaxHP, player.HP)
+	if player.HP != maxHP {
+		t.Errorf("Expected HP %.2f, got %.2f", maxHP, player.HP)
 	}
 }
 
@@ -43,16 +44,18 @@ func TestHospitalSystem_ProcessHealing_ZeroHP(t *testing.T) {
 
 	inputState := input.InputState{Sell: true}
 
+	maxHP := player.Hull.MaxHP()
+
 	// Execute
 	system.ProcessHealing(player, inputState)
 
 	// Verify: 20 money deducted (10 HP * $2), HP restored to max
-	expectedMoney := 100 - 20
+	expectedMoney := 100 - int(maxHP)*2
 	if player.Money != expectedMoney {
 		t.Errorf("Expected money %d, got %d", expectedMoney, player.Money)
 	}
-	if player.HP != entities.MaxHP {
-		t.Errorf("Expected HP %.2f, got %.2f", entities.MaxHP, player.HP)
+	if player.HP != maxHP {
+		t.Errorf("Expected HP %.2f, got %.2f", maxHP, player.HP)
 	}
 }
 
@@ -67,6 +70,8 @@ func TestHospitalSystem_ProcessHealing_PartialHPRoundedUp(t *testing.T) {
 
 	inputState := input.InputState{Sell: true}
 
+	maxHP := player.Hull.MaxHP()
+
 	// Execute
 	system.ProcessHealing(player, inputState)
 
@@ -75,8 +80,8 @@ func TestHospitalSystem_ProcessHealing_PartialHPRoundedUp(t *testing.T) {
 	if player.Money != expectedMoney {
 		t.Errorf("Expected money %d, got %d", expectedMoney, player.Money)
 	}
-	if player.HP != entities.MaxHP {
-		t.Errorf("Expected HP %.2f, got %.2f", entities.MaxHP, player.HP)
+	if player.HP != maxHP {
+		t.Errorf("Expected HP %.2f, got %.2f", maxHP, player.HP)
 	}
 }
 
@@ -160,6 +165,8 @@ func TestHospitalSystem_ProcessHealing_SmallFractionalHP(t *testing.T) {
 
 	inputState := input.InputState{Sell: true}
 
+	maxHP := player.Hull.MaxHP()
+
 	// Execute
 	system.ProcessHealing(player, inputState)
 
@@ -168,7 +175,7 @@ func TestHospitalSystem_ProcessHealing_SmallFractionalHP(t *testing.T) {
 	if player.Money != expectedMoney {
 		t.Errorf("Expected money %d, got %d", expectedMoney, player.Money)
 	}
-	if player.HP != entities.MaxHP {
-		t.Errorf("Expected HP %.2f, got %.2f", entities.MaxHP, player.HP)
+	if player.HP != maxHP {
+		t.Errorf("Expected HP %.2f, got %.2f", maxHP, player.HP)
 	}
 }

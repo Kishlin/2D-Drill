@@ -94,15 +94,16 @@ drill-game/
 │       │   ├── hospital_test.go             # Hospital healing transaction tests
 │       │   └── upgrade_test.go              # Upgrade purchase tests
 │       ├── entities/
-│       │   ├── player.go                    # Player entity (AABB-based + inventory + money + fuel + HP + upgrades)
+│       │   ├── player.go                    # Player aggregate root (AABB, inventory, money, fuel, HP, components)
 │       │   ├── player_test.go               # Player inventory tests
+│       │   ├── engine.go                    # Engine component (tier, name, speed/acceleration stats)
+│       │   ├── hull.go                      # Hull component (tier, name, maxHP)
+│       │   ├── fuel_tank.go                 # FuelTank component (tier, name, capacity)
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   ├── shop.go                      # Shop entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
-│       │   ├── upgrade_shop.go              # UpgradeShop entity (AABB-based, per upgrade type)
-│       │   ├── upgrades.go                  # Upgrade levels and player upgrades struct
-│       │   ├── upgrade_tiers.go             # Tier definitions (stats and costs for each level)
+│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
@@ -360,14 +361,14 @@ func (ps *PhysicsSystem) UpdatePhysics(
     inputState input.InputState,
     dt float32,
 ) {
-    // 1. Apply movement and gravity to velocity (using player's upgrade-based stats)
+    // 1. Apply movement and gravity to velocity (using player's component stats)
     player.Velocity = physics.ApplyHorizontalMovement(
         player.Velocity, inputState, dt,
-        player.GetMaxMoveSpeed(), player.GetMoveAcceleration(),
+        player.Engine.MaxSpeed(), player.Engine.Acceleration(),
     )
     player.Velocity = physics.ApplyVerticalMovement(
         player.Velocity, inputState, dt,
-        player.GetFlyAcceleration(), player.GetMaxUpwardSpeed(),
+        player.Engine.FlyAcceleration(), player.Engine.MaxUpwardSpeed(),
     )
     player.Velocity = physics.ApplyGravity(player.Velocity, dt)
 
@@ -596,9 +597,9 @@ Manages upgrade purchases at dedicated upgrade shops:
 
 ```go
 type UpgradeSystem struct {
-    engineShop   *entities.UpgradeShop
-    hullShop     *entities.UpgradeShop
-    fuelTankShop *entities.UpgradeShop
+    engineShop   *entities.EngineUpgradeShop
+    hullShop     *entities.HullUpgradeShop
+    fuelTankShop *entities.FuelTankUpgradeShop
 }
 
 func (us *UpgradeSystem) ProcessUpgrade(
@@ -618,15 +619,14 @@ func (us *UpgradeSystem) ProcessUpgrade(
 }
 
 func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
-    cost := entities.GetEngineNextCost(player.Upgrades.Engine)
-    if cost == 0 {
+    entry := us.engineShop.GetNextEngine(player.Engine.Tier())
+    if entry == nil {
         return // Already at max level
     }
-    if player.Money < cost {
+    if !player.CanAfford(entry.Price) {
         return // Cannot afford
     }
-    player.Money -= cost
-    player.Upgrades.Engine++
+    player.BuyEngine(entry.Engine, entry.Price)
 }
 ```
 
@@ -639,7 +639,8 @@ func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
 - Mirrors Hospital/FuelStation pattern (AABB + E key interaction)
 - Three separate shops prevent spatial conflict
 - Called before physics (consistent with other interactions)
-- Tier data centralized in `upgrade_tiers.go`
+- Each shop owns its catalog (DDD: shop knows what it sells)
+- Player is aggregate root (mutations go through Player methods)
 - Fully testable without framework (5 comprehensive unit tests)
 
 #### Pure Physics Functions (`domain/physics/`)
@@ -671,36 +672,54 @@ func GetOccupiedTileRange(aabb AABB, tileSize float32) (minX, maxX, minY, maxY i
 
 #### Player Entity (`domain/entities/player.go`)
 
-Pure data entity with AABB collision primitive, ore inventory, and health:
+Player is the **aggregate root** with exported component value objects (Engine, Hull, FuelTank). Stats are accessed via components; mutations go through Player methods.
 
 ```go
 type Player struct {
-    AABB         types.AABB  // Position and dimensions - direct access
-    Velocity     types.Vec2  // Pixels per second - direct access
-    OnGround     bool        // Collision state - direct access
+    AABB         types.AABB  // Position and dimensions
+    Velocity     types.Vec2  // Pixels per second
+    OnGround     bool        // Collision state
     OreInventory [7]int      // Ore counts indexed by OreType
     Money        int         // Currency from ore sales
-    Fuel         float32     // Current fuel in liters (dynamic max via upgrades)
-    HP           float32     // Hit points (dynamic max via upgrades)
-    Upgrades     Upgrades    // Engine, Hull, FuelTank upgrade levels
+    Fuel         float32     // Current fuel in liters
+    HP           float32     // Hit points
+    Engine       Engine      // Engine component (exported)
+    Hull         Hull        // Hull component (exported)
+    FuelTank     FuelTank    // FuelTank component (exported)
 }
 
-// Stat accessors return values based on current upgrade levels
-func (p *Player) GetMaxMoveSpeed() float32    // From EngineTiers[p.Upgrades.Engine]
-func (p *Player) GetMoveAcceleration() float32
-func (p *Player) GetFlyAcceleration() float32
-func (p *Player) GetMaxUpwardSpeed() float32
-func (p *Player) GetMaxHP() float32           // From HullTiers[p.Upgrades.Hull]
-func (p *Player) GetFuelCapacity() float32    // From FuelTankTiers[p.Upgrades.FuelTank]
+// Component types are value objects with named constructors
+type Engine struct {
+    tier, name, maxSpeed, acceleration, flyAcceleration, maxUpwardSpeed
+}
+func NewEngineBase() Engine  // tier 0, 450 px/s max speed, etc.
+func NewEngineMk1() Engine   // tier 1, 500 px/s max speed, etc.
+// ... through NewEngineMk5()
+
+// Stats accessed via components
+player.Engine.MaxSpeed()      // 450.0 for base engine
+player.Engine.Tier()          // 0 for base engine
+player.Hull.MaxHP()           // 10.0 for base hull
+player.FuelTank.Capacity()    // 10.0 for base tank
+
+// Purchase methods enforce invariants
+func (p *Player) CanAfford(cost int) bool
+func (p *Player) BuyEngine(e Engine, cost int)
+func (p *Player) Refuel() bool  // checks money, fills tank
+func (p *Player) Heal() bool    // checks money, restores HP
 
 func NewPlayer(startX, startY float32) *Player {
+    engine := NewEngineBase()
+    hull := NewHullBase()
+    fuelTank := NewFuelTankBase()
     return &Player{
-        AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
-        Velocity:     types.Zero(),
-        OnGround:     false,
-        OreInventory: [7]int{},
-        Fuel:         FuelCapacity,
-        HP:           MaxHP,
+        AABB:     types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
+        Velocity: types.Zero(),
+        Fuel:     fuelTank.Capacity(),
+        HP:       hull.MaxHP(),
+        Engine:   engine,
+        Hull:     hull,
+        FuelTank: fuelTank,
     }
 }
 
@@ -1453,9 +1472,9 @@ const (
 )
 ```
 
-**Dynamic values** (`internal/domain/entities/upgrade_tiers.go`):
+**Dynamic values** (`internal/domain/entities/engine.go`):
 
-Movement stats are defined per engine upgrade tier:
+Movement stats are defined per engine upgrade tier via named constructors:
 
 | Stat | Base | Mk5 (Max) |
 |------|------|-----------|
@@ -1471,7 +1490,7 @@ Movement stats are defined per engine upgrade tier:
 - **FallDamageDivisor=20**: Scales impact speed into damage (500+ px/sec → 0+ damage points)
 - **Engine upgrades**: Better engines allow faster movement and climbing
 
-See `internal/domain/physics/constants.go` and `internal/domain/entities/upgrade_tiers.go` for source of truth.
+See `internal/domain/physics/constants.go` and component files (`engine.go`, `hull.go`, `fuel_tank.go`) for source of truth.
 
 ---
 

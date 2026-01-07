@@ -8,6 +8,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
+	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
@@ -15,11 +16,11 @@ var (
 	PlayerColor       = rl.Red
 	GroundColor       = rl.Brown
 	SkyColor          = rl.SkyBlue
-	DirtColor         = rl.NewColor(139, 90, 43, 255) // Brown dirt
-	GridColor         = rl.NewColor(100, 65, 30, 128) // Semi-transparent grid lines
-	ShopColor         = rl.NewColor(34, 139, 34, 255) // Forest Green
-	FuelStationColor  = rl.NewColor(255, 165, 0, 255) // Orange
-	HospitalColor     = rl.NewColor(220, 20, 60, 255) // Crimson
+	DirtColor         = rl.NewColor(139, 90, 43, 255)   // Brown dirt
+	GridColor         = rl.NewColor(100, 65, 30, 128)   // Semi-transparent grid lines
+	ShopColor         = rl.NewColor(34, 139, 34, 255)   // Forest Green
+	FuelStationColor  = rl.NewColor(255, 165, 0, 255)   // Orange
+	HospitalColor     = rl.NewColor(220, 20, 60, 255)   // Crimson
 	EngineShopColor   = rl.NewColor(70, 130, 180, 255)  // Steel Blue
 	HullShopColor     = rl.NewColor(105, 105, 105, 255) // Dim Gray
 	FuelTankShopColor = rl.NewColor(255, 99, 71, 255)   // Tomato
@@ -109,9 +110,9 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderShop(game.GetShop())
 	r.renderFuelStation(game.GetFuelStation())
 	r.renderHospital(game.GetHospital())
-	r.renderUpgradeShop(game.GetEngineShop(), EngineShopColor, rl.DarkBlue)
-	r.renderUpgradeShop(game.GetHullShop(), HullShopColor, rl.DarkGray)
-	r.renderUpgradeShop(game.GetFuelTankShop(), FuelTankShopColor, rl.Maroon)
+	r.renderUpgradeShop(game.GetEngineShop().AABB, EngineShopColor, rl.DarkBlue)
+	r.renderUpgradeShop(game.GetHullShop().AABB, HullShopColor, rl.DarkGray)
+	r.renderUpgradeShop(game.GetFuelTankShop().AABB, FuelTankShopColor, rl.Maroon)
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -192,8 +193,7 @@ func (r *RaylibRenderer) renderHospital(hospital *entities.Hospital) {
 	)
 }
 
-func (r *RaylibRenderer) renderUpgradeShop(shop *entities.UpgradeShop, fillColor, borderColor rl.Color) {
-	aabb := shop.AABB
+func (r *RaylibRenderer) renderUpgradeShop(aabb types.AABB, fillColor, borderColor rl.Color) {
 	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
 	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
 
@@ -326,6 +326,6 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 
 	// Draw upgrade levels
 	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d",
-		player.Upgrades.Engine, player.Upgrades.Hull, player.Upgrades.FuelTank)
+		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier())
 	rl.DrawText(upgradeText, posX, posY, fontSize, textColor)
 }

@@ -10,9 +10,9 @@ import (
 
 func createTestUpgradeSystem() (*systems.UpgradeSystem, *entities.Player) {
 	// Create shops at positions where player (at 0,0) will be in range
-	engineShop := entities.NewUpgradeShop(0, 0, entities.UpgradeTypeEngine)
-	hullShop := entities.NewUpgradeShop(400, 0, entities.UpgradeTypeHull)
-	fuelTankShop := entities.NewUpgradeShop(800, 0, entities.UpgradeTypeFuelTank)
+	engineShop := entities.NewEngineUpgradeShop(0, 0)
+	hullShop := entities.NewHullUpgradeShop(400, 0)
+	fuelTankShop := entities.NewFuelTankUpgradeShop(800, 0)
 
 	system := systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop)
 	player := entities.NewPlayer(0, 0)
@@ -27,8 +27,8 @@ func TestUpgradeSystem_BuyEngineMk1_Success(t *testing.T) {
 	inputState := input.InputState{Sell: true}
 	system.ProcessUpgrade(player, inputState)
 
-	if player.Upgrades.Engine != entities.UpgradeLevelMk1 {
-		t.Errorf("Expected engine level Mk1 (1), got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 1 {
+		t.Errorf("Expected engine tier 1, got %d", player.Engine.Tier())
 	}
 	if player.Money != 100 {
 		t.Errorf("Expected money to be 100 after purchase, got %d", player.Money)
@@ -42,8 +42,8 @@ func TestUpgradeSystem_BuyEngine_InsufficientFunds(t *testing.T) {
 	inputState := input.InputState{Sell: true}
 	system.ProcessUpgrade(player, inputState)
 
-	if player.Upgrades.Engine != entities.UpgradeLevelBase {
-		t.Errorf("Expected engine level to remain Base (0), got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 0 {
+		t.Errorf("Expected engine tier to remain 0, got %d", player.Engine.Tier())
 	}
 	if player.Money != 50 {
 		t.Errorf("Expected money to remain 50, got %d", player.Money)
@@ -57,8 +57,8 @@ func TestUpgradeSystem_BuyEngine_NoInput(t *testing.T) {
 	inputState := input.InputState{Sell: false}
 	system.ProcessUpgrade(player, inputState)
 
-	if player.Upgrades.Engine != entities.UpgradeLevelBase {
-		t.Errorf("Expected engine level to remain Base (0), got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 0 {
+		t.Errorf("Expected engine tier to remain 0, got %d", player.Engine.Tier())
 	}
 }
 
@@ -71,22 +71,32 @@ func TestUpgradeSystem_BuyEngine_OutOfRange(t *testing.T) {
 	inputState := input.InputState{Sell: true}
 	system.ProcessUpgrade(player, inputState)
 
-	if player.Upgrades.Engine != entities.UpgradeLevelBase {
-		t.Errorf("Expected engine level to remain Base (0), got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 0 {
+		t.Errorf("Expected engine tier to remain 0, got %d", player.Engine.Tier())
 	}
 }
 
 func TestUpgradeSystem_BuyEngine_MaxLevel(t *testing.T) {
 	system, player := createTestUpgradeSystem()
 	player.Money = 100000 // Plenty of money
-	player.Upgrades.Engine = entities.UpgradeLevelMk5 // Already at max
+
+	inputState := input.InputState{Sell: true}
+
+	// Buy all engine upgrades (Mk1 through Mk5)
+	for i := 0; i < 5; i++ {
+		system.ProcessUpgrade(player, inputState)
+	}
+
+	if player.Engine.Tier() != 5 {
+		t.Errorf("Expected engine tier 5, got %d", player.Engine.Tier())
+	}
 
 	initialMoney := player.Money
-	inputState := input.InputState{Sell: true}
+	// Try to buy again at max level
 	system.ProcessUpgrade(player, inputState)
 
-	if player.Upgrades.Engine != entities.UpgradeLevelMk5 {
-		t.Errorf("Expected engine level to remain Mk5 (5), got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 5 {
+		t.Errorf("Expected engine tier to remain 5, got %d", player.Engine.Tier())
 	}
 	if player.Money != initialMoney {
 		t.Errorf("Expected money to remain unchanged at max level")
@@ -102,8 +112,8 @@ func TestUpgradeSystem_BuyHull_Success(t *testing.T) {
 	inputState := input.InputState{Sell: true}
 	system.ProcessUpgrade(player, inputState)
 
-	if player.Upgrades.Hull != entities.UpgradeLevelMk1 {
-		t.Errorf("Expected hull level Mk1 (1), got %d", player.Upgrades.Hull)
+	if player.Hull.Tier() != 1 {
+		t.Errorf("Expected hull tier 1, got %d", player.Hull.Tier())
 	}
 	if player.Money != 50 { // Hull Mk1 costs $150
 		t.Errorf("Expected money to be 50 after purchase, got %d", player.Money)
@@ -119,8 +129,8 @@ func TestUpgradeSystem_BuyFuelTank_Success(t *testing.T) {
 	inputState := input.InputState{Sell: true}
 	system.ProcessUpgrade(player, inputState)
 
-	if player.Upgrades.FuelTank != entities.UpgradeLevelMk1 {
-		t.Errorf("Expected fuel tank level Mk1 (1), got %d", player.Upgrades.FuelTank)
+	if player.FuelTank.Tier() != 1 {
+		t.Errorf("Expected fuel tank tier 1, got %d", player.FuelTank.Tier())
 	}
 	if player.Money != 100 { // Tank Mk1 costs $100
 		t.Errorf("Expected money to be 100 after purchase, got %d", player.Money)
@@ -135,19 +145,19 @@ func TestUpgradeSystem_ProgressiveUpgrades(t *testing.T) {
 
 	// Buy Mk1
 	system.ProcessUpgrade(player, inputState)
-	if player.Upgrades.Engine != entities.UpgradeLevelMk1 {
-		t.Errorf("Expected engine Mk1 after first purchase, got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 1 {
+		t.Errorf("Expected engine tier 1 after first purchase, got %d", player.Engine.Tier())
 	}
 
 	// Buy Mk2
 	system.ProcessUpgrade(player, inputState)
-	if player.Upgrades.Engine != entities.UpgradeLevelMk2 {
-		t.Errorf("Expected engine Mk2 after second purchase, got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 2 {
+		t.Errorf("Expected engine tier 2 after second purchase, got %d", player.Engine.Tier())
 	}
 
 	// Buy Mk3
 	system.ProcessUpgrade(player, inputState)
-	if player.Upgrades.Engine != entities.UpgradeLevelMk3 {
-		t.Errorf("Expected engine Mk3 after third purchase, got %d", player.Upgrades.Engine)
+	if player.Engine.Tier() != 3 {
+		t.Errorf("Expected engine tier 3 after third purchase, got %d", player.Engine.Tier())
 	}
 }

@@ -2,31 +2,124 @@ package entities
 
 import "github.com/Kishlin/drill-game/internal/domain/types"
 
-type UpgradeType int
-
-const (
-	UpgradeTypeEngine   UpgradeType = 0
-	UpgradeTypeHull     UpgradeType = 1
-	UpgradeTypeFuelTank UpgradeType = 2
-)
-
 const (
 	UpgradeShopWidth  = 320.0
 	UpgradeShopHeight = 192.0
 )
 
-type UpgradeShop struct {
-	AABB        types.AABB
-	UpgradeType UpgradeType
+// Engine Upgrade Shop
+
+type EngineCatalogEntry struct {
+	Price  int
+	Engine Engine
 }
 
-func NewUpgradeShop(x, y float32, upgradeType UpgradeType) *UpgradeShop {
-	return &UpgradeShop{
-		AABB:        types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
-		UpgradeType: upgradeType,
+type EngineUpgradeShop struct {
+	AABB    types.AABB
+	Catalog []EngineCatalogEntry
+}
+
+func NewEngineUpgradeShop(x, y float32) *EngineUpgradeShop {
+	return &EngineUpgradeShop{
+		AABB: types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
+		Catalog: []EngineCatalogEntry{
+			{Price: 100, Engine: NewEngineMk1()},
+			{Price: 300, Engine: NewEngineMk2()},
+			{Price: 750, Engine: NewEngineMk3()},
+			{Price: 1500, Engine: NewEngineMk4()},
+			{Price: 5000, Engine: NewEngineMk5()},
+		},
 	}
 }
 
-func (us *UpgradeShop) IsPlayerInRange(player *Player) bool {
-	return us.AABB.Intersects(player.AABB)
+func (s *EngineUpgradeShop) IsPlayerInRange(player *Player) bool {
+	return s.AABB.Intersects(player.AABB)
+}
+
+func (s *EngineUpgradeShop) GetNextEngine(currentTier int) *EngineCatalogEntry {
+	nextTier := currentTier + 1
+	for i := range s.Catalog {
+		if s.Catalog[i].Engine.Tier() == nextTier {
+			return &s.Catalog[i]
+		}
+	}
+	return nil // Max level reached
+}
+
+// Hull Upgrade Shop
+
+type HullCatalogEntry struct {
+	Price int
+	Hull  Hull
+}
+
+type HullUpgradeShop struct {
+	AABB    types.AABB
+	Catalog []HullCatalogEntry
+}
+
+func NewHullUpgradeShop(x, y float32) *HullUpgradeShop {
+	return &HullUpgradeShop{
+		AABB: types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
+		Catalog: []HullCatalogEntry{
+			{Price: 150, Hull: NewHullMk1()},
+			{Price: 400, Hull: NewHullMk2()},
+			{Price: 1000, Hull: NewHullMk3()},
+			{Price: 2500, Hull: NewHullMk4()},
+			{Price: 8000, Hull: NewHullMk5()},
+		},
+	}
+}
+
+func (s *HullUpgradeShop) IsPlayerInRange(player *Player) bool {
+	return s.AABB.Intersects(player.AABB)
+}
+
+func (s *HullUpgradeShop) GetNextHull(currentTier int) *HullCatalogEntry {
+	nextTier := currentTier + 1
+	for i := range s.Catalog {
+		if s.Catalog[i].Hull.Tier() == nextTier {
+			return &s.Catalog[i]
+		}
+	}
+	return nil // Max level reached
+}
+
+// FuelTank Upgrade Shop
+
+type FuelTankCatalogEntry struct {
+	Price    int
+	FuelTank FuelTank
+}
+
+type FuelTankUpgradeShop struct {
+	AABB    types.AABB
+	Catalog []FuelTankCatalogEntry
+}
+
+func NewFuelTankUpgradeShop(x, y float32) *FuelTankUpgradeShop {
+	return &FuelTankUpgradeShop{
+		AABB: types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
+		Catalog: []FuelTankCatalogEntry{
+			{Price: 100, FuelTank: NewFuelTankMk1()},
+			{Price: 250, FuelTank: NewFuelTankMk2()},
+			{Price: 600, FuelTank: NewFuelTankMk3()},
+			{Price: 1500, FuelTank: NewFuelTankMk4()},
+			{Price: 4000, FuelTank: NewFuelTankMk5()},
+		},
+	}
+}
+
+func (s *FuelTankUpgradeShop) IsPlayerInRange(player *Player) bool {
+	return s.AABB.Intersects(player.AABB)
+}
+
+func (s *FuelTankUpgradeShop) GetNextFuelTank(currentTier int) *FuelTankCatalogEntry {
+	nextTier := currentTier + 1
+	for i := range s.Catalog {
+		if s.Catalog[i].FuelTank.Tier() == nextTier {
+			return &s.Catalog[i]
+		}
+	}
+	return nil // Max level reached
 }

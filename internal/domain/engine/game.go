@@ -42,13 +42,13 @@ func NewGame(w *world.World) *Game {
 	// Create upgrade shops to the right of the ore shop
 	upgradeShopY := w.GetGroundLevel() - entities.UpgradeShopHeight
 	engineShopX := shopX + 360.0
-	engineShop := entities.NewUpgradeShop(engineShopX, upgradeShopY, entities.UpgradeTypeEngine)
+	engineShop := entities.NewEngineUpgradeShop(engineShopX, upgradeShopY)
 
 	hullShopX := engineShopX + 360.0
-	hullShop := entities.NewUpgradeShop(hullShopX, upgradeShopY, entities.UpgradeTypeHull)
+	hullShop := entities.NewHullUpgradeShop(hullShopX, upgradeShopY)
 
 	fuelTankShopX := hullShopX + 360.0
-	fuelTankShop := entities.NewUpgradeShop(fuelTankShopX, upgradeShopY, entities.UpgradeTypeFuelTank)
+	fuelTankShop := entities.NewFuelTankUpgradeShop(fuelTankShopX, upgradeShopY)
 
 	return &Game{
 		world:             w,
@@ -116,14 +116,14 @@ func (g *Game) GetHospital() *entities.Hospital {
 	return g.hospitalSystem.GetHospital()
 }
 
-func (g *Game) GetEngineShop() *entities.UpgradeShop {
+func (g *Game) GetEngineShop() *entities.EngineUpgradeShop {
 	return g.upgradeSystem.GetEngineShop()
 }
 
-func (g *Game) GetHullShop() *entities.UpgradeShop {
+func (g *Game) GetHullShop() *entities.HullUpgradeShop {
 	return g.upgradeSystem.GetHullShop()
 }
 
-func (g *Game) GetFuelTankShop() *entities.UpgradeShop {
+func (g *Game) GetFuelTankShop() *entities.FuelTankUpgradeShop {
 	return g.upgradeSystem.GetFuelTankShop()
 }
