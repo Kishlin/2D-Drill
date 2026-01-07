@@ -15,7 +15,7 @@ Control a small drilling vehicle on a planet rich with valuable ores. The deeper
 - 💎 **7 Ore Types** — Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond with Gaussian depth distribution
 - 🎮 **Smooth Gameplay** — 60 FPS movement, physics, directional digging with AABB collision
 - 🗺️ **Chunk Loading** — Lazy 16×16 chunks around player
-- 📦 **Ore Inventory & Shop System** — Automatic collection, sell for currency
+- 📦 **Ore Inventory & Market System** — Automatic collection, sell for currency
 - ⛽ **Fuel System** — Limited tank with activity-based consumption
 
 See [CLAUDE.md](CLAUDE.md) for current feature status and configuration.
@@ -101,7 +101,7 @@ Start here based on what you need:
 
 ### Phase 2: Progression System
 - [x] Ore inventory system
-- [x] Currency and shop system
+- [x] Currency and market system
 - [x] Ore selling mechanics
 - [x] Fuel consumption system
 - [x] Fuel station (refueling mechanic)

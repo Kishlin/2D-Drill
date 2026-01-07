@@ -19,7 +19,7 @@ var (
 	SkyColor          = rl.SkyBlue
 	DirtColor         = rl.NewColor(139, 90, 43, 255)   // Brown dirt
 	GridColor         = rl.NewColor(100, 65, 30, 128)   // Semi-transparent grid lines
-	ShopColor         = rl.NewColor(34, 139, 34, 255)   // Forest Green
+	MarketColor       = rl.NewColor(34, 139, 34, 255)   // Forest Green
 	FuelStationColor  = rl.NewColor(255, 165, 0, 255)   // Orange
 	HospitalColor     = rl.NewColor(220, 20, 60, 255)   // Crimson
 	EngineShopColor    = rl.NewColor(70, 130, 180, 255)  // Steel Blue
@@ -109,7 +109,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 
 	r.renderWorld(game.GetWorld())
 	r.renderTiles(game.GetWorld())
-	r.renderShop(game.GetShop())
+	r.renderMarket(game.GetMarket())
 	r.renderFuelStation(game.GetFuelStation())
 	r.renderHospital(game.GetHospital())
 	r.renderUpgradeShop(game.GetEngineShop().AABB, EngineShopColor, rl.DarkBlue)
@@ -155,12 +155,12 @@ func (r *RaylibRenderer) renderPlayer(player *entities.Player) {
 	rl.DrawRectangleV(rlPos, rlSize, PlayerColor)
 }
 
-func (r *RaylibRenderer) renderShop(shop *entities.Shop) {
-	aabb := shop.AABB
+func (r *RaylibRenderer) renderMarket(market *entities.Market) {
+	aabb := market.AABB
 	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
 	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
 
-	rl.DrawRectangleV(rlPos, rlSize, ShopColor)
+	rl.DrawRectangleV(rlPos, rlSize, MarketColor)
 
 	rl.DrawRectangleLinesEx(
 		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},

@@ -51,7 +51,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - **Up (W)**: Fly/jump upward
 - **Down (S) / Down Arrow**: Dig downward (with player grid alignment)
 - **E**: Interact
-  - At shop: Sell entire inventory
+  - At market: Sell entire inventory
   - At fuel station: Refuel tank (if affordable)
   - At hospital: Heal to full HP (if affordable)
   - At upgrade shop: Buy next upgrade tier (if affordable)
@@ -94,7 +94,7 @@ Both vertical and horizontal digging feature a 1-second smooth animation where t
 - Fuel consumption continues (active rate if drilling, idle otherwise)
 - Heat damage continues (based on depth and resistance)
 - Fall damage does not apply (physics movement skipped)
-- All other interactions blocked (shop, upgrade, healing)
+- All other interactions blocked (market, upgrade, healing)
 - Animation cannot be interrupted or cancelled
 
 ### Ore Inventory System
@@ -104,9 +104,9 @@ Both vertical and horizontal digging feature a 1-second smooth animation where t
 - **Simple Economy**: 1 tile dug = 1 ore collected (no partial ores, no quantity variance)
 - **Dirt Ignored**: Only ore tiles contribute to inventory (dirt is destroyed but not collected)
 
-### Currency & Shop System
-- **Shop Location**: Visible on the surface (green rectangle, ~3 tiles right of spawn)
-- **Selling Ores**: Press E while overlapping with shop to sell entire inventory
+### Currency & Market System
+- **Market Location**: Visible on the surface (green rectangle, ~3 tiles right of spawn)
+- **Selling Ores**: Press E while overlapping with market to sell entire inventory
 - **Instant Transaction**: All ores converted to money immediately, inventory cleared
 - **Ore Values**:
   | Ore      | Value |
@@ -334,7 +334,7 @@ Increases heat resistance, allowing safe mining at greater depths. Heat shield i
 
 ### Upgrade Shops
 
-Five separate upgrade shops are located on the surface (right of the ore shop), spaced 360 pixels apart:
+Five separate upgrade shops are located on the surface (right of the ore market), spaced 360 pixels apart:
 - **Engine Shop** (Steel Blue): Engine upgrades
 - **Hull Shop** (Dim Gray): Hull upgrades
 - **Fuel Tank Shop** (Tomato): Fuel tank upgrades

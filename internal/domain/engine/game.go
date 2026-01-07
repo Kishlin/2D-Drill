@@ -12,7 +12,7 @@ type Game struct {
 	player            *entities.Player
 	physicsSystem     *systems.PhysicsSystem
 	diggingSystem     *systems.DiggingSystem
-	shopSystem        *systems.ShopSystem
+	marketSystem      *systems.MarketSystem
 	fuelSystem        *systems.FuelSystem
 	fuelStationSystem *systems.FuelStationSystem
 	hospitalSystem    *systems.HospitalSystem
@@ -24,10 +24,10 @@ func NewGame(w *world.World) *Game {
 	spawnX := (w.Width / 2) - (entities.PlayerWidth / 2)
 	spawnY := w.GetGroundLevel() - entities.PlayerHeight - 10
 
-	// Create shop to the right of player spawn
-	shopX := spawnX + 200.0 // ~3 tiles to the right
-	shopY := w.GetGroundLevel() - entities.ShopHeight
-	shop := entities.NewShop(shopX, shopY)
+	// Create market to the right of player spawn
+	marketX := spawnX + 200.0 // ~3 tiles to the right
+	marketY := w.GetGroundLevel() - entities.MarketHeight
+	market := entities.NewMarket(marketX, marketY)
 
 	// Create fuel station to the left of player spawn
 	fuelStationX := spawnX - 520.0 // ~8 tiles to the left
@@ -39,9 +39,9 @@ func NewGame(w *world.World) *Game {
 	hospitalY := w.GetGroundLevel() - entities.HospitalHeight
 	hospital := entities.NewHospital(hospitalX, hospitalY)
 
-	// Create upgrade shops to the right of the ore shop
+	// Create upgrade shops to the right of the ore market
 	upgradeShopY := w.GetGroundLevel() - entities.UpgradeShopHeight
-	engineShopX := shopX + 360.0
+	engineShopX := marketX + 360.0
 	engineShop := entities.NewEngineUpgradeShop(engineShopX, upgradeShopY)
 
 	hullShopX := engineShopX + 360.0
@@ -61,7 +61,7 @@ func NewGame(w *world.World) *Game {
 		player:            entities.NewPlayer(spawnX, spawnY),
 		physicsSystem:     systems.NewPhysicsSystem(w),
 		diggingSystem:     systems.NewDiggingSystem(w),
-		shopSystem:        systems.NewShopSystem(shop),
+		marketSystem:      systems.NewMarketSystem(market),
 		fuelSystem:        systems.NewFuelSystem(),
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
 		hospitalSystem:    systems.NewHospitalSystem(hospital),
@@ -90,8 +90,8 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		return nil
 	}
 
-	// 4. Handle shop selling
-	g.shopSystem.ProcessSelling(g.player, inputState)
+	// 4. Handle market selling
+	g.marketSystem.ProcessSelling(g.player, inputState)
 
 	// 5. Handle fuel station refueling
 	g.fuelStationSystem.ProcessRefueling(g.player, inputState)
@@ -113,8 +113,8 @@ func (g *Game) GetPlayer() *entities.Player {
 	return g.player
 }
 
-func (g *Game) GetShop() *entities.Shop {
-	return g.shopSystem.GetShop()
+func (g *Game) GetMarket() *entities.Market {
+	return g.marketSystem.GetMarket()
 }
 
 func (g *Game) GetFuelStation() *entities.FuelStation {

@@ -83,7 +83,7 @@ drill-game/
 │       ├── systems/
 │       │   ├── physics.go                   # PhysicsSystem
 │       │   ├── digging.go                   # DiggingSystem (ore collection)
-│       │   ├── shop.go                      # ShopSystem (selling inventory)
+│       │   ├── market.go                     # MarketSystem (selling inventory)
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
 │       │   ├── fuel_station.go              # FuelStationSystem (refueling)
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
@@ -102,7 +102,7 @@ drill-game/
 │       │   ├── cargo_hold.go                # CargoHold component (tier, name, ore capacity)
 │       │   ├── heat_shield.go               # HeatShield component (tier, name, heat resistance)
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
-│       │   ├── shop.go                      # Shop entity (AABB-based interactable)
+│       │   ├── market.go                     # Market entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
 │       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold/HeatShield)
@@ -166,7 +166,7 @@ main.go Loop:
 │    • Remove tile on animation complete  │
 │    • Collect ore if available           │
 │    • (Block other inputs during dig)    │
-│    • Shop selling (E key + overlap)     │
+│    • Market selling (E key + overlap)   │
 │    • Fuel station refueling (E key)     │
 │    • Hospital healing (E key)           │
 │    • Upgrade purchases (E key)          │
@@ -176,9 +176,9 @@ main.go Loop:
 ┌─────────────────────────────────────────┐
 │ 3. Render via Adapter                   │
 │    renderer.Render(game)                │
-│    • Extracts Player, World, Shop       │
+│    • Extracts Player, World, Market     │
 │    • Renders tiles with ore colors      │
-│    • Draws shop, player, entities       │
+│    • Draws market, player, entities     │
 │    • Displays debug info (money, ore, fuel) │
 │    • Camera follows player              │
 └─────────────────────────────────────────┘
@@ -221,7 +221,7 @@ type Game struct {
     player            *entities.Player
     physicsSystem     *systems.PhysicsSystem
     diggingSystem     *systems.DiggingSystem
-    shopSystem        *systems.ShopSystem
+    marketSystem      *systems.MarketSystem
     fuelSystem        *systems.FuelSystem
     fuelStationSystem *systems.FuelStationSystem
     hospitalSystem    *systems.HospitalSystem
@@ -251,8 +251,8 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
         return nil
     }
 
-    // 4. Handle shop selling
-    g.shopSystem.ProcessSelling(g.player, inputState)
+    // 4. Handle market selling
+    g.marketSystem.ProcessSelling(g.player, inputState)
 
     // 5. Handle fuel station refueling
     g.fuelStationSystem.ProcessRefueling(g.player, inputState)
@@ -327,7 +327,7 @@ g.physicsSystem.UpdatePhysics(g.player, inputState, dt)      // Physics FIRST
 g.fuelSystem.ConsumeFuel(g.player, inputState, dt)           // Fuel runs always
 g.diggingSystem.ProcessDigging(g.player, inputState, dt)     // Then digging
 if g.player.IsDigging { return }                             // Block interactions during dig
-// ... interaction systems (shop, upgrade, etc.)
+// ... interaction systems (market, upgrade, etc.)
 ```
 
 **Vertical Digging (S/Down Key):**
@@ -656,9 +656,9 @@ func (fss *FuelStationSystem) ProcessRefueling(
 - **Instant Fill**: Fuel immediately set to `FuelCapacity` (10L) on success
 
 **Why this design:**
-- Mirrors ShopSystem pattern (AABB + interaction key)
-- Uses same E key as shop (no spatial conflict due to separation)
-- Called before physics (consistent with shop processing)
+- Mirrors MarketSystem pattern (AABB + interaction key)
+- Uses same E key as market (no spatial conflict due to separation)
+- Called before physics (consistent with market processing)
 - Simple rounding up ensures player always pays at least $1 if not full
 - Direct field mutation for clarity
 - Fully testable without framework (6 comprehensive unit tests)
@@ -718,8 +718,8 @@ func (hs *HospitalSystem) ProcessHealing(
 
 **Why this design:**
 - Mirrors FuelStationSystem pattern (AABB + interaction key)
-- Uses same E key as shop and fuel station (no spatial conflict due to separation)
-- Called before physics (consistent with shop/fuel station processing)
+- Uses same E key as market and fuel station (no spatial conflict due to separation)
+- Called before physics (consistent with market/fuel station processing)
 - Simple rounding up ensures player always pays at least $1 if not at max HP
 - Direct field mutation for clarity
 - Fully testable without framework (7 comprehensive unit tests)
@@ -937,7 +937,7 @@ type InputState struct {
     Right bool  // D or Arrow Right - move right
     Up    bool  // W or Arrow Up - jump/fly
     Dig   bool  // S or Arrow Down - dig downward
-    Sell  bool  // E - sell inventory at shop
+    Sell  bool  // E - sell inventory at market
 }
 
 // HasMovementInput returns true if player is actively moving or digging
@@ -1710,7 +1710,7 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 | Max Move Speed | 450 px/sec | 750 px/sec |
 | Fly Speed | 600 px/sec | 1000 px/sec |
 
-### Shop Configuration (`internal/domain/entities/shop.go`)
+### Market Configuration (`internal/domain/entities/market.go`)
 
 | Property | Value | Purpose |
 |----------|-------|---------|
@@ -1754,7 +1754,7 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 | **Right** (D or →) | Move right / Dig right | Dig only when grounded against wall |
 | **Up** (W or ↑) | Jump/Fly | Hold to fly continuously |
 | **Dig** (S or ↓) | Dig downward | Always available, snaps to grid |
-| **Interact** (E) | Sell / Refuel | Sell at shop, refuel at station (AABB overlap) |
+| **Interact** (E) | Sell / Refuel | Sell at market, refuel at station (AABB overlap) |
 
 **Digging Behavior:**
 - **Downward (S/Down)**: Always available, auto-aligns player to tile grid
