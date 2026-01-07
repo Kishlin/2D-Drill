@@ -1,8 +1,6 @@
 package systems
 
 import (
-	"math"
-
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/physics"
@@ -53,11 +51,11 @@ func (ps *PhysicsSystem) UpdatePhysics(
 
 	// Apply fall damage on landing transition
 	if wasAirborne && player.OnGround {
-		ps.applyFallDamage(player, ySpeedBeforeLanding)
+		physics.ApplyFallDamage(player, ySpeedBeforeLanding)
 	}
 
 	// Apply heat damage continuously based on depth
-	ps.applyHeatDamage(player, dt)
+	physics.ApplyHeatDamage(player, dt)
 
 	// 3. Enforce world boundary constraints (prevent player from leaving game area)
 	ps.constrainPlayerToWorldBounds(player)
@@ -86,44 +84,4 @@ func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
 	}
 
 	// No maximum Y - player can dig infinitely deep
-}
-
-// applyFallDamage calculates and applies damage based on fall velocity.
-// ySpeed is positive when falling downward (screen coordinates).
-func (ps *PhysicsSystem) applyFallDamage(player *entities.Player, ySpeed float32) {
-	// Only apply damage if falling fast enough
-	if ySpeed < physics.FallDamageThreshold {
-		return
-	}
-
-	// Calculate damage: (ySpeed - threshold) / divisor
-	damage := (ySpeed - physics.FallDamageThreshold) / physics.FallDamageDivisor
-
-	// Apply damage and clamp at zero (same pattern as fuel)
-	player.HP -= damage
-	if player.HP < 0 {
-		player.HP = 0
-	}
-}
-
-// applyHeatDamage calculates and applies damage based on depth-based temperature
-func (ps *PhysicsSystem) applyHeatDamage(player *entities.Player, dt float32) {
-	temperature := physics.CalculateTemperature(player.AABB.Y)
-
-	excessHeat := temperature - player.HeatShield.HeatResistance()
-	if excessHeat <= 0 {
-		return // Player is within safe temperature range
-	}
-
-	// damage = baseDPS * (excessHeat / divisor)^exponent * dt
-	damagePerSecond := float32(physics.HeatDamageBaseDPS) *
-		float32(math.Pow(float64(excessHeat/float32(physics.HeatDamageDivisor)), float64(physics.HeatDamageExponent)))
-
-	damage := damagePerSecond * dt
-
-	// Apply damage and clamp at zero
-	player.HP -= damage
-	if player.HP < 0 {
-		player.HP = 0
-	}
 }

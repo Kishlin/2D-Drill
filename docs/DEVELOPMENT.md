@@ -169,6 +169,34 @@ To manually test the fall damage system:
 
 ---
 
+## Testing Heat Damage & Temperature
+
+To manually test the heat system:
+
+1. **Run the game**: `go run cmd/game/main.go`
+2. **Surface (safe)**: Start at ground level - no heat damage (15°C)
+3. **Shallow depth**: Dig down 1-2 screens - temperature rises but below 50°C resistance, no damage
+4. **Medium depth**: Dig down 10+ screens - temperature exceeds base resistance (50°C), take gradual damage
+5. **Deep dive** (before upgrades): Attempt to go very deep without heat upgrades - will take increasing exponential damage
+6. **Buy Heat Shield Mk1**: Return to surface, get $200+, purchase heat shield upgrade (orange-red shop)
+7. **Descend further**: With Mk1 (90°C resistance), can dig deeper before heat kills you
+8. **Repeat progression**: Each upgrade unlocks approximately 8,000px more safe depth
+
+**Debug Display:**
+- Top-left corner shows: `Temperature: X.X°C (Resistance: Y.Y°C)`
+- Current HP displayed: `HP: Z.Z`
+- Heat damage only occurs when Temperature > Resistance
+
+**Formula verification:**
+- At 60°C resistance, 100°C temperature (40°C excess):
+  - Damage/sec = 0.5 * (40/10)^1.5 = 0.5 * 8 ≈ 4 HP/sec
+  - Full 10 HP depleted in ~2.5 seconds of continuous exposure
+- At 140°C resistance, 150°C temperature (10°C excess):
+  - Damage/sec = 0.5 * (10/10)^1.5 = 0.5 * 1 = 0.5 HP/sec
+  - Takes 20 seconds to reach lethal damage
+
+---
+
 ## Debugging
 
 ### Logging Output
@@ -294,6 +322,47 @@ const (
 3. Test feel and responsiveness
 4. Write/update unit tests for expected behavior
 5. Verify existing tests still pass: `go test ./internal/domain/physics -v`
+
+### Adding a New Damage Source
+
+The damage system follows a clear pattern: **Physics calculates → Player applies**.
+
+**Pattern:**
+```go
+// 1. Create damage calculation in physics package
+// File: internal/domain/physics/newdamage.go
+package physics
+
+func ApplyNewDamage(player *entities.Player, param float32) {
+    // Calculate damage based on physics
+    damage := someCalculation(param)
+
+    // Apply through Player.DealDamage() (handles HP clamping)
+    player.DealDamage(damage)
+}
+
+// 2. Call from PhysicsSystem or other systems
+physics.ApplyNewDamage(player, param)
+
+// 3. Write tests for damage calculation
+// File: internal/domain/physics/newdamage_test.go
+func TestApplyNewDamage_Example(t *testing.T) {
+    player := NewPlayer(0, 0)
+    ApplyNewDamage(player, 5.0)
+    // Verify HP changed as expected
+}
+```
+
+**Advantages of this pattern:**
+- Physics package calculates damage (pure, testable functions)
+- Player entity applies damage via `DealDamage()` (centralizes HP mutations)
+- Future damage sources (gas, lava, pressure) follow the same pattern
+- No duplicate HP clamping logic
+
+**Example damage sources:**
+- Fall damage: `domain/physics/fall_damage.go:ApplyFallDamage()`
+- Heat damage: `domain/physics/heat.go:ApplyHeatDamage()`
+- Pressure (future): `domain/physics/pressure.go:ApplyPressureDamage()`
 
 ---
 

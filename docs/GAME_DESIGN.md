@@ -173,10 +173,49 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for ore types table, values, distribution
 ## Environmental Hazards
 
 ### Heat
-- Temperature increases with depth
-- Causes damage over time if heat resistance is insufficient
-- Formula: `temperature = baseTemp + (depth * heatMultiplier)`
-- Visual feedback: Screen tint gets redder with heat
+
+Temperature increases linearly with depth, causing exponential damage when heat resistance is exceeded. Heat is the primary limiting factor for deep mining.
+
+**Temperature System:**
+- **Ground Level** (Y=640 pixels): 15°C base temperature (safe)
+- **Max Depth** (Y=64,000 pixels): 350°C maximum temperature
+- **Formula**: Linear interpolation between ground and max depth
+- **No Damage**: Temperature never rises above ground level (Y < 640)
+
+**Damage Formula:**
+- **Threshold**: When temperature exceeds player's heat resistance
+- **Scaling**: Exponential `damage = 0.5 * (excessHeat / 10)^1.5 * dt`
+- **Example**: At 60°C resistance with 100°C temperature:
+  - Excess heat = 40°C
+  - Damage/sec = 0.5 * (40/10)^1.5 = 0.5 * 8 ≈ 4 HP/sec
+  - At 30°C excess: 1 HP/sec
+  - At 10°C excess: 0.125 HP/sec
+
+**Heat Shield Upgrades:**
+
+Each heat shield tier enables safe mining at progressively deeper zones. Must be purchased sequentially.
+
+| Tier | Resistance | Cost | Safe Depth (px) | Damage At +50°C |
+|------|------------|------|-----------------|-----------------|
+| Base | 50°C | - | 0-6,600 | ~8 HP/sec |
+| Mk1 | 90°C | $200 | 6,600-14,000 | ~8 HP/sec |
+| Mk2 | 140°C | $500 | 14,000-23,500 | ~8 HP/sec |
+| Mk3 | 190°C | $1,200 | 23,500-33,000 | ~8 HP/sec |
+| Mk4 | 250°C | $3,000 | 33,000-44,500 | ~8 HP/sec |
+| Mk5 | 320°C | $7,500 | 44,500-64,000 | Full depth safe |
+
+**Shop Appearance:**
+- **Location**: Right of cargo hold shop (360px spacing pattern)
+- **Fill Color**: Orange Red `(255, 69, 0)`
+- **Border Color**: Red `(255, 0, 0)`
+- **Interaction**: Press E while overlapping to purchase next tier
+
+**Design Rationale:**
+- Exponential damage creates meaningful progression gates (can't skip upgrades)
+- Each tier unlocks approximately 8,000px of safe mining depth
+- Pricing balanced between Hull ($150-$8,000) and FuelTank ($100-$4,000)
+- Heat becomes the limiting factor for endgame progression
+- Temperature display in debug overlay shows current and safe resistance
 
 ### Pressure (Future)
 - Hull takes damage at extreme depths without upgrades
@@ -254,13 +293,35 @@ Increases ore cargo capacity (maximum amount of ore you can carry per trip).
 - Player must return to surface and sell inventory to make room
 - Encourages strategic trip planning based on current cargo capacity
 
+### Heat Shield Upgrades
+
+Increases heat resistance, allowing safe mining at greater depths. Heat shield is essential for endgame progression since temperature damage increases exponentially with depth.
+
+| Tier | Resistance | Cost | Safe Depth |
+|------|------------|------|-----------|
+| Base | 50°C | - | 0-6,600px |
+| Mk1 | 90°C | $200 | 6,600-14,000px |
+| Mk2 | 140°C | $500 | 14,000-23,500px |
+| Mk3 | 190°C | $1,200 | 23,500-33,000px |
+| Mk4 | 250°C | $3,000 | 33,000-44,500px |
+| Mk5 | 320°C | $7,500 | 44,500-64,000px |
+
+**Mechanics:**
+- Each upgrade increases heat resistance by 40-70°C
+- Temperature increases by ~335°C from surface to max depth
+- Exponential damage formula ensures upgrades are mandatory (not optional)
+- Late-game resource bottleneck (requires income to progress deeper)
+
+**Note:** Unlike fuel tank and hull upgrades, heat shield doesn't auto-apply to new max. Resistance immediately applies on purchase.
+
 ### Upgrade Shops
 
-Four separate upgrade shops are located on the surface (right of the ore shop):
+Five separate upgrade shops are located on the surface (right of the ore shop), spaced 360 pixels apart:
 - **Engine Shop** (Steel Blue): Engine upgrades
 - **Hull Shop** (Dim Gray): Hull upgrades
 - **Fuel Tank Shop** (Tomato): Fuel tank upgrades
 - **Cargo Hold Shop** (Dark Violet): Cargo hold upgrades
+- **Heat Shield Shop** (Orange Red): Heat shield upgrades
 
 ### Future Upgrades (Not Yet Implemented)
 
@@ -269,7 +330,6 @@ Four separate upgrade shops are located on the surface (right of the ore shop):
 - **Drill Efficiency**: Reduced heat generation while drilling
 
 #### Survivability Upgrades
-- **Heat Shielding**: Resist higher temperatures
 - **Auto-Repair**: Slowly regenerate health over time
 
 #### Quality of Life Upgrades

@@ -100,17 +100,20 @@ drill-game/
 │       │   ├── hull.go                      # Hull component (tier, name, maxHP)
 │       │   ├── fuel_tank.go                 # FuelTank component (tier, name, capacity)
 │       │   ├── cargo_hold.go                # CargoHold component (tier, name, ore capacity)
+│       │   ├── heat_shield.go               # HeatShield component (tier, name, heat resistance)
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   ├── shop.go                      # Shop entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
-│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold)
+│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold/HeatShield)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
 │       │   ├── movement.go                  # Movement functions
 │       │   ├── gravity.go                   # Gravity + velocity integration
 │       │   ├── collision.go                 # AABB collision detection/resolution
+│       │   ├── damage.go                    # Fall damage calculations
+│       │   ├── heat.go                      # Temperature calculation & heat damage
 │       │   ├── movement_test.go             # Movement tests
 │       │   ├── gravity_test.go              # Gravity tests
 │       │   └── collision_test.go            # AABB collision tests
@@ -406,23 +409,25 @@ func (ps *PhysicsSystem) UpdatePhysics(
 
 **Fall Damage Implementation:**
 
-Damage is calculated when a landing transition occurs (airborne → grounded):
+Damage is calculated when a landing transition occurs (airborne → grounded). The physics package computes damage, and Player.DealDamage() applies it:
 
 ```go
-func (ps *PhysicsSystem) applyFallDamage(player *entities.Player, ySpeed float32) {
-    // Only apply damage if falling fast enough (500 px/sec threshold)
-    if ySpeed < physics.FallDamageThreshold {
-        return
+// domain/physics/fall_damage.go - Pure calculation function
+func ApplyFallDamage(player *entities.Player, ySpeed float32) {
+    if ySpeed < FallDamageThreshold {
+        return  // Below 500 px/sec threshold - safe landing
     }
 
     // Calculate damage: (ySpeed - threshold) / divisor
-    damage := (ySpeed - physics.FallDamageThreshold) / physics.FallDamageDivisor
+    damage := (ySpeed - FallDamageThreshold) / FallDamageDivisor
 
-    // Apply damage and clamp at zero
-    player.HP -= damage
-    if player.HP < 0 {
-        player.HP = 0
-    }
+    // Apply through Player.DealDamage() which clamps HP at 0
+    player.DealDamage(damage)
+}
+
+// domain/systems/physics.go - Called from PhysicsSystem.UpdatePhysics()
+if wasAirborne && player.OnGround {
+    physics.ApplyFallDamage(player, ySpeedBeforeLanding)
 }
 ```
 
@@ -431,6 +436,70 @@ func (ps *PhysicsSystem) applyFallDamage(player *entities.Player, ySpeed float32
 - `player.OnGround` is set to true by `ResolveCollisionsY()` on ground contact
 - Condition `wasAirborne && player.OnGround` ensures damage only on transition
 - Prevents repeated damage when already grounded
+
+**Damage Application Pattern:**
+- Physics calculates damage: `damage = (ySpeed - threshold) / divisor`
+- Player applies damage: `player.DealDamage(damage)` clamps at zero
+- Centralizes HP mutation logic in Player entity (aggregate root)
+
+#### Heat System (`domain/physics/heat.go` & `domain/systems/physics.go`)
+
+Temperature increases with depth and deals exponential damage when exceeding heat resistance:
+
+```go
+// domain/physics/heat.go - Pure calculation + damage application
+func ApplyHeatDamage(player *entities.Player, dt float32) {
+    // Calculate temperature at player depth (15°C at surface, 350°C at max depth)
+    temperature := CalculateTemperature(player.AABB.Y)
+
+    // Check excess heat beyond resistance
+    excessHeat := temperature - player.HeatShield.HeatResistance()
+    if excessHeat <= 0 {
+        return  // Within safe temperature range
+    }
+
+    // Apply exponential damage: baseDPS * (excessHeat / divisor)^exponent * dt
+    damagePerSecond := float32(HeatDamageBaseDPS) *
+        float32(math.Pow(float64(excessHeat/float32(HeatDamageDivisor)),
+                         float64(HeatDamageExponent)))
+    damage := damagePerSecond * dt
+
+    // Apply through Player.DealDamage() which clamps HP at 0
+    player.DealDamage(damage)
+}
+
+// domain/systems/physics.go - Called every frame from PhysicsSystem.UpdatePhysics()
+physics.ApplyHeatDamage(player, dt)
+```
+
+**Temperature Calculation:**
+- **Ground Level** (Y=640): 15°C base temperature
+- **Max Depth** (Y=64,000): 350°C maximum temperature
+- **Formula**: Linear interpolation based on depth below ground
+- **No Damage**: Above ground level (Y < 640)
+
+**Damage Constants:**
+- `HeatDamageBaseDPS = 0.5` — Base damage per second
+- `HeatDamageDivisor = 10.0` — Scaling factor
+- `HeatDamageExponent = 1.5` — Exponential curve steepness
+
+**Heat Shield Component:**
+6 tiers enabling safe mining at progressively deeper zones:
+
+| Tier | Resistance | Price | Safe Depth |
+|------|------------|-------|-----------|
+| Base | 50°C | - | 0-6,600px |
+| Mk1 | 90°C | $200 | 6,600-14,000px |
+| Mk2 | 140°C | $500 | 14,000-23,500px |
+| Mk3 | 190°C | $1,200 | 23,500-33,000px |
+| Mk4 | 250°C | $3,000 | 33,000-44,500px |
+| Mk5 | 320°C | $7,500 | 44,500-64,000px |
+
+**Why this design:**
+- Called every frame continuously (unlike fall damage on landing only)
+- Exponential scaling creates meaningful progression gates
+- Heat becomes limiting factor for deep mining
+- Upgrades enable deeper exploration without level caps
 
 #### Fuel System (`domain/systems/fuel.go`)
 
@@ -689,6 +758,7 @@ type Player struct {
     Hull         Hull        // Hull component (exported)
     FuelTank     FuelTank    // FuelTank component (exported)
     CargoHold    CargoHold   // CargoHold component (exported)
+    HeatShield   HeatShield  // HeatShield component (exported)
 }
 
 // Component types are value objects with named constructors
@@ -705,6 +775,7 @@ player.Engine.Tier()          // 0 for base engine
 player.Hull.MaxHP()           // 10.0 for base hull
 player.FuelTank.Capacity()    // 10.0 for base tank
 player.CargoHold.Capacity()   // 10 for base cargo hold
+player.HeatShield.HeatResistance() // 50.0 for base heat shield
 player.GetTotalOreCount()     // Sum of all ore in inventory
 
 // Purchase methods enforce invariants
@@ -713,9 +784,13 @@ func (p *Player) BuyEngine(e Engine, cost int)
 func (p *Player) BuyHull(h Hull, cost int)
 func (p *Player) BuyFuelTank(ft FuelTank, cost int)
 func (p *Player) BuyCargoHold(ch CargoHold, cost int)
+func (p *Player) BuyHeatShield(hs HeatShield, cost int)
 func (p *Player) Refuel() bool  // checks money, fills tank
 func (p *Player) Heal() bool    // checks money, restores HP
 func (p *Player) AddOre(oreType OreType) bool  // returns false if cargo full
+
+// Damage application (called by physics damage sources)
+func (p *Player) DealDamage(damage float32)  // applies damage, clamps HP at 0
 
 func NewPlayer(startX, startY float32) *Player {
     engine := NewEngineBase()

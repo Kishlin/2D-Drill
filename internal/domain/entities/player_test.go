@@ -103,3 +103,100 @@ func TestPlayer_AddOre_CargoCapacity(t *testing.T) {
 		t.Errorf("Failed AddOre should not change inventory")
 	}
 }
+
+// DealDamage tests
+
+func TestPlayer_DealDamage_ReducesHP(t *testing.T) {
+	player := NewPlayer(0, 0)
+	initialHP := player.HP
+
+	player.DealDamage(2.0)
+
+	if player.HP != initialHP-2.0 {
+		t.Errorf("Expected HP %f, got %f", initialHP-2.0, player.HP)
+	}
+}
+
+func TestPlayer_DealDamage_SmallDamage(t *testing.T) {
+	player := NewPlayer(0, 0)
+	// Player starts with 10 HP
+
+	player.DealDamage(1.5)
+
+	if player.HP != 8.5 {
+		t.Errorf("Expected 8.5 HP, got %f", player.HP)
+	}
+}
+
+func TestPlayer_DealDamage_LethalDamage(t *testing.T) {
+	player := NewPlayer(0, 0)
+
+	player.DealDamage(10.0)
+
+	if player.HP != 0.0 {
+		t.Errorf("Expected 0 HP, got %f", player.HP)
+	}
+}
+
+func TestPlayer_DealDamage_OverDamage(t *testing.T) {
+	player := NewPlayer(0, 0)
+
+	// Deal more damage than current HP
+	player.DealDamage(100.0)
+
+	// Should clamp at 0, not go negative
+	if player.HP != 0.0 {
+		t.Errorf("Expected HP clamped at 0, got %f", player.HP)
+	}
+}
+
+func TestPlayer_DealDamage_MultipleDamageInstances(t *testing.T) {
+	player := NewPlayer(0, 0)
+	// Player starts with 10 HP
+
+	player.DealDamage(2.0)
+	player.DealDamage(3.0)
+	player.DealDamage(1.0)
+
+	if player.HP != 4.0 {
+		t.Errorf("Expected 4 HP after 3 damage instances, got %f", player.HP)
+	}
+}
+
+func TestPlayer_DealDamage_AlreadyDead(t *testing.T) {
+	player := NewPlayer(0, 0)
+
+	// Kill player
+	player.DealDamage(10.0)
+
+	// Deal additional damage
+	player.DealDamage(5.0)
+
+	// Should remain at 0, not go negative
+	if player.HP != 0.0 {
+		t.Errorf("Expected HP to stay at 0 for dead player, got %f", player.HP)
+	}
+}
+
+func TestPlayer_DealDamage_PartialDamage(t *testing.T) {
+	player := NewPlayer(0, 0)
+	// Player starts with 10 HP
+
+	player.DealDamage(3.7)
+
+	expectedHP := float32(10.0 - 3.7)
+	if player.HP != expectedHP {
+		t.Errorf("Expected %f HP, got %f", expectedHP, player.HP)
+	}
+}
+
+func TestPlayer_DealDamage_ZeroDamage(t *testing.T) {
+	player := NewPlayer(0, 0)
+	initialHP := player.HP
+
+	player.DealDamage(0.0)
+
+	if player.HP != initialHP {
+		t.Errorf("Expected no change with zero damage, got HP %f", player.HP)
+	}
+}

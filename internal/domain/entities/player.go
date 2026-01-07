@@ -115,6 +115,14 @@ func (p *Player) Heal() bool {
 	return true
 }
 
+// DealDamage applies damage to player HP, clamping at zero
+func (p *Player) DealDamage(damage float32) {
+	p.HP -= damage
+	if p.HP < 0 {
+		p.HP = 0
+	}
+}
+
 func (p *Player) GetTotalOreCount() int {
 	total := 0
 	for _, count := range p.OreInventory {
