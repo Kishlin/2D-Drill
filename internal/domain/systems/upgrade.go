@@ -6,20 +6,23 @@ import (
 )
 
 type UpgradeSystem struct {
-	engineShop   *entities.EngineUpgradeShop
-	hullShop     *entities.HullUpgradeShop
-	fuelTankShop *entities.FuelTankUpgradeShop
+	engineShop    *entities.EngineUpgradeShop
+	hullShop      *entities.HullUpgradeShop
+	fuelTankShop  *entities.FuelTankUpgradeShop
+	cargoHoldShop *entities.CargoHoldUpgradeShop
 }
 
 func NewUpgradeSystem(
 	engineShop *entities.EngineUpgradeShop,
 	hullShop *entities.HullUpgradeShop,
 	fuelTankShop *entities.FuelTankUpgradeShop,
+	cargoHoldShop *entities.CargoHoldUpgradeShop,
 ) *UpgradeSystem {
 	return &UpgradeSystem{
-		engineShop:   engineShop,
-		hullShop:     hullShop,
-		fuelTankShop: fuelTankShop,
+		engineShop:    engineShop,
+		hullShop:      hullShop,
+		fuelTankShop:  fuelTankShop,
+		cargoHoldShop: cargoHoldShop,
 	}
 }
 
@@ -41,6 +44,10 @@ func (us *UpgradeSystem) ProcessUpgrade(
 	}
 	if us.fuelTankShop.IsPlayerInRange(player) {
 		us.tryUpgradeFuelTank(player)
+		return
+	}
+	if us.cargoHoldShop.IsPlayerInRange(player) {
+		us.tryUpgradeCargoHold(player)
 		return
 	}
 }
@@ -84,6 +91,19 @@ func (us *UpgradeSystem) tryUpgradeFuelTank(player *entities.Player) {
 	player.BuyFuelTank(entry.FuelTank, entry.Price)
 }
 
+func (us *UpgradeSystem) tryUpgradeCargoHold(player *entities.Player) {
+	entry := us.cargoHoldShop.GetNextCargoHold(player.CargoHold.Tier())
+	if entry == nil {
+		return // Max level reached
+	}
+
+	if !player.CanAfford(entry.Price) {
+		return
+	}
+
+	player.BuyCargoHold(entry.CargoHold, entry.Price)
+}
+
 func (us *UpgradeSystem) GetEngineShop() *entities.EngineUpgradeShop {
 	return us.engineShop
 }
@@ -94,4 +114,8 @@ func (us *UpgradeSystem) GetHullShop() *entities.HullUpgradeShop {
 
 func (us *UpgradeSystem) GetFuelTankShop() *entities.FuelTankUpgradeShop {
 	return us.fuelTankShop
+}
+
+func (us *UpgradeSystem) GetCargoHoldShop() *entities.CargoHoldUpgradeShop {
+	return us.cargoHoldShop
 }

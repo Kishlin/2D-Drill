@@ -99,11 +99,12 @@ drill-game/
 │       │   ├── engine.go                    # Engine component (tier, name, speed/acceleration stats)
 │       │   ├── hull.go                      # Hull component (tier, name, maxHP)
 │       │   ├── fuel_tank.go                 # FuelTank component (tier, name, capacity)
+│       │   ├── cargo_hold.go                # CargoHold component (tier, name, ore capacity)
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   ├── shop.go                      # Shop entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
-│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank)
+│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
@@ -597,9 +598,10 @@ Manages upgrade purchases at dedicated upgrade shops:
 
 ```go
 type UpgradeSystem struct {
-    engineShop   *entities.EngineUpgradeShop
-    hullShop     *entities.HullUpgradeShop
-    fuelTankShop *entities.FuelTankUpgradeShop
+    engineShop    *entities.EngineUpgradeShop
+    hullShop      *entities.HullUpgradeShop
+    fuelTankShop  *entities.FuelTankUpgradeShop
+    cargoHoldShop *entities.CargoHoldUpgradeShop
 }
 
 func (us *UpgradeSystem) ProcessUpgrade(
@@ -672,7 +674,7 @@ func GetOccupiedTileRange(aabb AABB, tileSize float32) (minX, maxX, minY, maxY i
 
 #### Player Entity (`domain/entities/player.go`)
 
-Player is the **aggregate root** with exported component value objects (Engine, Hull, FuelTank). Stats are accessed via components; mutations go through Player methods.
+Player is the **aggregate root** with exported component value objects (Engine, Hull, FuelTank, CargoHold). Stats are accessed via components; mutations go through Player methods.
 
 ```go
 type Player struct {
@@ -686,6 +688,7 @@ type Player struct {
     Engine       Engine      // Engine component (exported)
     Hull         Hull        // Hull component (exported)
     FuelTank     FuelTank    // FuelTank component (exported)
+    CargoHold    CargoHold   // CargoHold component (exported)
 }
 
 // Component types are value objects with named constructors
@@ -701,25 +704,33 @@ player.Engine.MaxSpeed()      // 450.0 for base engine
 player.Engine.Tier()          // 0 for base engine
 player.Hull.MaxHP()           // 10.0 for base hull
 player.FuelTank.Capacity()    // 10.0 for base tank
+player.CargoHold.Capacity()   // 10 for base cargo hold
+player.GetTotalOreCount()     // Sum of all ore in inventory
 
 // Purchase methods enforce invariants
 func (p *Player) CanAfford(cost int) bool
 func (p *Player) BuyEngine(e Engine, cost int)
+func (p *Player) BuyHull(h Hull, cost int)
+func (p *Player) BuyFuelTank(ft FuelTank, cost int)
+func (p *Player) BuyCargoHold(ch CargoHold, cost int)
 func (p *Player) Refuel() bool  // checks money, fills tank
 func (p *Player) Heal() bool    // checks money, restores HP
+func (p *Player) AddOre(oreType OreType) bool  // returns false if cargo full
 
 func NewPlayer(startX, startY float32) *Player {
     engine := NewEngineBase()
     hull := NewHullBase()
     fuelTank := NewFuelTankBase()
+    cargoHold := NewCargoHoldBase()
     return &Player{
-        AABB:     types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
-        Velocity: types.Zero(),
-        Fuel:     fuelTank.Capacity(),
-        HP:       hull.MaxHP(),
-        Engine:   engine,
-        Hull:     hull,
-        FuelTank: fuelTank,
+        AABB:      types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
+        Velocity:  types.Zero(),
+        Fuel:      fuelTank.Capacity(),
+        HP:        hull.MaxHP(),
+        Engine:    engine,
+        Hull:      hull,
+        FuelTank:  fuelTank,
+        CargoHold: cargoHold,
     }
 }
 
@@ -1511,11 +1522,12 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 |----------|-------|-------|
 | Size | 64×64 pixels | Matches tile size |
 | Start Position | (640, 576) | Center X, just above ground |
-| Inventory Capacity | 7 ore types | Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond |
-| Initial Money | $0 | Earned by selling ores |
+| Inventory Types | 7 ore types | Copper, Iron, Silver, Gold, Mythril, Platinum, Diamond |
+| Initial Cargo Capacity | 10 ore | Upgradeable to 75 ore |
+| Initial Money | $1,000,000 | For development; earned by selling ores in game |
 | Initial Fuel | 10.0 liters | Full tank (upgradeable to 65L) |
 | Initial Health | 10.0 HP | Full HP (upgradeable to 75 HP) |
-| Initial Upgrades | All Base | Engine, Hull, FuelTank at level 0 |
+| Initial Upgrades | All Base | Engine, Hull, FuelTank, CargoHold at level 0 |
 
 **Movement stats** (upgradeable via Engine):
 | Stat | Base | Max (Mk5) |

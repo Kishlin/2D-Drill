@@ -123,3 +123,42 @@ func (s *FuelTankUpgradeShop) GetNextFuelTank(currentTier int) *FuelTankCatalogE
 	}
 	return nil // Max level reached
 }
+
+// CargoHold Upgrade Shop
+
+type CargoHoldCatalogEntry struct {
+	Price     int
+	CargoHold CargoHold
+}
+
+type CargoHoldUpgradeShop struct {
+	AABB    types.AABB
+	Catalog []CargoHoldCatalogEntry
+}
+
+func NewCargoHoldUpgradeShop(x, y float32) *CargoHoldUpgradeShop {
+	return &CargoHoldUpgradeShop{
+		AABB: types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
+		Catalog: []CargoHoldCatalogEntry{
+			{Price: 125, CargoHold: NewCargoHoldMk1()},
+			{Price: 350, CargoHold: NewCargoHoldMk2()},
+			{Price: 800, CargoHold: NewCargoHoldMk3()},
+			{Price: 2000, CargoHold: NewCargoHoldMk4()},
+			{Price: 6000, CargoHold: NewCargoHoldMk5()},
+		},
+	}
+}
+
+func (s *CargoHoldUpgradeShop) IsPlayerInRange(player *Player) bool {
+	return s.AABB.Intersects(player.AABB)
+}
+
+func (s *CargoHoldUpgradeShop) GetNextCargoHold(currentTier int) *CargoHoldCatalogEntry {
+	nextTier := currentTier + 1
+	for i := range s.Catalog {
+		if s.Catalog[i].CargoHold.Tier() == nextTier {
+			return &s.Catalog[i]
+		}
+	}
+	return nil // Max level reached
+}

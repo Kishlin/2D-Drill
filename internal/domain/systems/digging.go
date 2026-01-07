@@ -15,9 +15,11 @@ func NewDiggingSystem(w *world.World) *DiggingSystem {
 }
 
 // collectOreIfPresent adds ore to player inventory if the dug tile is ore
+// Ore is lost if cargo is full
 func (ds *DiggingSystem) collectOreIfPresent(player *entities.Player, dugTile *entities.Tile) {
 	if dugTile != nil && dugTile.Type == entities.TileTypeOre {
-		player.AddOre(dugTile.OreType, 1)
+		player.AddOre(dugTile.OreType)
+		// If AddOre returns false (cargo full), ore is silently lost
 	}
 }
 

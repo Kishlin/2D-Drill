@@ -66,8 +66,12 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - Each tile dug = 1 ore collected (1:1 ratio)
   - Dirt tiles are destroyed but not collected
   - Inventory displays counts for all 7 ore types in real-time
+  - Collection respects cargo hold capacity (ore lost if cargo full)
+- **Cargo Management**: Cargo hold limits total ore you can carry per trip
+  - Base capacity: 10 ore (upgradeable to 75)
+  - When full, newly dug ore is lost
+  - Must return to surface and sell to make room
 - Taking damage from heat, collisions, or hazards
-- Cargo fills up as ores are collected
 
 ### Directional Digging Details
 - **Grounded Left/Right Digging**: When the player is on solid ground and presses left/right against a diggable wall, the tile is automatically destroyed, allowing the player to move through
@@ -96,7 +100,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   | Platinum | $5000 |
   | Diamond  | $30000|
 - **Money Display**: Current balance shown in debug overlay
-- **No Carrying Limit**: Store unlimited ore, but must return to shop to convert to currency (future: cargo upgrades)
+- **Cargo Limit**: Carry capacity determined by cargo hold upgrades (base: 10 ore, max: 75 ore)
 
 ### Fuel System
 
@@ -232,12 +236,31 @@ Increases fuel tank capacity.
 
 **Note:** Upgrading tank does NOT auto-refuel. Visit the fuel station to fill to new capacity.
 
+### Cargo Hold Upgrades
+
+Increases ore cargo capacity (maximum amount of ore you can carry per trip).
+
+| Tier | Capacity | Cost |
+|------|----------|------|
+| Base | 10 ore | - |
+| Mk1 | 15 ore | $125 |
+| Mk2 | 22 ore | $350 |
+| Mk3 | 35 ore | $800 |
+| Mk4 | 50 ore | $2,000 |
+| Mk5 | 75 ore | $6,000 |
+
+**Behavior:**
+- When cargo is full, newly dug ore is lost (no auto-drop mechanic)
+- Player must return to surface and sell inventory to make room
+- Encourages strategic trip planning based on current cargo capacity
+
 ### Upgrade Shops
 
-Three separate upgrade shops are located on the surface (right of the ore shop):
+Four separate upgrade shops are located on the surface (right of the ore shop):
 - **Engine Shop** (Steel Blue): Engine upgrades
 - **Hull Shop** (Dim Gray): Hull upgrades
 - **Fuel Tank Shop** (Tomato): Fuel tank upgrades
+- **Cargo Hold Shop** (Dark Violet): Cargo hold upgrades
 
 ### Future Upgrades (Not Yet Implemented)
 
@@ -249,9 +272,9 @@ Three separate upgrade shops are located on the surface (right of the ore shop):
 - **Heat Shielding**: Resist higher temperatures
 - **Auto-Repair**: Slowly regenerate health over time
 
-#### Cargo Upgrades
-- **Cargo Hold**: Carry more ore per trip
+#### Quality of Life Upgrades
 - **Ore Detector**: Highlight valuable ores on screen
+- **Auto-Seller**: Automatically sell when inventory is full
 
 ## Progression Curve
 

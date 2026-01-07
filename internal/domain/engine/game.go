@@ -50,6 +50,9 @@ func NewGame(w *world.World) *Game {
 	fuelTankShopX := hullShopX + 360.0
 	fuelTankShop := entities.NewFuelTankUpgradeShop(fuelTankShopX, upgradeShopY)
 
+	cargoHoldShopX := fuelTankShopX + 360.0
+	cargoHoldShop := entities.NewCargoHoldUpgradeShop(cargoHoldShopX, upgradeShopY)
+
 	return &Game{
 		world:             w,
 		player:            entities.NewPlayer(spawnX, spawnY),
@@ -59,7 +62,7 @@ func NewGame(w *world.World) *Game {
 		fuelSystem:        systems.NewFuelSystem(),
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
 		hospitalSystem:    systems.NewHospitalSystem(hospital),
-		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop),
+		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop),
 	}
 }
 
@@ -126,4 +129,8 @@ func (g *Game) GetHullShop() *entities.HullUpgradeShop {
 
 func (g *Game) GetFuelTankShop() *entities.FuelTankUpgradeShop {
 	return g.upgradeSystem.GetFuelTankShop()
+}
+
+func (g *Game) GetCargoHoldShop() *entities.CargoHoldUpgradeShop {
+	return g.upgradeSystem.GetCargoHoldShop()
 }

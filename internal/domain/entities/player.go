@@ -22,12 +22,14 @@ type Player struct {
 	Engine       Engine     // Engine component (exported)
 	Hull         Hull       // Hull component (exported)
 	FuelTank     FuelTank   // FuelTank component (exported)
+	CargoHold    CargoHold  // CargoHold component (exported)
 }
 
 func NewPlayer(startX, startY float32) *Player {
 	engine := NewEngineBase()
 	hull := NewHullBase()
 	fuelTank := NewFuelTankBase()
+	cargoHold := NewCargoHoldBase()
 
 	return &Player{
 		AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
@@ -39,6 +41,7 @@ func NewPlayer(startX, startY float32) *Player {
 		Engine:       engine,
 		Hull:         hull,
 		FuelTank:     fuelTank,
+		CargoHold:    cargoHold,
 		Money:        1000000,
 	}
 }
@@ -62,6 +65,11 @@ func (p *Player) BuyHull(h Hull, cost int) {
 func (p *Player) BuyFuelTank(ft FuelTank, cost int) {
 	p.Money -= cost
 	p.FuelTank = ft
+}
+
+func (p *Player) BuyCargoHold(ch CargoHold, cost int) {
+	p.Money -= cost
+	p.CargoHold = ch
 }
 
 // Refuel fills the tank if player can afford it, returns success
@@ -99,11 +107,25 @@ func (p *Player) Heal() bool {
 	return true
 }
 
-// AddOre increments ore count for given type
-func (p *Player) AddOre(oreType OreType, amount int) {
-	if oreType >= 0 && oreType < 7 {
-		p.OreInventory[oreType] += amount
+func (p *Player) GetTotalOreCount() int {
+	total := 0
+	for _, count := range p.OreInventory {
+		total += count
 	}
+	return total
+}
+
+// AddOre increments ore count for given type if capacity allows
+// Returns true if ore was added, false if cargo is full
+func (p *Player) AddOre(oreType OreType) bool {
+	if oreType < 0 || oreType >= 7 {
+		return false
+	}
+	if p.GetTotalOreCount() >= p.CargoHold.Capacity() {
+		return false // Cargo full
+	}
+	p.OreInventory[oreType]++
+	return true
 }
 
 // SellInventory sells all ore in inventory and adds value to player's money

@@ -21,9 +21,10 @@ var (
 	ShopColor         = rl.NewColor(34, 139, 34, 255)   // Forest Green
 	FuelStationColor  = rl.NewColor(255, 165, 0, 255)   // Orange
 	HospitalColor     = rl.NewColor(220, 20, 60, 255)   // Crimson
-	EngineShopColor   = rl.NewColor(70, 130, 180, 255)  // Steel Blue
-	HullShopColor     = rl.NewColor(105, 105, 105, 255) // Dim Gray
-	FuelTankShopColor = rl.NewColor(255, 99, 71, 255)   // Tomato
+	EngineShopColor    = rl.NewColor(70, 130, 180, 255)  // Steel Blue
+	HullShopColor      = rl.NewColor(105, 105, 105, 255) // Dim Gray
+	FuelTankShopColor  = rl.NewColor(255, 99, 71, 255)   // Tomato
+	CargoHoldShopColor = rl.NewColor(148, 0, 211, 255)   // Dark Violet
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -113,6 +114,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderUpgradeShop(game.GetEngineShop().AABB, EngineShopColor, rl.DarkBlue)
 	r.renderUpgradeShop(game.GetHullShop().AABB, HullShopColor, rl.DarkGray)
 	r.renderUpgradeShop(game.GetFuelTankShop().AABB, FuelTankShopColor, rl.Maroon)
+	r.renderUpgradeShop(game.GetCargoHoldShop().AABB, CargoHoldShopColor, rl.NewColor(75, 0, 130, 255))
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -319,13 +321,15 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	rl.DrawText(inventoryText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
-	// Draw player money, fuel, and HP
-	moneyFuelHPText := fmt.Sprintf("Money: $%d | Fuel: %.2fL | HP: %.1f", player.Money, player.Fuel, player.HP)
+	// Draw player money, fuel, HP, and cargo
+	totalOre := player.GetTotalOreCount()
+	moneyFuelHPText := fmt.Sprintf("Money: $%d | Fuel: %.2fL | HP: %.1f | Cargo: %d/%d",
+		player.Money, player.Fuel, player.HP, totalOre, player.CargoHold.Capacity())
 	rl.DrawText(moneyFuelHPText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
 	// Draw upgrade levels
-	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d",
-		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier())
+	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d Cargo=%d",
+		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier(), player.CargoHold.Tier())
 	rl.DrawText(upgradeText, posX, posY, fontSize, textColor)
 }
