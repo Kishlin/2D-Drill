@@ -18,6 +18,7 @@ type Game struct {
 	hospitalSystem    *systems.HospitalSystem
 	upgradeSystem     *systems.UpgradeSystem
 	itemSystem        *systems.ItemSystem
+	itemShopSystem    *systems.ItemShopSystem
 }
 
 func NewGame(w *world.World) *Game {
@@ -60,6 +61,23 @@ func NewGame(w *world.World) *Game {
 	drillShopX := heatShieldShopX + 360.0
 	drillShop := entities.NewDrillUpgradeShop(drillShopX, upgradeShopY)
 
+	// Create item shops to the right of upgrade shops
+	itemShopY := w.GetGroundLevel() - entities.ItemShopHeight
+	teleportShopX := drillShopX + 200.0
+	teleportShop := entities.NewItemShop(teleportShopX, itemShopY, entities.ItemTeleport, 500, "Teleport")
+
+	repairShopX := teleportShopX + 200.0
+	repairShop := entities.NewItemShop(repairShopX, itemShopY, entities.ItemRepair, 200, "Repair Kit")
+
+	refuelShopX := repairShopX + 200.0
+	refuelShop := entities.NewItemShop(refuelShopX, itemShopY, entities.ItemRefuel, 100, "Fuel Can")
+
+	bombShopX := refuelShopX + 200.0
+	bombShop := entities.NewItemShop(bombShopX, itemShopY, entities.ItemBomb, 300, "Bomb")
+
+	bigBombShopX := bombShopX + 200.0
+	bigBombShop := entities.NewItemShop(bigBombShopX, itemShopY, entities.ItemBigBomb, 800, "Big Bomb")
+
 	return &Game{
 		world:             w,
 		player:            entities.NewPlayer(spawnX, spawnY),
@@ -71,6 +89,7 @@ func NewGame(w *world.World) *Game {
 		hospitalSystem:    systems.NewHospitalSystem(hospital),
 		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop, heatShieldShop, drillShop),
 		itemSystem:        systems.NewItemSystem(w, spawnX, spawnY),
+		itemShopSystem:    systems.NewItemShopSystem(teleportShop, repairShop, refuelShop, bombShop, bigBombShop),
 	}
 }
 
@@ -109,6 +128,9 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
 	// 8. Handle upgrade purchases
 	g.upgradeSystem.ProcessUpgrade(g.player, inputState)
+
+	// 9. Handle item shop purchases
+	g.itemShopSystem.ProcessPurchase(g.player, inputState)
 
 	return nil
 }
@@ -155,4 +177,8 @@ func (g *Game) GetHeatShieldShop() *entities.HeatShieldUpgradeShop {
 
 func (g *Game) GetDrillShop() *entities.DrillUpgradeShop {
 	return g.upgradeSystem.GetDrillShop()
+}
+
+func (g *Game) GetItemShops() []*entities.ItemShop {
+	return g.itemShopSystem.GetShops()
 }

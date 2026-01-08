@@ -28,6 +28,11 @@ var (
 	CargoHoldShopColor = rl.NewColor(148, 0, 211, 255)   // Dark Violet
 	HeatShieldShopColor = rl.NewColor(255, 69, 0, 255)   // Orange Red
 	DrillShopColor      = rl.NewColor(184, 134, 11, 255) // Dark Goldenrod
+	TeleportShopColor   = rl.NewColor(138, 43, 226, 255) // Blue Violet
+	RepairShopColor     = rl.NewColor(34, 139, 34, 255)  // Forest Green
+	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)  // Orange
+	BombShopColor       = rl.NewColor(255, 20, 147, 255) // Deep Pink
+	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)  // Crimson
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -119,6 +124,22 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderUpgradeShop(game.GetCargoHoldShop().AABB, CargoHoldShopColor, rl.NewColor(75, 0, 130, 255))
 	r.renderUpgradeShop(game.GetHeatShieldShop().AABB, HeatShieldShopColor, rl.Red)
 	r.renderUpgradeShop(game.GetDrillShop().AABB, DrillShopColor, rl.NewColor(139, 101, 8, 255))
+	for _, shop := range game.GetItemShops() {
+		var shopColor, borderColor rl.Color
+		switch shop.ItemType {
+		case entities.ItemTeleport:
+			shopColor, borderColor = TeleportShopColor, rl.Purple
+		case entities.ItemRepair:
+			shopColor, borderColor = RepairShopColor, rl.DarkGreen
+		case entities.ItemRefuel:
+			shopColor, borderColor = RefuelShopColor, rl.Orange
+		case entities.ItemBomb:
+			shopColor, borderColor = BombShopColor, rl.Maroon
+		case entities.ItemBigBomb:
+			shopColor, borderColor = BigBombShopColor, rl.Red
+		}
+		r.renderUpgradeShop(shop.AABB, shopColor, borderColor)
+	}
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -338,4 +359,14 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	tempText := fmt.Sprintf("Temperature: %.1f°C (Resistance: %.1f°C)",
 		temperature, player.HeatShield.HeatResistance())
 	rl.DrawText(tempText, posX, posY, fontSize, textColor)
+	posY += lineHeight
+
+	// Draw item inventory
+	itemText := fmt.Sprintf("Items: Teleport=%d Repair=%d Fuel=%d Bomb=%d BigBomb=%d",
+		player.ItemInventory[entities.ItemTeleport],
+		player.ItemInventory[entities.ItemRepair],
+		player.ItemInventory[entities.ItemRefuel],
+		player.ItemInventory[entities.ItemBomb],
+		player.ItemInventory[entities.ItemBigBomb])
+	rl.DrawText(itemText, posX, posY, fontSize, textColor)
 }
