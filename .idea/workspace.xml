@@ -6,18 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="8e185c9a-6eb9-4458-ac18-1ed191de43e1" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CLAUDE.md" beforeDir="false" afterPath="$PROJECT_DIR$/CLAUDE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/ARCHITECTURE.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ARCHITECTURE.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/DEVELOPMENT.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/DEVELOPMENT.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/GAME_DESIGN.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/GAME_DESIGN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/adapters/rendering/raylib.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/adapters/rendering/raylib.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/engine/game.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/engine/game.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/internal/domain/entities/player.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/entities/player.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/entities/upgrade_shop.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/entities/upgrade_shop.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/systems/drilling.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/systems/drilling.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/systems/drilling_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/systems/drilling_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/systems/upgrade.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/systems/upgrade.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/domain/systems/upgrade_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/domain/systems/upgrade_test.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -141,7 +130,7 @@
       <workItem from="1767461198941" duration="6800000" />
       <workItem from="1767648958331" duration="4810000" />
       <workItem from="1767723647084" duration="24097000" />
-      <workItem from="1767809042907" duration="15998000" />
+      <workItem from="1767809042907" duration="16076000" />
     </task>
     <servers />
   </component>
