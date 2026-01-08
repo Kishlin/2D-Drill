@@ -15,10 +15,15 @@ func NewRaylibInputAdapter() *RaylibInputAdapter {
 // ReadInput reads Raylib keys and returns platform-agnostic InputState
 func (a *RaylibInputAdapter) ReadInput() input.InputState {
 	return input.InputState{
-		Left:  rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA),
-		Right: rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD),
-		Up:    rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW),
-		Drill: rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS),
-		Sell:  rl.IsKeyPressed(rl.KeyE),
+		Left:        rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA),
+		Right:       rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD),
+		Up:          rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW),
+		Drill:       rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS),
+		Sell:        rl.IsKeyPressed(rl.KeyE),
+		UseTeleport: rl.IsKeyPressed(rl.KeyT),
+		UseRepair:   rl.IsKeyPressed(rl.KeyR),
+		UseRefuel:   rl.IsKeyPressed(rl.KeyF),
+		UseBomb:     rl.IsKeyPressed(rl.KeyB),
+		UseBigBomb:  rl.IsKeyPressed(rl.KeyG),
 	}
 }

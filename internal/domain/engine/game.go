@@ -17,6 +17,7 @@ type Game struct {
 	fuelStationSystem *systems.FuelStationSystem
 	hospitalSystem    *systems.HospitalSystem
 	upgradeSystem     *systems.UpgradeSystem
+	itemSystem        *systems.ItemSystem
 }
 
 func NewGame(w *world.World) *Game {
@@ -69,6 +70,7 @@ func NewGame(w *world.World) *Game {
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
 		hospitalSystem:    systems.NewHospitalSystem(hospital),
 		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop, heatShieldShop, drillShop),
+		itemSystem:        systems.NewItemSystem(w, spawnX, spawnY),
 	}
 }
 
@@ -93,16 +95,19 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		return nil
 	}
 
-	// 4. Handle market selling
+	// 4. Handle item usage
+	g.itemSystem.ProcessItemUsage(g.player, inputState)
+
+	// 5. Handle market selling
 	g.marketSystem.ProcessSelling(g.player, inputState)
 
-	// 5. Handle fuel station refueling
+	// 6. Handle fuel station refueling
 	g.fuelStationSystem.ProcessRefueling(g.player, inputState)
 
-	// 6. Handle hospital healing
+	// 7. Handle hospital healing
 	g.hospitalSystem.ProcessHealing(g.player, inputState)
 
-	// 7. Handle upgrade purchases
+	// 8. Handle upgrade purchases
 	g.upgradeSystem.ProcessUpgrade(g.player, inputState)
 
 	return nil

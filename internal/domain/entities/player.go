@@ -16,8 +16,9 @@ type Player struct {
 	Velocity     types.Vec2 // Pixels per second
 	OnGround     bool       // Collision state
 	IsDrilling   bool       // Drilling animation state
-	OreInventory [6]int     // Ore counts indexed by OreType
-	Money        int        // Player's currency from selling ores
+	OreInventory  [6]int    // Ore counts indexed by OreType
+	ItemInventory [5]int    // Item counts indexed by ItemType
+	Money         int       // Player's currency from selling ores
 	Fuel         float32    // Current fuel in liters
 	HP           float32    // Current hit points
 	Engine       Engine     // Engine component (exported)
@@ -37,11 +38,12 @@ func NewPlayer(startX, startY float32) *Player {
 	drill := NewDrillBase()
 
 	return &Player{
-		AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
-		Velocity:     types.Zero(),
-		OnGround:     false,
-		OreInventory: [6]int{},
-		Fuel:         fuelTank.Capacity(),
+		AABB:          types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
+		Velocity:      types.Zero(),
+		OnGround:      false,
+		OreInventory:  [6]int{},
+		ItemInventory: [5]int{5, 5, 5, 5, 5}, // Start with 5 of each item for testing
+		Fuel:          fuelTank.Capacity(),
 		HP:           hull.MaxHP(),
 		Engine:       engine,
 		Hull:         hull,
@@ -158,4 +160,25 @@ func (p *Player) SellInventory() {
 	totalValue := CalculateInventoryValue(p.OreInventory)
 	p.Money += totalValue
 	p.OreInventory = [6]int{}
+}
+
+// AddItem increments item count for given type
+func (p *Player) AddItem(itemType ItemType) bool {
+	if itemType < 0 || itemType >= 5 {
+		return false
+	}
+	p.ItemInventory[itemType]++
+	return true
+}
+
+// UseItem decrements item count if available, returns success
+func (p *Player) UseItem(itemType ItemType) bool {
+	if itemType < 0 || itemType >= 5 {
+		return false
+	}
+	if p.ItemInventory[itemType] <= 0 {
+		return false
+	}
+	p.ItemInventory[itemType]--
+	return true
 }
