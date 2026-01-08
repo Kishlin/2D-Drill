@@ -25,6 +25,7 @@ type Player struct {
 	FuelTank     FuelTank   // FuelTank component (exported)
 	CargoHold    CargoHold  // CargoHold component (exported)
 	HeatShield   HeatShield // HeatShield component (exported)
+	Drill        Drill      // Drill component (exported)
 }
 
 func NewPlayer(startX, startY float32) *Player {
@@ -33,6 +34,7 @@ func NewPlayer(startX, startY float32) *Player {
 	fuelTank := NewFuelTankMk4()
 	cargoHold := NewCargoHoldMk2()
 	heatShield := NewHeatShieldMk1()
+	drill := NewDrillBase()
 
 	return &Player{
 		AABB:         types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
@@ -46,6 +48,7 @@ func NewPlayer(startX, startY float32) *Player {
 		FuelTank:     fuelTank,
 		CargoHold:    cargoHold,
 		HeatShield:   heatShield,
+		Drill:        drill,
 		Money:        1854,
 	}
 }
@@ -79,6 +82,11 @@ func (p *Player) BuyCargoHold(ch CargoHold, cost int) {
 func (p *Player) BuyHeatShield(hs HeatShield, cost int) {
 	p.Money -= cost
 	p.HeatShield = hs
+}
+
+func (p *Player) BuyDrill(d Drill, cost int) {
+	p.Money -= cost
+	p.Drill = d
 }
 
 // Refuel fills the tank if player can afford it, returns success

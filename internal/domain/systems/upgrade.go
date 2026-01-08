@@ -11,6 +11,7 @@ type UpgradeSystem struct {
 	fuelTankShop   *entities.FuelTankUpgradeShop
 	cargoHoldShop  *entities.CargoHoldUpgradeShop
 	heatShieldShop *entities.HeatShieldUpgradeShop
+	drillShop      *entities.DrillUpgradeShop
 }
 
 func NewUpgradeSystem(
@@ -19,6 +20,7 @@ func NewUpgradeSystem(
 	fuelTankShop *entities.FuelTankUpgradeShop,
 	cargoHoldShop *entities.CargoHoldUpgradeShop,
 	heatShieldShop *entities.HeatShieldUpgradeShop,
+	drillShop *entities.DrillUpgradeShop,
 ) *UpgradeSystem {
 	return &UpgradeSystem{
 		engineShop:     engineShop,
@@ -26,6 +28,7 @@ func NewUpgradeSystem(
 		fuelTankShop:   fuelTankShop,
 		cargoHoldShop:  cargoHoldShop,
 		heatShieldShop: heatShieldShop,
+		drillShop:      drillShop,
 	}
 }
 
@@ -55,6 +58,10 @@ func (us *UpgradeSystem) ProcessUpgrade(
 	}
 	if us.heatShieldShop.IsPlayerInRange(player) {
 		us.tryUpgradeHeatShield(player)
+		return
+	}
+	if us.drillShop.IsPlayerInRange(player) {
+		us.tryUpgradeDrill(player)
 		return
 	}
 }
@@ -124,6 +131,19 @@ func (us *UpgradeSystem) tryUpgradeHeatShield(player *entities.Player) {
 	player.BuyHeatShield(entry.HeatShield, entry.Price)
 }
 
+func (us *UpgradeSystem) tryUpgradeDrill(player *entities.Player) {
+	entry := us.drillShop.GetNextDrill(player.Drill.Tier())
+	if entry == nil {
+		return // Max level reached
+	}
+
+	if !player.CanAfford(entry.Price) {
+		return
+	}
+
+	player.BuyDrill(entry.Drill, entry.Price)
+}
+
 func (us *UpgradeSystem) GetEngineShop() *entities.EngineUpgradeShop {
 	return us.engineShop
 }
@@ -142,4 +162,8 @@ func (us *UpgradeSystem) GetCargoHoldShop() *entities.CargoHoldUpgradeShop {
 
 func (us *UpgradeSystem) GetHeatShieldShop() *entities.HeatShieldUpgradeShop {
 	return us.heatShieldShop
+}
+
+func (us *UpgradeSystem) GetDrillShop() *entities.DrillUpgradeShop {
+	return us.drillShop
 }

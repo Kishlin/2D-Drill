@@ -201,3 +201,42 @@ func (s *HeatShieldUpgradeShop) GetNextHeatShield(currentTier int) *HeatShieldCa
 	}
 	return nil // Max level reached
 }
+
+// Drill Upgrade Shop
+
+type DrillCatalogEntry struct {
+	Price int
+	Drill Drill
+}
+
+type DrillUpgradeShop struct {
+	AABB    types.AABB
+	Catalog []DrillCatalogEntry
+}
+
+func NewDrillUpgradeShop(x, y float32) *DrillUpgradeShop {
+	return &DrillUpgradeShop{
+		AABB: types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
+		Catalog: []DrillCatalogEntry{
+			{Price: 125, Drill: NewDrillMk1()},
+			{Price: 350, Drill: NewDrillMk2()},
+			{Price: 875, Drill: NewDrillMk3()},
+			{Price: 2000, Drill: NewDrillMk4()},
+			{Price: 6500, Drill: NewDrillMk5()},
+		},
+	}
+}
+
+func (s *DrillUpgradeShop) IsPlayerInRange(player *Player) bool {
+	return s.AABB.Intersects(player.AABB)
+}
+
+func (s *DrillUpgradeShop) GetNextDrill(currentTier int) *DrillCatalogEntry {
+	nextTier := currentTier + 1
+	for i := range s.Catalog {
+		if s.Catalog[i].Drill.Tier() == nextTier {
+			return &s.Catalog[i]
+		}
+	}
+	return nil // Max level reached
+}

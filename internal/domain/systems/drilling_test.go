@@ -53,9 +53,9 @@ func TestVerticalDrilling_DirtDuration(t *testing.T) {
 	inputState := input.InputState{Drill: true}
 	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	// Dirt at ground level should take 0.8 seconds
-	if drillingSystem.animation.Duration != 0.8 {
-		t.Errorf("Dirt at ground level should take 0.8s, got %f", drillingSystem.animation.Duration)
+	// Dirt at ground level should take 1.0 seconds (with base drill, no speedup)
+	if drillingSystem.animation.Duration != 1.0 {
+		t.Errorf("Dirt at ground level should take 1.0s, got %f", drillingSystem.animation.Duration)
 	}
 }
 
@@ -64,12 +64,12 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 		oreType  entities.OreType
 		expected float32
 	}{
-		{entities.OreCopper, 0.96},   // 0.8 * 1.2
-		{entities.OreIron, 1.2},      // 0.8 * 1.5
-		{entities.OreGold, 1.44},     // 0.8 * 1.8
-		{entities.OreMythril, 1.68},  // 0.8 * 2.1
-		{entities.OrePlatinum, 2.0},  // 0.8 * 2.5
-		{entities.OreDiamond, 2.4},   // 0.8 * 3.0
+		{entities.OreCopper, 1.2},   // 1.0 * 1.2
+		{entities.OreIron, 1.5},     // 1.0 * 1.5
+		{entities.OreGold, 1.8},     // 1.0 * 1.8
+		{entities.OreMythril, 2.1},  // 1.0 * 2.1
+		{entities.OrePlatinum, 2.5}, // 1.0 * 2.5
+		{entities.OreDiamond, 3.0},  // 1.0 * 3.0
 	}
 
 	for _, test := range oreTests {
@@ -106,9 +106,9 @@ func TestDrilling_DepthAffectsDuration(t *testing.T) {
 		minExpect float32
 		maxExpect float32
 	}{
-		{10, 0.7, 0.9},       // Near ground (Y=640): ~0.8s
-		{500, 15.0, 15.8},    // Mid-depth (Y=32000): ~15.4s
-		{990, 29.5, 30.5},    // Deep (Y=63360): ~30s
+		{10, 0.9, 1.1},       // Near ground (Y=640): ~1.0s
+		{500, 12.0, 13.0},    // Mid-depth (Y=32000): ~12.4s
+		{990, 23.5, 24.5},    // Deep (Y=63360): ~24s
 	}
 
 	for _, test := range depthTests {
@@ -143,9 +143,9 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 		t.Error("Drilling animation should be active")
 	}
 
-	// Verify animation duration is correct for diamond (0.8 * 3.0 = 2.4)
-	if drillingSystem.animation.Duration != 2.4 {
-		t.Errorf("Diamond ore should take 2.4s, got %f", drillingSystem.animation.Duration)
+	// Verify animation duration is correct for diamond (1.0 * 3.0 = 3.0)
+	if drillingSystem.animation.Duration != 3.0 {
+		t.Errorf("Diamond ore should take 3.0s, got %f", drillingSystem.animation.Duration)
 	}
 
 	// Complete animation

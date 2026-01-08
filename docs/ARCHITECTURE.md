@@ -101,11 +101,12 @@ drill-game/
 │       │   ├── fuel_tank.go                 # FuelTank component (tier, name, capacity)
 │       │   ├── cargo_hold.go                # CargoHold component (tier, name, ore capacity)
 │       │   ├── heat_shield.go               # HeatShield component (tier, name, heat resistance)
+│       │   ├── drill.go                     # Drill component (tier, name, drill speed)
 │       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
 │       │   ├── market.go                     # Market entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
-│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold/HeatShield)
+│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold/HeatShield/Drill)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
@@ -284,7 +285,7 @@ func (g *Game) GetPlayer() *entities.Player {
 
 #### Drilling System (`domain/systems/drilling.go`)
 
-Handles both vertical and horizontal drilling with variable animation duration based on depth and ore type. Dirt takes 0.8 seconds at ground level, scaling linearly to 30 seconds at max depth. Ore hardness multipliers (Copper 1.2x → Diamond 3.0x) further increase drilling time. When a drill is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
+Handles both vertical and horizontal drilling with variable animation duration based on depth and ore type. Dirt takes 1.0 seconds at ground level, scaling linearly to 24 seconds at max depth. Ore hardness multipliers (Copper 1.2x → Diamond 3.0x) further increase drilling time. Drill upgrades apply a depth-scaled divisor: at surface only 10% of the upgrade applies, at max depth 100% applies. This ensures upgrades feel impactful at depth without trivializing surface drilling. When a drill is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
 
 **Core Concepts:**
 
@@ -305,7 +306,7 @@ type DrillingAnimation struct {
     TargetGridX int            // Tile coordinates for removal
     TargetGridY int
     Elapsed     float32        // Time elapsed in animation
-    Duration    float32        // Variable duration (0.8-30+ seconds based on depth/ore)
+    Duration    float32        // Variable duration (1.0-24+ seconds based on depth/ore/drill)
     Tile        *entities.Tile
 }
 
@@ -318,7 +319,7 @@ The drilling system receives input AFTER physics (which handles landing), ensuri
 1. Player lands on ground (physics)
 2. Fall damage applied if landing from height (physics)
 3. Drilling animation can only start when grounded
-4. Player is locked in animation (duration varies: 0.8-30+ seconds)
+4. Player is locked in animation (duration varies: 1.0-24+ seconds based on depth/ore/drill)
 5. Tile removed on completion, ore collected
 
 ```go
@@ -345,7 +346,7 @@ targetX := tileCenterX - player.AABB.Width/2
 tileBottomY := float32(tileGridY+1) * world.TileSize
 targetY := tileBottomY - player.AABB.Height  // Align bottom edges
 
-// Start variable-duration animation (0.8-30+ seconds based on depth/ore)
+// Start variable-duration animation (1.0-24+ seconds based on depth/ore/drill)
 ds.startDrillAnimation(player, DrillDown, tileGridX, tileGridY, targetX, targetY, tile)
 ```
 
@@ -367,6 +368,22 @@ if inputState.Left {
     }
 }
 // Similar for Right
+```
+
+**Drill Upgrade Scaling:**
+
+Drill upgrades reduce drilling duration via a depth-scaled divisor. At surface, only 10% of the upgrade applies; at max depth, 100% applies.
+
+```go
+// Calculate depth factor (0 at ground, 1 at max depth)
+depthFactor := depthBelowGround / maxDepth
+
+// Apply depth-scaled divisor
+// At surface (depthFactor=0): effectiveDivisor = 1 + (drillSpeed-1)*0.1
+// At max depth (depthFactor=1): effectiveDivisor = drillSpeed
+drillSpeed := player.Drill.DrillSpeed()
+effectiveDivisor := 1 + (drillSpeed-1)*(0.1+0.9*depthFactor)
+duration := baseDuration / effectiveDivisor
 ```
 
 **Animation Update (Each Frame):**
@@ -730,10 +747,12 @@ Manages upgrade purchases at dedicated upgrade shops:
 
 ```go
 type UpgradeSystem struct {
-    engineShop    *entities.EngineUpgradeShop
-    hullShop      *entities.HullUpgradeShop
-    fuelTankShop  *entities.FuelTankUpgradeShop
-    cargoHoldShop *entities.CargoHoldUpgradeShop
+    engineShop     *entities.EngineUpgradeShop
+    hullShop       *entities.HullUpgradeShop
+    fuelTankShop   *entities.FuelTankUpgradeShop
+    cargoHoldShop  *entities.CargoHoldUpgradeShop
+    heatShieldShop *entities.HeatShieldUpgradeShop
+    drillShop      *entities.DrillUpgradeShop
 }
 
 func (us *UpgradeSystem) ProcessUpgrade(
@@ -749,7 +768,7 @@ func (us *UpgradeSystem) ProcessUpgrade(
         us.tryUpgradeEngine(player)
         return
     }
-    // ... similar for hullShop and fuelTankShop
+    // ... similar for hullShop, fuelTankShop, cargoHoldShop, heatShieldShop, drillShop
 }
 
 func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
@@ -771,7 +790,7 @@ func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
 
 **Why this design:**
 - Mirrors Hospital/FuelStation pattern (AABB + E key interaction)
-- Three separate shops prevent spatial conflict
+- Six separate shops prevent spatial conflict
 - Called before physics (consistent with other interactions)
 - Each shop owns its catalog (DDD: shop knows what it sells)
 - Player is aggregate root (mutations go through Player methods)
@@ -822,6 +841,7 @@ type Player struct {
     FuelTank     FuelTank    // FuelTank component (exported)
     CargoHold    CargoHold   // CargoHold component (exported)
     HeatShield   HeatShield  // HeatShield component (exported)
+    Drill        Drill       // Drill component (exported)
 }
 
 // Component types are value objects with named constructors
@@ -839,6 +859,7 @@ player.Hull.MaxHP()           // 10.0 for base hull
 player.FuelTank.Capacity()    // 10.0 for base tank
 player.CargoHold.Capacity()   // 10 for base cargo hold
 player.HeatShield.HeatResistance() // 50.0 for base heat shield
+player.Drill.DrillSpeed()     // 1.0 for base drill
 player.GetTotalOreCount()     // Sum of all ore in inventory
 
 // Purchase methods enforce invariants
@@ -848,6 +869,7 @@ func (p *Player) BuyHull(h Hull, cost int)
 func (p *Player) BuyFuelTank(ft FuelTank, cost int)
 func (p *Player) BuyCargoHold(ch CargoHold, cost int)
 func (p *Player) BuyHeatShield(hs HeatShield, cost int)
+func (p *Player) BuyDrill(d Drill, cost int)
 func (p *Player) Refuel() bool  // checks money, fills tank
 func (p *Player) Heal() bool    // checks money, restores HP
 func (p *Player) AddOre(oreType OreType) bool  // returns false if cargo full

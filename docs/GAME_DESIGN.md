@@ -76,21 +76,22 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 ### Directional Drilling & Animation
 
 Both vertical and horizontal drilling feature smooth variable-duration animations based on depth and ore type:
-- **Dirt at ground level**: 0.8 seconds
-- **Dirt at max depth**: 30 seconds (linear scaling with depth)
+- **Dirt at ground level**: 1.0 seconds
+- **Dirt at max depth**: 24 seconds (linear scaling with depth)
 - **Ore multipliers**: Copper 1.2x, Iron 1.5x, Gold 1.8x, Mythril 2.1x, Platinum 2.5x, Diamond 3.0x
+- **Drill upgrades**: Apply depth-scaled divisor (more effective at depth than surface)
 
 The player moves toward the tile's center during the animation. The tile is only removed when the animation completes, then ore is collected.
 
 **Downward Drilling (S/Down Key):**
 - **Availability**: Can start anytime (must be grounded)
-- **Animation**: Player moves to tile center (X-axis) and bottom edge (Y-axis) over variable duration (0.8-30+ seconds)
+- **Animation**: Player moves to tile center (X-axis) and bottom edge (Y-axis) over variable duration (1.0-24+ seconds based on depth/ore/drill)
 - **Completion**: Tile removed, ore collected if cargo permits
 - **Effect**: Player is locked in animation; no other inputs processed
 
 **Left/Right Drilling (A/D or Arrow Keys when Grounded):**
 - **Availability**: Only when player is on solid ground (grounded against wall)
-- **Animation**: Player moves to tile center (X-axis) while staying at ground level (Y-axis) over variable duration (0.8-30+ seconds)
+- **Animation**: Player moves to tile center (X-axis) while staying at ground level (Y-axis) over variable duration (1.0-24+ seconds based on depth/ore/drill)
 - **Completion**: Tile removed, ore collected if cargo permits
 - **Effect**: Player is locked in animation; no other inputs processed
 - **Mid-Air Disabled**: Left/Right drilling blocked while airborne; player bounces off walls instead
@@ -253,7 +254,7 @@ Each heat shield tier enables safe mining at progressively deeper zones. Must be
 
 ### Overview
 
-Three upgrade types are available, each with 6 tiers (Base + Mk1 through Mk5). Upgrades must be purchased in order at dedicated upgrade shops on the surface. Press E while overlapping an upgrade shop to purchase the next tier.
+Six upgrade types are available, each with 6 tiers (Base + Mk1 through Mk5). Upgrades must be purchased in order at dedicated upgrade shops on the surface. Press E while overlapping an upgrade shop to purchase the next tier.
 
 ### Engine Upgrades
 
@@ -337,20 +338,38 @@ Increases heat resistance, allowing safe mining at greater depths. Heat shield i
 
 **Note:** Unlike fuel tank and hull upgrades, heat shield doesn't auto-apply to new max. Resistance immediately applies on purchase.
 
+### Drill Upgrades
+
+Improves drilling speed via a depth-scaled divisor. At surface, only 10% of the upgrade applies; at max depth, 100% applies. This design ensures upgrades feel impactful deep underground without trivializing surface drilling.
+
+| Tier | Drill Speed | Cost | Effect at Surface | Effect at Max Depth |
+|------|-------------|------|-------------------|---------------------|
+| Base | 1.0x | - | 1.0s → 1.0s | 24s → 24s |
+| Mk1 | 2.0x | $125 | 1.0s → 0.91s | 24s → 12s |
+| Mk2 | 3.0x | $350 | 1.0s → 0.83s | 24s → 8s |
+| Mk3 | 4.0x | $875 | 1.0s → 0.77s | 24s → 6s |
+| Mk4 | 5.0x | $2,000 | 1.0s → 0.71s | 24s → 4.8s |
+| Mk5 | 6.0x | $6,500 | 1.0s → 0.67s | 24s → 4s |
+
+**Formula:** `effectiveDivisor = 1 + (drillSpeed - 1) * (0.1 + 0.9 * depthFactor)`
+
+**Design Rationale:**
+- Depth-scaled divisor prevents trivializing surface drilling
+- Strong improvement at depth (24s → 4s with Mk5) makes deep mining viable
+- Gentle improvement at surface (1.0s → 0.67s) maintains early game challenge
+- Pricing balanced between Engine and Hull tiers
+
 ### Upgrade Shops
 
-Five separate upgrade shops are located on the surface (right of the ore market), spaced 360 pixels apart:
+Six separate upgrade shops are located on the surface (right of the ore market), spaced 360 pixels apart:
 - **Engine Shop** (Steel Blue): Engine upgrades
 - **Hull Shop** (Dim Gray): Hull upgrades
 - **Fuel Tank Shop** (Tomato): Fuel tank upgrades
 - **Cargo Hold Shop** (Dark Violet): Cargo hold upgrades
 - **Heat Shield Shop** (Orange Red): Heat shield upgrades
+- **Drill Shop** (Dark Goldenrod): Drill upgrades
 
 ### Future Upgrades (Not Yet Implemented)
-
-#### Drilling Upgrades
-- **Drill Strength**: Drill through tiles faster
-- **Drill Efficiency**: Reduced heat generation while drilling
 
 #### Survivability Upgrades
 - **Auto-Repair**: Slowly regenerate health over time

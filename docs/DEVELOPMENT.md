@@ -196,20 +196,28 @@ To manually test the drilling animation system:
    - Inputs should be ignored until animation completes
    - Fuel should still consume during animation
 6. **Animation Duration**:
-   - Drill a tile and time it
-   - Should take approximately 1.0 second from start to completion
+   - Drill a tile at surface and time it
+   - Should take approximately 1.0 second for dirt at ground level
+   - Duration increases with depth (up to 24 seconds at max depth)
+   - Ore multipliers increase duration (Copper 1.2x → Diamond 3.0x)
+   - Drill upgrades reduce duration via depth-scaled divisor
 
 **Debug Display:**
 - Top-left corner shows: `IsDrilling: true/false`
 - Verify IsDrilling is true during animation, false otherwise
 
-**Formula (1-second animation):**
+**Formula (variable-duration animation):**
 ```
-position = start + (target - start) * (elapsed / 1.0)
+position = start + (target - start) * (elapsed / duration)
 ```
 - `elapsed = 0` → position = start
-- `elapsed = 0.5` → position = midpoint
-- `elapsed = 1.0` → position = target (tile removed, ore collected)
+- `elapsed = duration/2` → position = midpoint
+- `elapsed = duration` → position = target (tile removed, ore collected)
+
+Duration is calculated based on depth, ore type, and drill upgrades:
+- Base duration: 1.0s (surface) to 24s (max depth)
+- Ore hardness multiplier: 1.2x-3.0x
+- Drill upgrade divisor: depth-scaled (more effective at depth)
 
 ---
 

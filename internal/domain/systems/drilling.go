@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	minDrillingDuration = 0.8  // seconds (at ground level)
-	maxDrillingDuration = 30.0 // seconds (at max depth)
+	minDrillingDuration   = 1.0  // seconds (at ground level)
+	maxDrillingDuration   = 24.0 // seconds (at max depth)
+	floorDrillingDuration = 0.5  // seconds (absolute minimum, safety clamp)
 )
 
 type DrillDirection int
@@ -151,9 +152,33 @@ func (ds *DrillingSystem) startDrillAnimation(
 	targetX, targetY float32,
 	tile *entities.Tile,
 ) {
-	// Calculate tile Y position and drilling duration
+	// Calculate tile Y position and base drilling duration
 	tileY := float32(tileGridY) * world.TileSize
-	duration := ds.calculateDrillingDuration(tileY, tile)
+	baseDuration := ds.calculateDrillingDuration(tileY, tile)
+
+	// Calculate depth factor (0 at ground level, 1 at max depth)
+	groundLevel := ds.world.GroundLevel
+	maxDepth := physics.MaxUndergroundY - groundLevel
+	depthBelowGround := tileY - groundLevel
+	depthFactor := depthBelowGround / maxDepth
+	if depthFactor < 0 {
+		depthFactor = 0
+	}
+	if depthFactor > 1 {
+		depthFactor = 1
+	}
+
+	// Apply depth-scaled drill divisor
+	// At surface (depthFactor=0): only 10% of upgrade applies
+	// At max depth (depthFactor=1): 100% of upgrade applies
+	drillSpeed := player.Drill.DrillSpeed()
+	effectiveDivisor := 1 + (drillSpeed-1)*(0.1+0.9*depthFactor)
+	duration := baseDuration / effectiveDivisor
+
+	// Apply floor clamp
+	if duration < floorDrillingDuration {
+		duration = floorDrillingDuration
+	}
 
 	ds.animation = DrillingAnimation{
 		Active:      true,

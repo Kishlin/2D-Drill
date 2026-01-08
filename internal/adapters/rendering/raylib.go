@@ -27,6 +27,7 @@ var (
 	FuelTankShopColor  = rl.NewColor(255, 99, 71, 255)   // Tomato
 	CargoHoldShopColor = rl.NewColor(148, 0, 211, 255)   // Dark Violet
 	HeatShieldShopColor = rl.NewColor(255, 69, 0, 255)   // Orange Red
+	DrillShopColor      = rl.NewColor(184, 134, 11, 255) // Dark Goldenrod
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -117,6 +118,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderUpgradeShop(game.GetFuelTankShop().AABB, FuelTankShopColor, rl.Maroon)
 	r.renderUpgradeShop(game.GetCargoHoldShop().AABB, CargoHoldShopColor, rl.NewColor(75, 0, 130, 255))
 	r.renderUpgradeShop(game.GetHeatShieldShop().AABB, HeatShieldShopColor, rl.Red)
+	r.renderUpgradeShop(game.GetDrillShop().AABB, DrillShopColor, rl.NewColor(139, 101, 8, 255))
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -326,8 +328,8 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	posY += lineHeight
 
 	// Draw upgrade levels
-	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d Cargo=%d Heat=%d",
-		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier(), player.CargoHold.Tier(), player.HeatShield.Tier())
+	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d Cargo=%d Heat=%d Drill=%d",
+		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier(), player.CargoHold.Tier(), player.HeatShield.Tier(), player.Drill.Tier())
 	rl.DrawText(upgradeText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
