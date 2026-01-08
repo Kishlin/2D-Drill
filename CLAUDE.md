@@ -28,6 +28,7 @@ go test ./...                # Run all tests
 - **Damage Application** — All damage sources (fall, heat, future hazards) call `player.DealDamage(damage)` which applies damage and clamps HP at zero. Physics package calculates damage; Player entity applies it.
 - **Heat System** — Temperature increases with depth; players take exponential damage when temperature exceeds heat resistance. Heat shield is an upgradeable component enabling deeper mining.
 - **Drilling Animation** — Both vertical and horizontal drilling is animated with variable duration based on depth and ore type: 1.0s for dirt at ground level, up to 24s at max depth. Ore hardness multipliers (1.2x-3.0x) increase duration. Drill upgrades apply a depth-scaled divisor (more effective at depth than surface). Player progressively moves to tile center via lerp. Tile only removed on animation completion. All inputs blocked during drill except fuel/heat (continuous). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#drilling-system) for details.
+- **Item System** — Consumable items (Teleport, Repair, Refuel, Bomb, Big Bomb) stored in `ItemInventory [5]int`. Items used via T, R, F, B, G keys (discrete input, `IsKeyPressed()`). Item effects can impact player state or world tiles. Purchased at dedicated item shops with E key. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#items) for mechanics.
 
 ## Key Files
 
@@ -35,7 +36,10 @@ go test ./...                # Run all tests
 - `internal/domain/entities/player.go` — Player aggregate root
 - `internal/domain/entities/engine.go`, `hull.go`, `fuel_tank.go`, `cargo_hold.go`, `heat_shield.go`, `drill.go` — Component value objects
 - `internal/domain/entities/upgrade_shop.go` — Six shop types with catalogs (Engine, Hull, FuelTank, CargoHold, HeatShield, Drill)
-- `internal/domain/systems/` — Physics, drilling, fuel, upgrades
+- `internal/domain/entities/item.go` — ItemType enum and item names
+- `internal/domain/entities/item_shop.go` — ItemShop entity for purchasing consumables
+- `internal/domain/systems/` — Physics, drilling, fuel, upgrades, items
+- `internal/domain/systems/item_shop.go` — ItemShopSystem for item purchases
 - `internal/domain/world/` — Chunk-based procedural world
 
 ## Documentation

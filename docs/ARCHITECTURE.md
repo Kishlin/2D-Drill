@@ -88,6 +88,8 @@ drill-game/
 │       │   ├── fuel_station.go              # FuelStationSystem (refueling)
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
 │       │   ├── upgrade.go                   # UpgradeSystem (purchase upgrades at shops)
+│       │   ├── item.go                      # ItemSystem (using consumable items)
+│       │   ├── item_shop.go                 # ItemShopSystem (purchasing items at shops)
 │       │   ├── drilling_test.go             # Drilling & ore collection tests
 │       │   ├── fuel_test.go                 # Fuel consumption tests
 │       │   ├── fuel_station_test.go         # Fuel station transaction tests
@@ -107,6 +109,8 @@ drill-game/
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
 │       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold/HeatShield/Drill)
+│       │   ├── item.go                      # ItemType enum (Teleport/Repair/Refuel/Bomb/BigBomb)
+│       │   ├── item_shop.go                 # ItemShop entity (AABB + ItemType + Price)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
@@ -167,10 +171,12 @@ main.go Loop:
 │    • Remove tile on animation complete  │
 │    • Collect ore if available           │
 │    • (Block other inputs during drill)   │
+│    • Item usage (T/R/F/B/G keys)        │
 │    • Market selling (E key + overlap)   │
 │    • Fuel station refueling (E key)     │
 │    • Hospital healing (E key)           │
 │    • Upgrade purchases (E key)          │
+│    • Item shop purchases (E key)        │
 └────────────┬────────────────────────────┘
              │
              ▼
@@ -796,6 +802,136 @@ func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
 - Player is aggregate root (mutations go through Player methods)
 - Fully testable without framework (5 comprehensive unit tests)
 
+#### Item System (`domain/systems/item.go`)
+
+Manages consumable item usage with effects on player state or world tiles:
+
+```go
+type ItemSystem struct {
+    world  *world.World
+    spawnX float32
+    spawnY float32
+}
+
+func (is *ItemSystem) ProcessItemUsage(player *entities.Player, inputState input.InputState) {
+    // Check discrete item inputs (one press per frame, no repeat while held)
+    if inputState.UseTeleport && player.UseItem(entities.ItemTeleport) {
+        is.applyTeleport(player)
+    }
+    if inputState.UseRepair && player.UseItem(entities.ItemRepair) {
+        is.applyRepair(player)
+    }
+    if inputState.UseRefuel && player.UseItem(entities.ItemRefuel) {
+        is.applyRefuel(player)
+    }
+    if inputState.UseBomb && player.UseItem(entities.ItemBomb) {
+        is.applyBomb(player, 2)  // radius 2 tiles
+    }
+    if inputState.UseBigBomb && player.UseItem(entities.ItemBigBomb) {
+        is.applyBomb(player, 4)  // radius 4 tiles
+    }
+}
+
+// Teleport: Return to spawn point at ground level
+func (is *ItemSystem) applyTeleport(player *entities.Player) {
+    player.AABB.X = is.spawnX
+    player.AABB.Y = is.spawnY
+    player.Velocity = types.Zero()
+    player.OnGround = false
+}
+
+// Repair: Restore HP to max instantly
+func (is *ItemSystem) applyRepair(player *entities.Player) {
+    player.HP = player.Hull.MaxHP()
+}
+
+// Refuel: Fill tank to max instantly
+func (is *ItemSystem) applyRefuel(player *entities.Player) {
+    player.Fuel = player.FuelTank.Capacity()
+}
+
+// Bomb: Destroy tiles in circular radius (ore is lost, not collected)
+func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
+    centerX := int((player.AABB.X + player.AABB.Width/2) / world.TileSize)
+    centerY := int((player.AABB.Y + player.AABB.Height/2) / world.TileSize)
+
+    for dy := -radius; dy <= radius; dy++ {
+        for dx := -radius; dx <= radius; dx++ {
+            // Circular blast check: distance <= radius
+            if dx*dx+dy*dy <= radius*radius {
+                gridX, gridY := centerX+dx, centerY+dy
+                is.world.DrillTileAtGrid(gridX, gridY)  // Ore is lost
+            }
+        }
+    }
+}
+```
+
+**Item Types:**
+- `ItemTeleport` (key T, $500) — Return to spawn point
+- `ItemRepair` (key R, $200) — Restore HP to max
+- `ItemRefuel` (key F, $100) — Fill fuel to max
+- `ItemBomb` (key B, $300) — Destroy tiles in 2-tile radius
+- `ItemBigBomb` (key G, $800) — Destroy tiles in 4-tile radius
+
+**Design:**
+- Called after drilling animation check (items blocked during animation)
+- Uses discrete input (`IsKeyPressed()`, not continuous)
+- `Player.UseItem()` handles atomicity: checks count, decrements on success
+- Effects applied immediately (no cost, no confirmation)
+- Teleport resets velocity (safe movement after arrival)
+- Bombs destroy ore (not collected) — purely terrain-clearing tool
+
+#### Item Shop System (`domain/systems/item_shop.go`)
+
+Manages item purchases at dedicated shops:
+
+```go
+type ItemShopSystem struct {
+    shops []*entities.ItemShop
+}
+
+func NewItemShopSystem(shops ...*entities.ItemShop) *ItemShopSystem {
+    return &ItemShopSystem{shops: shops}
+}
+
+func (iss *ItemShopSystem) ProcessPurchase(player *entities.Player, inputState input.InputState) {
+    if !inputState.Sell {
+        return
+    }
+
+    for _, shop := range iss.shops {
+        if shop.IsPlayerInRange(player) {
+            iss.tryPurchase(player, shop)
+            return
+        }
+    }
+}
+
+func (iss *ItemShopSystem) tryPurchase(player *entities.Player, shop *entities.ItemShop) {
+    if !player.CanAfford(shop.Price) {
+        return  // Insufficient funds (no feedback yet)
+    }
+
+    player.Money -= shop.Price
+    player.AddItem(shop.ItemType)  // Increment item count
+}
+```
+
+**Shop Rules:**
+- 5 shops, one per item type
+- Located 200 pixels apart to the right of upgrade shops
+- Press E to attempt purchase
+- Each shop increases item count by 1 on success
+- No transaction if insufficient funds (silent rejection)
+
+**Why this design:**
+- Mirrors UpgradeSystem pattern (AABB + E key interaction)
+- Shops hold item type (parameterized, not hardcoded)
+- Called after upgrades (consistent processing order)
+- Simple: only tracks shop locations, not inventory management
+- Fully testable without framework
+
 #### Pure Physics Functions (`domain/physics/`)
 
 Framework-independent mathematical functions:
@@ -829,19 +965,21 @@ Player is the **aggregate root** with exported component value objects (Engine, 
 
 ```go
 type Player struct {
-    AABB         types.AABB  // Position and dimensions
-    Velocity     types.Vec2  // Pixels per second
-    OnGround     bool        // Collision state
-    OreInventory [6]int      // Ore counts indexed by OreType
-    Money        int         // Currency from ore sales
-    Fuel         float32     // Current fuel in liters
-    HP           float32     // Hit points
-    Engine       Engine      // Engine component (exported)
-    Hull         Hull        // Hull component (exported)
-    FuelTank     FuelTank    // FuelTank component (exported)
-    CargoHold    CargoHold   // CargoHold component (exported)
-    HeatShield   HeatShield  // HeatShield component (exported)
-    Drill        Drill       // Drill component (exported)
+    AABB          types.AABB  // Position and dimensions
+    Velocity      types.Vec2  // Pixels per second
+    OnGround      bool        // Collision state
+    IsDrilling    bool        // Drilling animation state
+    OreInventory  [6]int      // Ore counts indexed by OreType
+    ItemInventory [5]int      // Item counts (Teleport, Repair, Refuel, Bomb, BigBomb)
+    Money         int         // Currency from ore sales
+    Fuel          float32     // Current fuel in liters
+    HP            float32     // Hit points
+    Engine        Engine      // Engine component (exported)
+    Hull          Hull        // Hull component (exported)
+    FuelTank      FuelTank    // FuelTank component (exported)
+    CargoHold     CargoHold   // CargoHold component (exported)
+    HeatShield    HeatShield  // HeatShield component (exported)
+    Drill         Drill       // Drill component (exported)
 }
 
 // Component types are value objects with named constructors
@@ -872,7 +1010,14 @@ func (p *Player) BuyHeatShield(hs HeatShield, cost int)
 func (p *Player) BuyDrill(d Drill, cost int)
 func (p *Player) Refuel() bool  // checks money, fills tank
 func (p *Player) Heal() bool    // checks money, restores HP
+
+// Item methods (consumable items)
+func (p *Player) AddItem(itemType ItemType) bool   // increments item count
+func (p *Player) UseItem(itemType ItemType) bool   // checks & decrements if available
+
+// Ore methods
 func (p *Player) AddOre(oreType OreType) bool  // returns false if cargo full
+func (p *Player) GetTotalOreCount() int        // sum of all ore
 
 // Damage application (called by physics damage sources)
 func (p *Player) DealDamage(damage float32)  // applies damage, clamps HP at 0
@@ -955,11 +1100,19 @@ Platform-agnostic input representation:
 
 ```go
 type InputState struct {
+    // Continuous inputs (movement, checked every frame while held)
     Left  bool  // A or Arrow Left - move left
     Right bool  // D or Arrow Right - move right
     Up    bool  // W or Arrow Up - jump/fly
     Drill bool  // S or Arrow Down - drill downward
-    Sell  bool  // E - sell inventory at market
+
+    // Discrete inputs (one-shot, only true on frame key is first pressed)
+    Sell        bool  // E - sell inventory at market, refuel, heal, upgrade
+    UseTeleport bool  // T - use teleport item
+    UseRepair   bool  // R - use repair item
+    UseRefuel   bool  // F - use refuel item
+    UseBomb     bool  // B - use bomb item
+    UseBigBomb  bool  // G - use big bomb item
 }
 
 // HasMovementInput returns true if player is actively moving or drilling
@@ -978,13 +1131,18 @@ func (is InputState) HasVerticalInput() bool {
 }
 ```
 
+**Continuous vs. Discrete:**
+- **Continuous inputs** (Left, Right, Up, Drill): Detected via `IsKeyDown()` — true every frame while key is held
+- **Discrete inputs** (Sell, item keys): Detected via `IsKeyPressed()` — true only on frame key first transitions to pressed
+- Prevents repeated item use when holding a key down
+
 **Why this design:**
 - Not a Raylib type
 - Physics and game logic receive this, not raw keyboard input
 - Easy to swap input sources (file playback, network, AI)
 - Domain logic decoupled from input mechanism
 - Helper methods (`HasMovementInput()`) avoid repeating conditionals
-- `Sell` is separate from movement (doesn't count as active input)
+- `Sell` and item keys are separate from movement (don't count as active input for fuel consumption)
 
 #### World (`domain/world/world.go`)
 
@@ -1770,13 +1928,27 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 
 ### Controls & Input Mapping
 
-| Input | Action | Notes |
-|-------|--------|-------|
-| **Left** (A or ←) | Move left / Drill left | Drill only when grounded against wall |
-| **Right** (D or →) | Move right / Drill right | Drill only when grounded against wall |
-| **Up** (W or ↑) | Jump/Fly | Hold to fly continuously |
-| **Drill** (S or ↓) | Drill downward | Always available, snaps to grid |
-| **Interact** (E) | Sell / Refuel | Sell at market, refuel at station (AABB overlap) |
+| Input | Type | Action | Notes |
+|-------|------|--------|-------|
+| **Left** (A or ←) | Continuous | Move left / Drill left | Drill only when grounded against wall |
+| **Right** (D or →) | Continuous | Move right / Drill right | Drill only when grounded against wall |
+| **Up** (W or ↑) | Continuous | Jump/Fly | Hold to fly continuously |
+| **Drill** (S or ↓) | Continuous | Drill downward | Always available, snaps to grid |
+| **Interact** (E) | Discrete | Sell / Refuel / Heal / Upgrade / Buy Item | Context-aware (AABB overlap) |
+| **T** | Discrete | Use Teleport Item | Return to spawn (if available) |
+| **R** | Discrete | Use Repair Item | Restore HP to max (if available) |
+| **F** | Discrete | Use Refuel Item | Fill fuel to max (if available) |
+| **B** | Discrete | Use Bomb Item | Destroy tiles in 2-tile radius (if available) |
+| **G** | Discrete | Use Big Bomb Item | Destroy tiles in 4-tile radius (if available) |
+
+**Continuous Inputs:**
+- Detected via `IsKeyDown()` — true every frame while key is held
+- Used for smooth movement and drilling animation
+
+**Discrete Inputs:**
+- Detected via `IsKeyPressed()` — true only on first frame key is pressed
+- Prevents repeated action when holding key
+- Consumed once per key press
 
 **Drilling Behavior:**
 - **Downward (S/Down)**: Always available, auto-aligns player to tile grid

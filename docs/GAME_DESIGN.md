@@ -55,6 +55,13 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - At fuel station: Refuel tank (if affordable)
   - At hospital: Heal to full HP (if affordable)
   - At upgrade shop: Buy next upgrade tier (if affordable)
+  - At item shop: Buy consumable item (if affordable)
+- **Item Keys** (press once to use if you have items):
+  - **T**: Teleport to spawn point
+  - **R**: Repair (restore HP to max)
+  - **F**: Refuel (fill fuel tank to max)
+  - **B**: Bomb (destroy tiles in small radius)
+  - **G**: Big Bomb (destroy tiles in larger radius)
 
 ### Vehicle Mechanics
 - Gravity pulls vehicle downward
@@ -377,6 +384,76 @@ Six separate upgrade shops are located on the surface (right of the ore market),
 #### Quality of Life Upgrades
 - **Ore Detector**: Highlight valuable ores on screen
 - **Auto-Seller**: Automatically sell when inventory is full
+
+## Items
+
+### Overview
+
+Consumable items provide tactical advantages during deep mining expeditions. Each item type is purchased at a dedicated shop and used via a single key press. Items are one-time use and must be repurchased. Players start with 5 of each item type for testing (removed in future shop implementations).
+
+### Item Types & Effects
+
+| Item | Key | Cost | Effect | Strategic Use |
+|------|-----|------|--------|----------------|
+| **Teleport** | T | $500 | Instantly return to spawn point at ground level | Emergency escape from danger (deep heat, low fuel) |
+| **Repair Kit** | R | $200 | Instantly restore HP to maximum | Heal without visiting hospital |
+| **Fuel Can** | F | $100 | Instantly fill fuel tank to maximum | Extend expedition range |
+| **Bomb** | B | $300 | Destroy tiles in 2-tile radius circle (~13 tiles) | Quickly excavate around obstacle |
+| **Big Bomb** | G | $800 | Destroy tiles in 4-tile radius circle (~49 tiles) | Clear large areas, create escape routes |
+
+### Item Mechanics
+
+**Using Items:**
+- Press the item key (T, R, F, B, G) once to use
+- Key must be pressed once per frame (held keys don't trigger repeats)
+- Player must have at least 1 item of that type
+- Item count decrements on successful use
+- Display shows current item counts in debug overlay
+
+**Blocked During Drilling:**
+- Items cannot be used during drilling animations (consistent with other interactions)
+- Finish drilling before using items
+
+**Bomb Effects:**
+- Bombs destroy all drillable tiles in blast radius
+- Ore is lost (not collected) when destroyed by bombs
+- Bombs ignore ore value—purely a terrain-clearing tool
+- Useful for: bypassing obstacles, creating shortcuts, emergency escapes
+
+**Player-Affecting Items (Teleport, Repair, Refuel):**
+- Instantly apply effect (no cost, no confirmation)
+- Effect bypasses normal systems (no hospital visit needed for repair, etc.)
+- Teleport resets velocity and places player at spawn
+
+### Item Shops
+
+Five item shops are located on the surface, to the right of upgrade shops. Each shop specializes in one item type and is spaced 200 pixels apart.
+
+**Shop Locations & Colors:**
+- **Teleport Shop** (Blue Violet): Buy Teleport items
+- **Repair Shop** (Forest Green): Buy Repair Kits
+- **Refuel Shop** (Orange): Buy Fuel Cans
+- **Bomb Shop** (Deep Pink): Buy Bombs
+- **Big Bomb Shop** (Crimson): Buy Big Bombs
+
+**Purchasing:**
+- Stand in shop (overlapping AABB)
+- Press E to attempt purchase
+- If you have enough money, item count increases by 1
+- If insufficient funds, nothing happens (no feedback yet)
+
+### Economy Implications
+
+Items provide flexible power progression:
+- **Early Game**: Affordable items (Refuel $100, Repair $200) help manage basic risk
+- **Mid Game**: Bombs ($300) become cost-effective for clearing obstacles vs drilling
+- **Late Game**: Teleport ($500) provides insurance against extreme depth penalties
+
+Strategic Item Use:
+- Bombs reduce drilling time in congested areas
+- Teleport enables aggressive deep dives with escape plan
+- Repair/Refuel items extend expedition length vs making return trips
+- Mix of item usage and traditional methods balances spending
 
 ## Progression Curve
 
