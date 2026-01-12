@@ -109,11 +109,21 @@ func (w *World) DrillTile(pixelX, pixelY float32) (*entities.Tile, bool) {
 	return nil, false
 }
 
-// DrillTileAtGrid removes tile at grid coordinates
+// DrillTileAtGrid removes tile at grid coordinates (only drillable tiles)
 // Returns the removed tile (if any) and success status
 func (w *World) DrillTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
 	tile := w.tiles[[2]int{gridX, gridY}]
 	if tile != nil && tile.IsDrillable() {
+		delete(w.tiles, [2]int{gridX, gridY})
+		return tile, true
+	}
+	return nil, false
+}
+
+// NukeTileAtGrid removes ANY solid tile at grid coordinates (used by bombs)
+func (w *World) NukeTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
+	tile := w.tiles[[2]int{gridX, gridY}]
+	if tile != nil && tile.IsSolid() {
 		delete(w.tiles, [2]int{gridX, gridY})
 		return tile, true
 	}

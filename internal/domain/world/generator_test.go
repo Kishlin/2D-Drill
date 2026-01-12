@@ -222,3 +222,158 @@ func TestSumWeights(t *testing.T) {
 		t.Errorf("sumWeights = %f, expected %f", total, expected)
 	}
 }
+
+// === Hazard Tile Tests ===
+
+func TestGaussianWeight_HazardAtPeak(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+
+	tests := []struct {
+		name      string
+		hazard    entities.HazardType
+		depth     float32
+		minWeight float32
+	}{
+		{"Rock at peak", entities.HazardRock, 650, 14.0},    // Should be ~15.0
+		{"Lava at peak", entities.HazardLava, 750, 11.0},    // Should be ~12.0
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := entities.HazardDistributions[tt.hazard]
+			weight := gen.gaussianWeight(tt.depth, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+
+			if weight < tt.minWeight {
+				t.Errorf("Weight at peak for %v = %f, expected >= %f", tt.name, weight, tt.minWeight)
+			}
+		})
+	}
+}
+
+func TestCalculateAllTileWeights_RockAtShallowDepth(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+
+	// At shallow depth (~tile 50, ~40% depth), rock should have minimal weight
+	weights := gen.calculateAllTileWeights(50)
+
+	if len(weights.Hazards) > 0 && weights.Hazards[entities.HazardRock] > 0.5 {
+		t.Errorf("Rock should be rare at shallow depth, got weight %f", weights.Hazards[entities.HazardRock])
+	}
+}
+
+func TestCalculateAllTileWeights_HazardsAtDeepDepth(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+
+	// At very deep depth (~tile 800, ~80%+ depth), hazards should have significant weight
+	weights := gen.calculateAllTileWeights(800)
+
+	totalHazardWeight := float32(0)
+	for _, w := range weights.Hazards {
+		totalHazardWeight += w
+	}
+
+	if totalHazardWeight < 10.0 {
+		t.Errorf("Hazards should have significant weight at deep depth, got total %f", totalHazardWeight)
+	}
+}
+
+func TestCalculateAllTileWeights_EmptyAndDirtDecreaseWithDepth(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+
+	weightsShallow := gen.calculateAllTileWeights(20)  // Near ground
+	weightsDeep := gen.calculateAllTileWeights(800)    // Very deep
+
+	if weightsShallow.Empty <= weightsDeep.Empty {
+		t.Errorf("Empty weight should decrease with depth: shallow=%f, deep=%f",
+			weightsShallow.Empty, weightsDeep.Empty)
+	}
+
+	if weightsShallow.Dirt <= weightsDeep.Dirt {
+		t.Errorf("Dirt weight should decrease with depth: shallow=%f, deep=%f",
+			weightsShallow.Dirt, weightsDeep.Dirt)
+	}
+}
+
+func TestGenerateTile_NoHazardsAtSurface(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+
+	// Generate 100 tiles at shallow depth (near ground)
+	hazardCount := 0
+	for i := 0; i < 100; i++ {
+		tile := gen.GenerateTile(i, 15) // Just 5 tiles below ground level (tile 10)
+		if tile.Type == entities.TileTypeRock || tile.Type == entities.TileTypeLava {
+			hazardCount++
+		}
+	}
+
+	// Should have very few or no hazards at surface
+	if hazardCount > 5 {
+		t.Errorf("Should have very few hazards at shallow depth, got %d/100", hazardCount)
+	}
+}
+
+func TestGenerateTile_HazardsAtDeepDepth(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+
+	// Generate 100 tiles at very deep depth (80%+)
+	hazardCount := 0
+	for i := 0; i < 100; i++ {
+		tile := gen.GenerateTile(i, 800) // ~80% depth
+		if tile.Type == entities.TileTypeRock || tile.Type == entities.TileTypeLava {
+			hazardCount++
+		}
+	}
+
+	// Should have significant number of hazards at depth
+	if hazardCount < 20 {
+		t.Errorf("Should have many hazards at deep depth (80+), got %d/100", hazardCount)
+	}
+}
+
+func TestGenerateTile_RockAndLavaAreDistinct(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+
+	rockCount := 0
+	lavaCount := 0
+
+	// At deep depth, collect both rock and lava statistics
+	for i := 0; i < 500; i++ {
+		tile := gen.GenerateTile(i, 800)
+		if tile.Type == entities.TileTypeRock {
+			rockCount++
+		} else if tile.Type == entities.TileTypeLava {
+			lavaCount++
+		}
+	}
+
+	// Both should appear, with rock more common than lava
+	if rockCount == 0 {
+		t.Error("Rock tiles should appear at deep depth")
+	}
+	if lavaCount == 0 {
+		t.Error("Lava tiles should appear at deep depth")
+	}
+	if rockCount < lavaCount {
+		t.Errorf("Rock should be more common than lava at deep depth: rock=%d, lava=%d", rockCount, lavaCount)
+	}
+}
+
+func TestGenerateTile_HazardDeterministic(t *testing.T) {
+	gen1 := NewChunkGenerator(12345, 640)
+	gen2 := NewChunkGenerator(12345, 640)
+
+	// Same seed + coords = same hazard type
+	for i := 0; i < 10; i++ {
+		x, y := i*10, i*20+800  // Deep depth
+		tile1 := gen1.GenerateTile(x, y)
+		tile2 := gen2.GenerateTile(x, y)
+
+		if (tile1.Type == entities.TileTypeRock || tile1.Type == entities.TileTypeLava) &&
+			(tile2.Type == entities.TileTypeRock || tile2.Type == entities.TileTypeLava) {
+			if tile1.Type != tile2.Type {
+				t.Errorf("Hazard type should be deterministic at (%d,%d): %v vs %v",
+					x, y, tile1.Type, tile2.Type)
+			}
+		}
+	}
+}

@@ -326,3 +326,123 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 		t.Error("Direction should remain DrillDown while animation is active")
 	}
 }
+
+// === Hazard Tile Drilling Tests ===
+
+func TestDrilling_LavaTileDrillsQuickly(t *testing.T) {
+	w := world.NewWorld(7680, 64000, 640, 42)
+	drillingSystem := NewDrillingSystem(w)
+
+	// Test at various depths
+	depths := []int{50, 200, 500, 800}
+	for _, depth := range depths {
+		tileY := float32(depth) * world.TileSize
+		lavaTile := entities.NewHazardTile(entities.HazardLava)
+		duration := drillingSystem.calculateDrillingDuration(tileY, lavaTile)
+
+		// Lava should always drill in exactly 0.3 seconds (before any floor clamp)
+		if duration != 0.3 {
+			t.Errorf("Lava tile at depth %d should calculate as 0.3s, got %f", depth, duration)
+		}
+	}
+}
+
+func TestDrilling_LavaTileDrillsQuicklyAtAnyDepth(t *testing.T) {
+	// Test lava drilling at multiple depths
+	depthTests := []int{50, 200, 500, 800}  // Various depths
+
+	for _, tileGridY := range depthTests {
+		w2 := world.NewWorld(7680, 64000, 640, 42)
+		player := entities.NewPlayer(100, 500)
+		player.OnGround = true
+		ds := NewDrillingSystem(w2)
+
+		tileY := float32(tileGridY) * world.TileSize
+		lavaTile := entities.NewHazardTile(entities.HazardLava)
+		duration := ds.calculateDrillingDuration(tileY, lavaTile)
+
+		if duration != 0.3 {
+			t.Errorf("Lava at depth %d should drill in 0.3s, got %f", tileGridY, duration)
+		}
+	}
+}
+
+func TestDrilling_RockTileBlocksDrilling(t *testing.T) {
+	w := world.NewWorld(7680, 64000, 640, 42)
+	player := entities.NewPlayer(100, 500)
+	player.OnGround = true
+	drillingSystem := NewDrillingSystem(w)
+
+	// Place rock tile below player
+	playerCenterX := player.AABB.X + player.AABB.Width/2
+	playerBottomY := player.AABB.Y + player.AABB.Height
+	tileX := int(playerCenterX / world.TileSize)
+	tileY := int(playerBottomY / world.TileSize)
+	w.SetTile(tileX, tileY, entities.NewHazardTile(entities.HazardRock))
+
+	// Try to drill
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
+
+	// Rock is not drillable, so animation should not start
+	if player.IsDrilling {
+		t.Error("Drilling should not start on rock tile (not drillable)")
+	}
+}
+
+func TestDrilling_LavaDealsDamage(t *testing.T) {
+	w := world.NewWorld(7680, 64000, 640, 42)
+	player := entities.NewPlayer(100, 500)
+	player.OnGround = true
+	drillingSystem := NewDrillingSystem(w)
+
+	// Place lava tile below player
+	playerCenterX := player.AABB.X + player.AABB.Width/2
+	playerBottomY := player.AABB.Y + player.AABB.Height
+	tileX := int(playerCenterX / world.TileSize)
+	tileY := int(playerBottomY / world.TileSize)
+	w.SetTile(tileX, tileY, entities.NewHazardTile(entities.HazardLava))
+
+	initialHP := player.HP
+
+	// Start and complete drilling
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
+	dt := drillingSystem.animation.Duration + 0.01
+	drillingSystem.ProcessDrilling(player, inputState, dt)
+
+	// Player should take damage
+	if player.HP >= initialHP {
+		t.Errorf("Player HP should decrease after drilling lava, was %f, now %f", initialHP, player.HP)
+	}
+}
+
+func TestDrilling_LavaTileRemovedAfterDrilling(t *testing.T) {
+	w := world.NewWorld(7680, 64000, 640, 42)
+	player := entities.NewPlayer(100, 500)
+	player.OnGround = true
+	drillingSystem := NewDrillingSystem(w)
+
+	// Place lava tile below player
+	playerCenterX := player.AABB.X + player.AABB.Width/2
+	playerBottomY := player.AABB.Y + player.AABB.Height
+	tileX := int(playerCenterX / world.TileSize)
+	tileY := int(playerBottomY / world.TileSize)
+	w.SetTile(tileX, tileY, entities.NewHazardTile(entities.HazardLava))
+
+	// Verify tile exists
+	if w.GetTileAtGrid(tileX, tileY) == nil {
+		t.Error("Lava tile should exist before drilling")
+	}
+
+	// Complete drilling
+	inputState := input.InputState{Drill: true}
+	drillingSystem.ProcessDrilling(player, inputState, 0.01)
+	dt := drillingSystem.animation.Duration + 0.01
+	drillingSystem.ProcessDrilling(player, inputState, dt)
+
+	// Tile should be removed (even though it deals damage)
+	if w.GetTileAtGrid(tileX, tileY) != nil {
+		t.Error("Lava tile should be removed after drilling")
+	}
+}

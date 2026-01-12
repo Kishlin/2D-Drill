@@ -61,12 +61,13 @@ func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
 	centerY := int((player.AABB.Y + player.AABB.Height/2) / world.TileSize)
 
 	// Destroy tiles in circular radius (ore is lost, not collected)
+	// Use NukeTileAtGrid to bypass drillability check, allowing bombs to destroy rocks
 	for dy := -radius; dy <= radius; dy++ {
 		for dx := -radius; dx <= radius; dx++ {
 			// Circular blast check
 			if dx*dx+dy*dy <= radius*radius {
 				gridX, gridY := centerX+dx, centerY+dy
-				is.world.DrillTileAtGrid(gridX, gridY)
+				is.world.NukeTileAtGrid(gridX, gridY)
 			}
 		}
 	}

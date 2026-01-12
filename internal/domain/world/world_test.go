@@ -166,3 +166,125 @@ func TestDrillTile_RemovesFromSparseMap(t *testing.T) {
 		t.Error("Drilled tile should be nil (removed from sparse map)")
 	}
 }
+
+// === Hazard Tile and Bomb Tests ===
+
+func TestNukeTileAtGrid_RemovesRock(t *testing.T) {
+	world := NewWorld(7680, 64000, 640, 42)
+
+	// Place rock tile at grid (100, 500) directly in the sparse map
+	gridX, gridY := 100, 500
+	rockTile := entities.NewHazardTile(entities.HazardRock)
+	world.tiles[[2]int{gridX, gridY}] = rockTile
+
+	// Nuke the tile (use bomb)
+	tile, success := world.NukeTileAtGrid(gridX, gridY)
+	if !success {
+		t.Error("Should successfully nuke rock tile")
+	}
+
+	// Should return the removed rock tile
+	if tile == nil || tile.Type != entities.TileTypeRock {
+		t.Error("Should return rock tile")
+	}
+
+	// Tile should now be removed
+	if world.tiles[[2]int{gridX, gridY}] != nil {
+		t.Error("Rock tile should be removed after nuke")
+	}
+}
+
+func TestNukeTileAtGrid_RemovesLava(t *testing.T) {
+	world := NewWorld(7680, 64000, 640, 42)
+
+	// Place lava tile directly in sparse map
+	gridX, gridY := 100, 500
+	lavaTile := entities.NewHazardTile(entities.HazardLava)
+	world.tiles[[2]int{gridX, gridY}] = lavaTile
+
+	// Nuke the tile
+	tile, success := world.NukeTileAtGrid(gridX, gridY)
+	if !success {
+		t.Error("Should successfully nuke lava tile")
+	}
+
+	if tile == nil || tile.Type != entities.TileTypeLava {
+		t.Error("Should return lava tile")
+	}
+
+	// Tile should now be removed
+	if world.tiles[[2]int{gridX, gridY}] != nil {
+		t.Error("Lava tile should be removed after nuke")
+	}
+}
+
+func TestNukeTileAtGrid_BypassesDrillability(t *testing.T) {
+	world := NewWorld(7680, 64000, 640, 42)
+
+	// Place rock tile (not drillable)
+	gridX, gridY := 100, 500
+	rockTile := entities.NewHazardTile(entities.HazardRock)
+	world.SetTile(gridX, gridY, rockTile)
+
+	// DrillTileAtGrid should fail (rock not drillable)
+	_, drillSuccess := world.DrillTileAtGrid(gridX, gridY)
+	if drillSuccess {
+		t.Error("Should NOT be able to drill rock tile")
+	}
+
+	// But rock should still exist
+	if world.GetTileAtGrid(gridX, gridY) == nil {
+		t.Error("Rock should still exist after failed drill")
+	}
+
+	// NukeTileAtGrid should succeed (bypasses drillability)
+	_, nukeSuccess := world.NukeTileAtGrid(gridX, gridY)
+	if !nukeSuccess {
+		t.Error("Should be able to nuke rock tile (bypasses drillability)")
+	}
+
+	// Rock should now be removed
+	if world.GetTileAtGrid(gridX, gridY) != nil {
+		t.Error("Rock should be removed after nuke")
+	}
+}
+
+func TestNukeTileAtGrid_DoesNotAffectEmpty(t *testing.T) {
+	world := NewWorld(7680, 64000, 640, 42)
+
+	// Try to nuke at a location with no tile (empty)
+	gridX, gridY := 100, 500
+	tile, success := world.NukeTileAtGrid(gridX, gridY)
+
+	if success {
+		t.Error("Should not be able to nuke empty tile")
+	}
+
+	if tile != nil {
+		t.Error("Should return nil when nuking empty space")
+	}
+}
+
+func TestNukeTileAtGrid_RemovesDirt(t *testing.T) {
+	world := NewWorld(7680, 64000, 640, 42)
+
+	// Place dirt tile directly in sparse map (should also be removable with nuke)
+	gridX, gridY := 100, 500
+	dirtTile := entities.NewTile(entities.TileTypeDirt)
+	world.tiles[[2]int{gridX, gridY}] = dirtTile
+
+	// Nuke the dirt tile
+	tile, success := world.NukeTileAtGrid(gridX, gridY)
+	if !success {
+		t.Error("Should be able to nuke dirt tile")
+	}
+
+	if tile == nil || tile.Type != entities.TileTypeDirt {
+		t.Error("Should return dirt tile")
+	}
+
+	// Dirt should now be removed
+	if world.tiles[[2]int{gridX, gridY}] != nil {
+		t.Error("Dirt tile should be removed after nuke")
+	}
+}

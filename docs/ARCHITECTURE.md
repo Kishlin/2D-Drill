@@ -104,7 +104,8 @@ drill-game/
 │       │   ├── cargo_hold.go                # CargoHold component (tier, name, ore capacity)
 │       │   ├── heat_shield.go               # HeatShield component (tier, name, heat resistance)
 │       │   ├── drill.go                     # Drill component (tier, name, drill speed)
-│       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore)
+│       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore, Rock, Lava)
+│       │   ├── hazard_type.go               # HazardType enum (Rock, Lava) & Gaussian parameters
 │       │   ├── market.go                     # Market entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
@@ -376,9 +377,28 @@ if inputState.Left {
 // Similar for Right
 ```
 
+**Lava Tile Drilling:**
+
+Lava tiles are special hazards that drill quickly but deal damage on completion:
+
+```go
+// Lava always drills in 0.3 seconds regardless of depth
+if tile.Type == entities.TileTypeLava {
+    return 0.3  // Fast, constant duration
+}
+
+// On completion, apply damage scaling with heat shield
+if dugTile.Type == entities.TileTypeLava {
+    baseDamage := 100.0
+    damageReduction := (player.HeatShield.HeatResistance() / 320.0) * 50.0
+    finalDamage := baseDamage - damageReduction
+    player.DealDamage(finalDamage)
+}
+```
+
 **Drill Upgrade Scaling:**
 
-Drill upgrades reduce drilling duration via a depth-scaled divisor. At surface, only 10% of the upgrade applies; at max depth, 100% applies.
+Drill upgrades reduce drilling duration via a depth-scaled divisor. At surface, only 10% of the upgrade applies; at max depth, 100% applies. Lava tiles bypass this (always 0.3s).
 
 ```go
 // Calculate depth factor (0 at ground, 1 at max depth)
@@ -851,6 +871,7 @@ func (is *ItemSystem) applyRefuel(player *entities.Player) {
 }
 
 // Bomb: Destroy tiles in circular radius (ore is lost, not collected)
+// Bombs bypass drillability check - they can destroy rocks that cannot be drilled
 func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
     centerX := int((player.AABB.X + player.AABB.Width/2) / world.TileSize)
     centerY := int((player.AABB.Y + player.AABB.Height/2) / world.TileSize)
@@ -860,7 +881,8 @@ func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
             // Circular blast check: distance <= radius
             if dx*dx+dy*dy <= radius*radius {
                 gridX, gridY := centerX+dx, centerY+dy
-                is.world.DrillTileAtGrid(gridX, gridY)  // Ore is lost
+                // NukeTileAtGrid bypasses drillability check (works on rocks)
+                is.world.NukeTileAtGrid(gridX, gridY)
             }
         }
     }
@@ -931,6 +953,44 @@ func (iss *ItemShopSystem) tryPurchase(player *entities.Player, shop *entities.I
 - Called after upgrades (consistent processing order)
 - Simple: only tracks shop locations, not inventory management
 - Fully testable without framework
+
+#### World Methods
+
+**DrillTileAtGrid(gridX, gridY)** — Standard drilling:
+```go
+// Removes tile only if it's drillable (IsDrillable() == true)
+func (w *World) DrillTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
+    tile := w.tiles[[2]int{gridX, gridY}]
+    if tile != nil && tile.IsDrillable() {
+        delete(w.tiles, [2]int{gridX, gridY})
+        return tile, true
+    }
+    return nil, false
+}
+```
+- Used by drilling system to remove ore/lava/dirt
+- Rock tiles return false (not drillable)
+
+**NukeTileAtGrid(gridX, gridY)** — Bomb destruction:
+```go
+// Removes tile only if it's solid (IsSolid() == true), bypassing drillability
+func (w *World) NukeTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
+    tile := w.tiles[[2]int{gridX, gridY}]
+    if tile != nil && tile.IsSolid() {
+        delete(w.tiles, [2]int{gridX, gridY})
+        return tile, true
+    }
+    return nil, false
+}
+```
+- Used by bombs to destroy any solid tile (including rocks)
+- Bypasses drillability check via `IsSolid()` instead of `IsDrillable()`
+- Rock tiles return true (solid, and successfully removed)
+
+**Key Distinction:**
+- Rock: `IsSolid() = true`, `IsDrillable() = false` → DrillTile fails, NukeTile succeeds
+- Lava: `IsSolid() = true`, `IsDrillable() = true` → Both succeed
+- Dirt: `IsSolid() = true`, `IsDrillable() = true` → Both succeed
 
 #### Pure Physics Functions (`domain/physics/`)
 
@@ -1653,15 +1713,29 @@ The game world extends far beyond the screen:
 
 ### Tile Composition
 
-Underground tiles (below ground level) are generated with the following distribution:
+Underground tiles (below ground level) are generated with **depth-dependent weighted selection** rather than fixed rates. This creates dynamic terrain that becomes increasingly hazardous at deeper depths.
 
-| Tile Type | Rate | Purpose |
-|-----------|------|---------|
-| Empty (caves) | 23% | Air pockets and caves for navigation |
-| Dirt | 67% | Solid filler material |
-| Ore | 10% | Valuable resources distributed by Gaussian curves |
+**Depth-Based Weights:**
+- **Surface (0% depth)**: 8.0 Empty, 20.0 Dirt, various ores, no hazards
+- **Shallow (20%)**: Weights begin decreasing; some ore variety
+- **Deep (80%)**: 0.5 Empty, 2.0 Dirt, hazards dominate, ore present
+- **Max Depth (100%)**: Hazards dominate terrain (rocks and lava are most common)
 
-**Distribution:** Empty and Dirt are generated uniformly at all depths. Ore types are selected using weighted Gaussian distributions based on depth, creating depth-based progression.
+**Generation Formula:**
+
+```
+Empty: 8.0 - 7.5 * depthFactor        (decreases with depth)
+Dirt:  20.0 - 18.0 * depthFactor      (decreases with depth)
+depthFactor = (tileY - groundTileY) / maxDepth  (0.0 at surface, 1.0 at max)
+```
+
+All tile types (empty, dirt, ore, hazards) use weighted random selection with `totalWeight = Empty + Dirt + Ores + Hazards`.
+
+**Why Depth-Dependent?**
+- Encourages natural progression gates (can't skip depths)
+- Surface remains accessible (mostly dirt/empty)
+- Deep depths become challenging (hazards dominate)
+- Hazards incentivize bomb and heat shield upgrades
 
 ### Ore Distribution Parameters
 
@@ -1683,6 +1757,37 @@ Each ore type uses a Gaussian distribution with three parameters:
 - Diamond's wider sigma (180) means it appears in a broader zone but remains extremely rare (0.15 weight)
 - Lower ore spawn rates (10% vs 15% previously) create more exploration challenge
 - All ores appear shallower overall, compressing progression into 800-tile world
+
+### Hazard Tile Distribution
+
+Two hazard types use Gaussian distributions to create depth-based challenges:
+
+| Hazard | Peak Depth (tiles) | Sigma (spread) | Max Weight (rarity) | First Appears |
+|--------|------------------|----------------|-------------------|---------------|
+| Rock | 650 (~80% depth) | 200 (wide) | 15.0 (common) | ~40% depth |
+| Lava | 750 (~85% depth) | 150 (medium) | 12.0 (common) | ~60% depth |
+
+**Rock Tile Mechanics:**
+- **Impenetrable**: Cannot be drilled at any depth
+- **Block Movement**: Prevents player and drilling
+- **Interaction**: Only destroyed by bombs (both sizes bypass drillability check)
+- **Purpose**: Creates natural obstacles encouraging bomb usage
+
+**Lava Tile Mechanics:**
+- **Drillable**: Always takes 0.3 seconds to drill (depth-independent)
+- **Damage on Completion**: Deals 100 damage when drilling finishes (50 with Mk5 heat shield)
+- **Damage Reduction**: `damageReduction = (heatResistance / 320.0) * 50`
+  - 0°C resistance: 100 damage
+  - 160°C resistance (Mk2): ~75 damage
+  - 320°C resistance (Mk5): 50 damage
+- **Purpose**: Incentivizes heat shield upgrades for deep mining
+
+**Design Rationale:**
+- Wide sigma (200 for rock) ensures rocky zones start shallow (~40%) and spread deeply
+- Rock's higher max weight (15.0) makes them dominant at depth
+- Lava's slightly lower peak (750 vs 650) places it deeper, after rock introduction
+- Hazards scale with depth factor, ensuring surface mining remains pure ore/dirt
+- Fast lava drilling (0.3s) prevents tedious endgame drilling while maintaining risk
 
 ---
 

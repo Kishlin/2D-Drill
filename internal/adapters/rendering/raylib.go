@@ -43,6 +43,10 @@ var (
 		entities.OrePlatinum: rl.NewColor(230, 230, 250, 255), // White-ish
 		entities.OreDiamond:  rl.NewColor(0, 191, 255, 255),   // Blue
 	}
+
+	// Hazard tile colors
+	RockColor = rl.NewColor(70, 70, 70, 255)    // Dark gray
+	LavaColor = rl.NewColor(255, 50, 0, 255)    // Red-orange
 )
 
 type RaylibRenderer struct {
@@ -282,6 +286,10 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 			if !ok {
 				color = rl.Magenta // Error color for unknown ore
 			}
+		case entities.TileTypeRock:
+			color = RockColor
+		case entities.TileTypeLava:
+			color = LavaColor
 		default:
 			color = rl.Magenta // Error color for unknown tile type
 		}

@@ -223,6 +223,11 @@ func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) {
 	// Remove tile via grid coordinates
 	if dugTile, success := ds.world.DrillTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
 		ds.collectOreIfPresent(player, dugTile)
+
+		// Apply damage if drilling through lava
+		if dugTile.Type == entities.TileTypeLava {
+			ds.applyLavaDamage(player)
+		}
 	}
 
 	// Reset animation state
@@ -243,8 +248,32 @@ func (ds *DrillingSystem) collectOreIfPresent(player *entities.Player, dugTile *
 	}
 }
 
+// applyLavaDamage calculates and applies damage when player drills through lava
+// Damage is reduced linearly based on heat resistance
+// Base damage: 100, reduced to 50 at max heat resistance (320°C)
+func (ds *DrillingSystem) applyLavaDamage(player *entities.Player) {
+	const (
+		baseDamage         = 100.0
+		maxHeatResistance  = 320.0
+		maxDamageReduction = 50.0
+	)
+
+	currentHeatResistance := player.HeatShield.HeatResistance()
+
+	// Linear reduction: 100 damage at 0 resistance, 50 damage at max resistance
+	damageReduction := (currentHeatResistance / maxHeatResistance) * maxDamageReduction
+	damage := baseDamage - damageReduction
+
+	player.DealDamage(damage)
+}
+
 // calculateDrillingDuration computes the time to drill a tile based on depth and type
 func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entities.Tile) float32 {
+	// Lava tiles are drilled quickly regardless of depth
+	if tile.Type == entities.TileTypeLava {
+		return 0.3
+	}
+
 	baseDuration := ds.calculateBaseDuration(tileY)
 
 	// Apply ore hardness multiplier if applicable

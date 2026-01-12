@@ -12,21 +12,21 @@ const (
 )
 
 type Player struct {
-	AABB         types.AABB // Position and dimensions
-	Velocity     types.Vec2 // Pixels per second
-	OnGround     bool       // Collision state
-	IsDrilling   bool       // Drilling animation state
-	OreInventory  [6]int    // Ore counts indexed by OreType
-	ItemInventory [5]int    // Item counts indexed by ItemType
-	Money         int       // Player's currency from selling ores
-	Fuel         float32    // Current fuel in liters
-	HP           float32    // Current hit points
-	Engine       Engine     // Engine component (exported)
-	Hull         Hull       // Hull component (exported)
-	FuelTank     FuelTank   // FuelTank component (exported)
-	CargoHold    CargoHold  // CargoHold component (exported)
-	HeatShield   HeatShield // HeatShield component (exported)
-	Drill        Drill      // Drill component (exported)
+	AABB          types.AABB // Position and dimensions
+	Velocity      types.Vec2 // Pixels per second
+	OnGround      bool       // Collision state
+	IsDrilling    bool       // Drilling animation state
+	OreInventory  [6]int     // Ore counts indexed by OreType
+	ItemInventory [5]int     // Item counts indexed by ItemType
+	Money         int        // Player's currency from selling ores
+	Fuel          float32    // Current fuel in liters
+	HP            float32    // Current hit points
+	Engine        Engine     // Engine component (exported)
+	Hull          Hull       // Hull component (exported)
+	FuelTank      FuelTank   // FuelTank component (exported)
+	CargoHold     CargoHold  // CargoHold component (exported)
+	HeatShield    HeatShield // HeatShield component (exported)
+	Drill         Drill      // Drill component (exported)
 }
 
 func NewPlayer(startX, startY float32) *Player {
@@ -44,14 +44,14 @@ func NewPlayer(startX, startY float32) *Player {
 		OreInventory:  [6]int{},
 		ItemInventory: [5]int{5, 5, 5, 5, 5}, // Start with 5 of each item for testing
 		Fuel:          fuelTank.Capacity(),
-		HP:           hull.MaxHP(),
-		Engine:       engine,
-		Hull:         hull,
-		FuelTank:     fuelTank,
-		CargoHold:    cargoHold,
-		HeatShield:   heatShield,
-		Drill:        drill,
-		Money:        100000,
+		HP:            hull.MaxHP(),
+		Engine:        engine,
+		Hull:          hull,
+		FuelTank:      fuelTank,
+		CargoHold:     cargoHold,
+		HeatShield:    heatShield,
+		Drill:         drill,
+		Money:         100000,
 	}
 }
 

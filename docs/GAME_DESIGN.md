@@ -189,6 +189,8 @@ Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Takin
 - **Empty**: No collision, can move through (air pockets, caves)
 - **Dirt**: Solid, drillable, no value (filler)
 - **Ore**: Solid, drillable, contains valuable resources
+- **Rock**: Solid, impenetrable obstacle (cannot be drilled, only bombed)
+- **Lava**: Solid, drillable hazard (fast 0.3s animation, deals damage on completion)
 
 ### Ore Types & Distribution
 
@@ -248,14 +250,35 @@ Each heat shield tier enables safe mining at progressively deeper zones. Must be
 - Heat becomes the limiting factor for endgame progression
 - Temperature display in debug overlay shows current and safe resistance
 
+### Hazard Tiles
+
+Hazard tiles are impenetrable and drillable obstacles that appear at deeper depths, creating new challenges and encouraging strategic bomb usage.
+
+**Rock Tiles (Impenetrable Obstacles):**
+- **Appearance**: Dark gray blocks
+- **Drillability**: Cannot be drilled at all
+- **Depth**: Appear starting ~40% depth, become common at 80%+
+- **Interaction**: Block player movement and drilling attempts
+- **Bomb Effect**: Destroyed by bombs (both sizes)
+- **Strategy**: Use bombs to bypass or navigate around rock formations
+
+**Lava Tiles (Drillable Hazards):**
+- **Appearance**: Red-orange blocks
+- **Drillability**: Drillable with fast 0.3-second animation (depth-independent)
+- **Depth**: Appear starting ~60-65% depth, more common at 80%+
+- **Damage**: Deals 100 damage on drilling completion (reduced to 50 with Mk5 heat shield)
+- **Damage Formula**: `damage = 100 - (currentHeatResistance / 320.0 * 50)`
+- **Strategy**: Use heat shield upgrades to reduce damage before drilling lava-rich areas
+
+**Why Hazards Matter:**
+- Hazards dominate terrain at 80%+ depths (creating natural progression gates)
+- Rocks force strategic bomb usage for passages
+- Lava incentivizes heat shield upgrades
+- Both tile types make deep mining more challenging and tactical
+
 ### Pressure (Future)
 - Hull takes damage at extreme depths without upgrades
 - Creates risk/reward for deep diving
-
-### Hazardous Tiles (Future)
-- Lava pockets
-- Gas pockets (explosive)
-- Underground water (slows drilling)
 
 ## Upgrade System
 
