@@ -122,12 +122,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderMarket(game.GetMarket())
 	r.renderFuelStation(game.GetFuelStation())
 	r.renderHospital(game.GetHospital())
-	r.renderUpgradeShop(game.GetEngineShop().AABB, EngineShopColor, rl.DarkBlue)
-	r.renderUpgradeShop(game.GetHullShop().AABB, HullShopColor, rl.DarkGray)
-	r.renderUpgradeShop(game.GetFuelTankShop().AABB, FuelTankShopColor, rl.Maroon)
-	r.renderUpgradeShop(game.GetCargoHoldShop().AABB, CargoHoldShopColor, rl.NewColor(75, 0, 130, 255))
-	r.renderUpgradeShop(game.GetHeatShieldShop().AABB, HeatShieldShopColor, rl.Red)
-	r.renderUpgradeShop(game.GetDrillShop().AABB, DrillShopColor, rl.NewColor(139, 101, 8, 255))
+	r.renderUpgradeShop(game.GetUpgradeShop().AABB, EngineShopColor, rl.DarkBlue)
 	for _, shop := range game.GetItemShops() {
 		var shopColor, borderColor rl.Color
 		switch shop.ItemType {
@@ -150,6 +145,11 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 
 	// === SCREEN SPACE (no camera, always visible) ===
 	r.renderDebugInfo(game.GetPlayer(), inputState)
+
+	// Render shop modal if open
+	if game.GetShopUIState().Open {
+		r.renderShopModal(game)
+	}
 
 	rl.EndDrawing()
 }
@@ -377,4 +377,238 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 		player.ItemInventory[entities.ItemBomb],
 		player.ItemInventory[entities.ItemBigBomb])
 	rl.DrawText(itemText, posX, posY, fontSize, textColor)
+}
+
+// renderShopModal draws the upgrade shop modal UI
+func (r *RaylibRenderer) renderShopModal(game *engine.Game) {
+	uiState := game.GetShopUIState()
+	shop := game.GetUpgradeShop()
+	player := game.GetPlayer()
+
+	// Modal dimensions
+	modalWidth := float32(900)
+	modalHeight := float32(550)
+	modalX := (r.screenWidth - modalWidth) / 2
+	modalY := (r.screenHeight - modalHeight) / 2
+
+	// Draw semi-transparent overlay
+	rl.DrawRectangle(0, 0, int32(r.screenWidth), int32(r.screenHeight), rl.NewColor(0, 0, 0, 150))
+
+	// Draw modal background
+	rl.DrawRectangle(int32(modalX), int32(modalY), int32(modalWidth), int32(modalHeight), rl.NewColor(40, 40, 50, 255))
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: modalX, Y: modalY, Width: modalWidth, Height: modalHeight},
+		3.0,
+		rl.NewColor(100, 100, 120, 255),
+	)
+
+	// Title
+	titleText := "UPGRADE SHOP"
+	titleFontSize := int32(30)
+	titleWidth := rl.MeasureText(titleText, titleFontSize)
+	rl.DrawText(titleText, int32(modalX)+(int32(modalWidth)-titleWidth)/2, int32(modalY)+10, titleFontSize, rl.White)
+
+	// Tab bar
+	tabY := modalY + 50
+	tabWidth := float32(140)
+	tabHeight := float32(35)
+	tabGap := float32(5)
+	tabStartX := modalX + (modalWidth-6*(tabWidth+tabGap))/2
+
+	tabNames := []string{"Engine", "Hull", "Fuel", "Cargo", "Heat", "Drill"}
+	tabColors := []rl.Color{EngineShopColor, HullShopColor, FuelTankShopColor, CargoHoldShopColor, HeatShieldShopColor, DrillShopColor}
+
+	for i := 0; i < 6; i++ {
+		tabX := tabStartX + float32(i)*(tabWidth+tabGap)
+		isActive := int(uiState.ActiveTab) == i
+
+		// Tab background
+		bgColor := rl.NewColor(60, 60, 70, 255)
+		if isActive {
+			bgColor = tabColors[i]
+		}
+		rl.DrawRectangle(int32(tabX), int32(tabY), int32(tabWidth), int32(tabHeight), bgColor)
+
+		// Tab border
+		borderColor := rl.NewColor(100, 100, 110, 255)
+		if isActive {
+			borderColor = rl.White
+		}
+		rl.DrawRectangleLinesEx(
+			rl.Rectangle{X: tabX, Y: tabY, Width: tabWidth, Height: tabHeight},
+			2.0,
+			borderColor,
+		)
+
+		// Tab text
+		textWidth := rl.MeasureText(tabNames[i], 18)
+		textX := int32(tabX) + (int32(tabWidth)-textWidth)/2
+		textY := int32(tabY) + 8
+		textColor := rl.LightGray
+		if isActive {
+			textColor = rl.White
+		}
+		rl.DrawText(tabNames[i], textX, textY, 18, textColor)
+	}
+
+	// Grid area
+	gridStartX := modalX + 50
+	gridStartY := tabY + tabHeight + 30
+	cellSize := float32(100)
+	cellGap := float32(15)
+
+	// Get current tier for this upgrade type
+	currentTier := entities.GetPlayerCurrentTier(player, uiState.ActiveTab)
+
+	// Draw 2x3 grid of upgrades
+	tierNames := []string{"Base", "Mk1", "Mk2", "Mk3", "Mk4", "Mk5"}
+	for tier := 0; tier < 6; tier++ {
+		row := tier / 3
+		col := tier % 3
+
+		cellX := gridStartX + float32(col)*(cellSize+cellGap)
+		cellY := gridStartY + float32(row)*(cellSize+cellGap)
+
+		isSelected := uiState.SelectedTier == tier
+		isOwned := tier <= currentTier
+
+		// Cell background: owned (green) or check affordability for others
+		var bgColor rl.Color
+		if isOwned {
+			bgColor = rl.NewColor(40, 60, 40, 255) // Green tint for owned
+		} else {
+			price := shop.GetUpgradePrice(uiState.ActiveTab, tier)
+			if player.CanAfford(price) {
+				bgColor = rl.NewColor(60, 60, 80, 255) // Light for affordable
+			} else {
+				bgColor = rl.NewColor(50, 50, 55, 255) // Dark for expensive
+			}
+		}
+		rl.DrawRectangle(int32(cellX), int32(cellY), int32(cellSize), int32(cellSize), bgColor)
+
+		// Selection border
+		if isSelected {
+			rl.DrawRectangleLinesEx(
+				rl.Rectangle{X: cellX, Y: cellY, Width: cellSize, Height: cellSize},
+				3.0,
+				rl.Yellow,
+			)
+		} else {
+			rl.DrawRectangleLinesEx(
+				rl.Rectangle{X: cellX, Y: cellY, Width: cellSize, Height: cellSize},
+				1.0,
+				rl.NewColor(80, 80, 90, 255),
+			)
+		}
+
+		// Tier name
+		tierTextWidth := rl.MeasureText(tierNames[tier], 20)
+		tierTextX := int32(cellX) + (int32(cellSize)-tierTextWidth)/2
+		tierTextY := int32(cellY) + 15
+		tierTextColor := rl.White
+		if isOwned && tier < currentTier {
+			tierTextColor = rl.Gray
+		}
+		rl.DrawText(tierNames[tier], tierTextX, tierTextY, 20, tierTextColor)
+
+		// Status indicator: always show price for non-owned, or status for owned
+		var statusText string
+		var statusColor rl.Color
+		if tier == currentTier {
+			statusText = "EQUIPPED"
+			statusColor = rl.Green
+		} else if isOwned {
+			statusText = "OWNED"
+			statusColor = rl.NewColor(100, 150, 100, 255)
+		} else {
+			// Always show price for non-owned upgrades
+			price := shop.GetUpgradePrice(uiState.ActiveTab, tier)
+			statusText = fmt.Sprintf("$%d", price)
+			if player.CanAfford(price) {
+				statusColor = rl.Yellow
+			} else {
+				statusColor = rl.Red
+			}
+		}
+		statusWidth := rl.MeasureText(statusText, 14)
+		statusX := int32(cellX) + (int32(cellSize)-statusWidth)/2
+		statusY := int32(cellY) + int32(cellSize) - 25
+		rl.DrawText(statusText, statusX, statusY, 14, statusColor)
+	}
+
+	// Details panel (right side)
+	detailsX := gridStartX + 3*(cellSize+cellGap) + 30
+	detailsY := gridStartY
+	detailsWidth := modalWidth - (detailsX - modalX) - 30
+
+	// Draw details box
+	rl.DrawRectangle(int32(detailsX), int32(detailsY), int32(detailsWidth), 200, rl.NewColor(30, 30, 40, 255))
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: detailsX, Y: detailsY, Width: detailsWidth, Height: 200},
+		1.0,
+		rl.NewColor(70, 70, 80, 255),
+	)
+
+	// Selected upgrade details
+	selectedName := shop.GetUpgradeName(uiState.ActiveTab, uiState.SelectedTier)
+	rl.DrawText(selectedName, int32(detailsX)+10, int32(detailsY)+10, 24, rl.White)
+
+	// Stats based on upgrade type
+	statsY := int32(detailsY) + 45
+	r.renderUpgradeStats(shop, uiState.ActiveTab, uiState.SelectedTier, int32(detailsX)+10, statsY)
+
+	// Price
+	selectedPrice := shop.GetUpgradePrice(uiState.ActiveTab, uiState.SelectedTier)
+	priceText := fmt.Sprintf("Price: $%d", selectedPrice)
+	if uiState.SelectedTier <= currentTier {
+		priceText = "Already owned"
+	}
+	rl.DrawText(priceText, int32(detailsX)+10, int32(detailsY)+160, 20, rl.Yellow)
+
+	// Player info
+	playerInfoY := detailsY + 220
+	rl.DrawText(fmt.Sprintf("Your Money: $%d", player.Money), int32(detailsX)+10, int32(playerInfoY), 18, rl.White)
+	rl.DrawText(fmt.Sprintf("Current: %s", shop.GetUpgradeName(uiState.ActiveTab, currentTier)), int32(detailsX)+10, int32(playerInfoY)+25, 18, rl.LightGray)
+
+	// Controls hint at bottom
+	controlsY := modalY + modalHeight - 40
+	controlsText := "[Z] Prev Tab   [X] Next Tab   [Arrows] Select   [E] Buy   [Q] Close"
+	controlsWidth := rl.MeasureText(controlsText, 16)
+	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
+}
+
+// renderUpgradeStats renders the stats for a specific upgrade
+func (r *RaylibRenderer) renderUpgradeStats(shop *entities.UpgradeShop, upgradeType entities.UpgradeType, tier int, x, y int32) {
+	lineHeight := int32(22)
+	fontSize := int32(16)
+
+	switch upgradeType {
+	case entities.UpgradeEngine:
+		if entry := shop.GetEngineCatalogEntry(tier); entry != nil {
+			rl.DrawText(fmt.Sprintf("Max Speed: %.0f px/s", entry.Engine.MaxSpeed()), x, y, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Acceleration: %.0f px/s²", entry.Engine.Acceleration()), x, y+lineHeight, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Fly Accel: %.0f px/s²", entry.Engine.FlyAcceleration()), x, y+lineHeight*2, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Max Upward: %.0f px/s", -entry.Engine.MaxUpwardSpeed()), x, y+lineHeight*3, fontSize, rl.LightGray)
+		}
+	case entities.UpgradeHull:
+		if entry := shop.GetHullCatalogEntry(tier); entry != nil {
+			rl.DrawText(fmt.Sprintf("Max HP: %.0f", entry.Hull.MaxHP()), x, y, fontSize, rl.LightGray)
+		}
+	case entities.UpgradeFuelTank:
+		if entry := shop.GetFuelTankCatalogEntry(tier); entry != nil {
+			rl.DrawText(fmt.Sprintf("Capacity: %.0f L", entry.FuelTank.Capacity()), x, y, fontSize, rl.LightGray)
+		}
+	case entities.UpgradeCargoHold:
+		if entry := shop.GetCargoCatalogEntry(tier); entry != nil {
+			rl.DrawText(fmt.Sprintf("Capacity: %d ore", entry.CargoHold.Capacity()), x, y, fontSize, rl.LightGray)
+		}
+	case entities.UpgradeHeatShield:
+		if entry := shop.GetHeatCatalogEntry(tier); entry != nil {
+			rl.DrawText(fmt.Sprintf("Heat Resistance: %.0f°C", entry.HeatShield.HeatResistance()), x, y, fontSize, rl.LightGray)
+		}
+	case entities.UpgradeDrill:
+		if entry := shop.GetDrillCatalogEntry(tier); entry != nil {
+			rl.DrawText(fmt.Sprintf("Drill Speed: %.1fx", entry.Drill.DrillSpeed()), x, y, fontSize, rl.LightGray)
+		}
+	}
 }

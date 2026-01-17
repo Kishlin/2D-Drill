@@ -26,7 +26,6 @@ func (fs *FuelSystem) ConsumeFuel(
 	inputState input.InputState,
 	dt float32,
 ) {
-	// Determine consumption rate based on input
 	var rate float32
 	if inputState.HasMovementInput() {
 		rate = FuelConsumptionMoving

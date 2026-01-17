@@ -3,7 +3,8 @@
     "allow": [
       "Bash(go test:*)",
       "Bash(go build:*)",
-      "Bash(go clean:*)"
+      "Bash(go clean:*)",
+      "Bash(ls:*)"
     ]
   }
 }

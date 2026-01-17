@@ -87,14 +87,14 @@ drill-game/
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
 │       │   ├── fuel_station.go              # FuelStationSystem (refueling)
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
-│       │   ├── upgrade.go                   # UpgradeSystem (purchase upgrades at shops)
+│       │   ├── shop_ui.go                   # ShopUISystem (modal upgrade UI)
 │       │   ├── item.go                      # ItemSystem (using consumable items)
 │       │   ├── item_shop.go                 # ItemShopSystem (purchasing items at shops)
 │       │   ├── drilling_test.go             # Drilling & ore collection tests
 │       │   ├── fuel_test.go                 # Fuel consumption tests
 │       │   ├── fuel_station_test.go         # Fuel station transaction tests
 │       │   ├── hospital_test.go             # Hospital healing transaction tests
-│       │   └── upgrade_test.go              # Upgrade purchase tests
+│       │   └── shop_ui_test.go              # Shop UI modal interaction tests
 │       ├── entities/
 │       │   ├── player.go                    # Player aggregate root (AABB, inventory, money, fuel, HP, components)
 │       │   ├── player_test.go               # Player inventory tests
@@ -109,7 +109,9 @@ drill-game/
 │       │   ├── market.go                     # Market entity (AABB-based interactable)
 │       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
-│       │   ├── upgrade_shop.go              # UpgradeShop types with catalogs (Engine/Hull/FuelTank/CargoHold/HeatShield/Drill)
+│       │   ├── upgrade_shop.go              # UpgradeShop unified entity with all 6 catalogs
+│       │   ├── upgrade_type.go              # UpgradeType enum (Engine/Hull/FuelTank/CargoHold/HeatShield/Drill)
+│       │   ├── shop_ui.go                   # ShopUIState for modal UI (tabs, selection, navigation)
 │       │   ├── item.go                      # ItemType enum (Teleport/Repair/Refuel/Bomb/BigBomb)
 │       │   ├── item_shop.go                 # ItemShop entity (AABB + ItemType + Price)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
@@ -165,18 +167,23 @@ main.go Loop:
 │ 2. Update Domain Logic                  │
 │    game.Update(dt, inputState)          │
 │    • Load chunks around player (3×3)    │
+│    • [MODAL PAUSE] Shop UI (if open)    │
+│    •   Tab cycling (Z/X)                │
+│    •   Grid navigation (arrows/WASD)    │
+│    •   Purchase (E key)                 │
+│    •   Close (Q/Escape) → return        │
 │    • Apply physics & fall damage        │
 │    • Consume fuel (active or idle)      │
 │    • Drill downward or horizontal       │
-│    • Animate player over 1 second       │
-│    • Remove tile on animation complete  │
-│    • Collect ore if available           │
-│    • (Block other inputs during drill)   │
+│    • [ANIMATION PAUSE] If drilling:     │
+│    •   Animate player to tile           │
+│    •   Remove tile on completion        │
+│    •   Collect ore if available         │
+│    •   → return (skip interactions)     │
 │    • Item usage (T/R/F/B/G keys)        │
 │    • Market selling (E key + overlap)   │
 │    • Fuel station refueling (E key)     │
 │    • Hospital healing (E key)           │
-│    • Upgrade purchases (E key)          │
 │    • Item shop purchases (E key)        │
 └────────────┬────────────────────────────┘
              │
@@ -184,10 +191,11 @@ main.go Loop:
 ┌─────────────────────────────────────────┐
 │ 3. Render via Adapter                   │
 │    renderer.Render(game)                │
-│    • Extracts Player, World, Market     │
+│    • Extracts Player, World, Shops      │
 │    • Renders tiles with ore colors      │
-│    • Draws market, player, entities     │
-│    • Displays debug info (money, ore, fuel) │
+│    • Draws all entities                 │
+│    • Renders upgrade shop modal if open │
+│    • Displays debug info (money, etc)   │
 │    • Camera follows player              │
 └─────────────────────────────────────────┘
 ```
@@ -233,7 +241,9 @@ type Game struct {
     fuelSystem        *systems.FuelSystem
     fuelStationSystem *systems.FuelStationSystem
     hospitalSystem    *systems.HospitalSystem
-    upgradeSystem     *systems.UpgradeSystem
+    shopUISystem      *systems.ShopUISystem
+    itemSystem        *systems.ItemSystem
+    itemShopSystem    *systems.ItemShopSystem
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
@@ -244,32 +254,40 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     playerY := g.player.AABB.Y + g.player.AABB.Height/2
     g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-    // 1. Physics FIRST - handles landing/fall damage before drilling can start
-    //    Also applies heat damage and skips movement during drilling animation
+    // 1. Modal pause: Shop UI (complete game pause if open)
+    g.shopUISystem.ProcessShopInteraction(g.player, inputState)
+    if g.player.InShop {
+        return nil  // Pause all gameplay
+    }
+
+    // 2. Physics - handles landing/fall damage, heat damage, prevents movement during drilling
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-    // 2. Always: fuel consumption (runs even during drilling animation)
+    // 3. Fuel consumption (runs even during drilling animation for resource pressure)
     g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
-    // 3. Handle drilling (vertical + horizontal, with variable animation based on depth/ore)
+    // 4. Drilling animation (vertical + horizontal with variable duration based on depth/ore)
     g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
 
-    // Skip interactions during drilling animation
+    // Animation pause: Skip interactions if drilling
     if g.player.IsDrilling {
         return nil
     }
 
-    // 4. Handle market selling
+    // 5. Item usage (consumable items)
+    g.itemSystem.ProcessItemUsage(g.player, inputState)
+
+    // 6. Market selling
     g.marketSystem.ProcessSelling(g.player, inputState)
 
-    // 5. Handle fuel station refueling
+    // 7. Fuel station refueling
     g.fuelStationSystem.ProcessRefueling(g.player, inputState)
 
-    // 6. Handle hospital healing
+    // 8. Hospital healing
     g.hospitalSystem.ProcessHealing(g.player, inputState)
 
-    // 7. Handle upgrade purchases
-    g.upgradeSystem.ProcessUpgrade(g.player, inputState)
+    // 9. Item shop purchases
+    g.itemShopSystem.ProcessPurchase(g.player, inputState)
 
     return nil
 }
@@ -781,60 +799,107 @@ func (hs *HospitalSystem) ProcessHealing(
 - Direct field mutation for clarity
 - Fully testable without framework (7 comprehensive unit tests)
 
-#### Upgrade System (`domain/systems/upgrade.go`)
+#### Shop UI System (`domain/systems/shop_ui.go`)
 
-Manages upgrade purchases at dedicated upgrade shops:
+Manages the unified upgrade shop modal UI with tab cycling, grid navigation, and purchase logic:
 
 ```go
-type UpgradeSystem struct {
-    engineShop     *entities.EngineUpgradeShop
-    hullShop       *entities.HullUpgradeShop
-    fuelTankShop   *entities.FuelTankUpgradeShop
-    cargoHoldShop  *entities.CargoHoldUpgradeShop
-    heatShieldShop *entities.HeatShieldUpgradeShop
-    drillShop      *entities.DrillUpgradeShop
+type ShopUISystem struct {
+    shop    *entities.UpgradeShop
+    uiState *entities.ShopUIState
 }
 
-func (us *UpgradeSystem) ProcessUpgrade(
+func (s *ShopUISystem) ProcessShopInteraction(
     player *entities.Player,
     inputState input.InputState,
 ) {
-    if !inputState.Sell {
-        return
+    if s.uiState.Open {
+        s.processOpenShop(player, inputState)
+    } else {
+        s.processClosedShop(player, inputState)
     }
-
-    // Check each shop and attempt upgrade (only one can be in range at a time)
-    if us.engineShop.IsPlayerInRange(player) {
-        us.tryUpgradeEngine(player)
-        return
-    }
-    // ... similar for hullShop, fuelTankShop, cargoHoldShop, heatShieldShop, drillShop
 }
 
-func (us *UpgradeSystem) tryUpgradeEngine(player *entities.Player) {
-    entry := us.engineShop.GetNextEngine(player.Engine.Tier())
-    if entry == nil {
-        return // Already at max level
+func (s *ShopUISystem) processClosedShop(player *entities.Player, inputState input.InputState) {
+    // Open shop when player presses E (Sell) and is in range
+    if inputState.Sell && s.shop.IsPlayerInRange(player) {
+        s.openShop(player)
     }
-    if !player.CanAfford(entry.Price) {
-        return // Cannot afford
+}
+
+func (s *ShopUISystem) processOpenShop(player *entities.Player, inputState input.InputState) {
+    // Tab navigation (Z/X)
+    if inputState.PrevTab {
+        s.uiState.PrevTab()  // Wraps to last tab
     }
-    player.BuyEngine(entry.Engine, entry.Price)
+    if inputState.NextTab {
+        s.uiState.NextTab()  // Wraps to first tab
+    }
+
+    // Grid navigation (arrows/WASD for 2x3 grid)
+    if inputState.NavLeft {
+        s.uiState.NavigateLeft()
+    }
+    if inputState.NavRight {
+        s.uiState.NavigateRight()
+    }
+    if inputState.NavUp {
+        s.uiState.NavigateUp()
+    }
+    if inputState.NavDown {
+        s.uiState.NavigateDown()
+    }
+
+    // Purchase with E key
+    if inputState.Sell {
+        s.tryPurchase(player)
+    }
+
+    // Close with Q or Escape
+    if inputState.CloseShop {
+        s.closeShop(player)
+    }
+}
+
+func (s *ShopUISystem) tryPurchase(player *entities.Player) {
+    selectedTier := s.uiState.SelectedTier
+    currentTier := entities.GetPlayerCurrentTier(player, s.uiState.ActiveTab)
+
+    // Cannot purchase already-owned tiers
+    if selectedTier <= currentTier {
+        return
+    }
+
+    // Check affordability
+    price := s.shop.GetUpgradePrice(s.uiState.ActiveTab, selectedTier)
+    if !player.CanAfford(price) {
+        return
+    }
+
+    // Apply upgrade
+    s.applyUpgrade(player, s.uiState.ActiveTab, selectedTier, price)
 }
 ```
 
+**Modal UI Features:**
+- **Tab Cycling**: Z (previous) and X (next) with wrapping at both ends
+- **Grid Navigation**: 2x3 grid showing Base + Mk1-Mk5. Arrows/WASD to navigate with wrapping
+- **Flexible Purchasing**: Buy any unowned tier directly (can skip tiers with sufficient funds)
+- **Visual Feedback**: Light cells for affordable upgrades, dark for too expensive
+- **Modal Pause**: Opens with E (Sell) when in range, closes with Q/Escape, pauses all gameplay
+
 **Upgrade Rules:**
-- **Sequential**: Must buy Mk1 before Mk2, etc.
+- **No Sequential Requirement**: Players can skip tiers if they have the money
 - **Permanent**: Upgrades cannot be undone
 - **No Auto-Restore**: Hull/Tank upgrades don't restore HP/Fuel to new max
 
 **Why this design:**
-- Mirrors Hospital/FuelStation pattern (AABB + E key interaction)
-- Six separate shops prevent spatial conflict
-- Called before physics (consistent with other interactions)
-- Each shop owns its catalog (DDD: shop knows what it sells)
+- Single shop consolidates all 6 upgrade types (cleaner than 6 separate entities)
+- Modal UI pauses gameplay (similar to inventory screens in other games)
+- Tab navigation + grid UI provides efficient browsing
+- Unified catalog system (DDD: shop knows what it sells)
 - Player is aggregate root (mutations go through Player methods)
-- Fully testable without framework (5 comprehensive unit tests)
+- Fully testable without framework (11 comprehensive unit tests in shop_ui_test.go)
 
 #### Item System (`domain/systems/item.go`)
 

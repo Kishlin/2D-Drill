@@ -16,6 +16,7 @@ type Player struct {
 	Velocity      types.Vec2 // Pixels per second
 	OnGround      bool       // Collision state
 	IsDrilling    bool       // Drilling animation state
+	InShop        bool       // Shop UI is open, pauses gameplay
 	OreInventory  [6]int     // Ore counts indexed by OreType
 	ItemInventory [5]int     // Item counts indexed by ItemType
 	Money         int        // Player's currency from selling ores

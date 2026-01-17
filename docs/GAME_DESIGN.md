@@ -290,7 +290,14 @@ Hazard tiles are impenetrable and drillable obstacles that appear at deeper dept
 
 ### Overview
 
-Six upgrade types are available, each with 6 tiers (Base + Mk1 through Mk5). Upgrades must be purchased in order at dedicated upgrade shops on the surface. Press E while overlapping an upgrade shop to purchase the next tier.
+Six upgrade types are available, each with 6 tiers (Base + Mk1 through Mk5). All upgrades are purchased from a single **Unified Upgrade Shop** with a modal UI. Press **E** while overlapping the shop to open the modal. Use **Z/X** to cycle between upgrade categories (tabs), **arrows/WASD** to navigate the 2×3 grid showing Base + Mk1-Mk5, and **E** to purchase. Press **Q** or **Escape** to close the shop.
+
+**Key Features:**
+- **No Sequential Requirement**: Buy any tier directly if you have the money (skip tiers if affordable)
+- **Modal UI**: Opens a screen overlay that pauses all other gameplay
+- **Grid Display**: 2×3 grid shows all tiers for comparison before purchasing
+- **Visual Feedback**: Light cells = affordable, dark cells = too expensive
+- **Tab Cycling**: Easy navigation between all 6 upgrade types
 
 ### Engine Upgrades
 

@@ -45,7 +45,7 @@ func main() {
 	gameWorld := world.NewWorld(worldWidth, worldHeight, groundLevel, worldSeed)
 	game := engine.NewGame(gameWorld)
 
-	for renderer.WindowShouldClose() == false {
+	for {
 		dt := renderer.GetFrameTime() // Delta time in seconds
 
 		inputState := inputAdapter.ReadInput()
@@ -57,6 +57,11 @@ func main() {
 		}
 
 		renderer.Render(game, inputState)
+
+		// Only check for window close if not in shop (Escape key should close shop, not game)
+		if !game.GetPlayer().InShop && renderer.WindowShouldClose() {
+			break
+		}
 	}
 
 	slog.Info("Shutting down Drill Game")

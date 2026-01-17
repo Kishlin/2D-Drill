@@ -23,7 +23,7 @@ go test ./...                # Run all tests
 
 - **Player as Aggregate Root** — `Engine`, `Hull`, `FuelTank`, `CargoHold`, `HeatShield`, `Drill` are exported component value objects. Access stats via `player.Engine.MaxSpeed()`, not through wrapper methods. Damage mutations go through `player.DealDamage(damage)`.
 - **Named Constructors** — Components use `NewEngineBase()`, `NewEngineMk1()`, etc. Tier data lives in constructors.
-- **Upgrade Shops Own Catalogs** — Each shop type (`EngineUpgradeShop`, `HullUpgradeShop`, `FuelTankUpgradeShop`, `CargoHoldUpgradeShop`, `HeatShieldUpgradeShop`, `DrillUpgradeShop`) holds its catalog with prices and component instances.
+- **Unified Upgrade Shop** — Single `UpgradeShop` entity consolidates all 6 upgrade types (Engine, Hull, FuelTank, CargoHold, HeatShield, Drill). Each type has its own catalog with prices and component instances (Base tier free, Mk1-Mk5 at varying prices). Accessed via modal UI (`ShopUISystem`) with tab cycling, grid navigation, and no sequential purchase requirement—players can skip tiers with sufficient funds.
 - **Cargo Capacity Limits** — `AddOre()` respects cargo hold capacity; ore is lost when full (intentional Motherload-style behavior).
 - **Damage Application** — All damage sources (fall, heat, future hazards) call `player.DealDamage(damage)` which applies damage and clamps HP at zero. Physics package calculates damage; Player entity applies it.
 - **Heat System** — Temperature increases with depth; players take exponential damage when temperature exceeds heat resistance. Heat shield is an upgradeable component enabling deeper mining.
@@ -34,15 +34,20 @@ go test ./...                # Run all tests
 
 ## Key Files
 
-- `internal/domain/engine/game.go` — Game loop orchestration
-- `internal/domain/entities/player.go` — Player aggregate root
-- `internal/domain/entities/engine.go`, `hull.go`, `fuel_tank.go`, `cargo_hold.go`, `heat_shield.go`, `drill.go` — Component value objects
-- `internal/domain/entities/upgrade_shop.go` — Six shop types with catalogs (Engine, Hull, FuelTank, CargoHold, HeatShield, Drill)
+- `internal/domain/engine/game.go` — Game loop orchestration with update order: chunks → shop UI (modal pause) → physics → fuel → drilling → interactions
+- `internal/domain/entities/player.go` — Player aggregate root with `InShop` and `IsDrilling` pause flags
+- `internal/domain/entities/engine.go`, `hull.go`, `fuel_tank.go`, `cargo_hold.go`, `heat_shield.go`, `drill.go` — Component value objects with tiers
+- `internal/domain/entities/upgrade_shop.go` — Unified `UpgradeShop` with all 6 catalogs; catalog entry types (EngineCatalogEntry, etc.)
+- `internal/domain/entities/upgrade_type.go` — UpgradeType enum (Engine, Hull, FuelTank, CargoHold, HeatShield, Drill)
+- `internal/domain/entities/shop_ui.go` — ShopUIState for modal UI state and navigation
 - `internal/domain/entities/item.go` — ItemType enum and item names
 - `internal/domain/entities/item_shop.go` — ItemShop entity for purchasing consumables
-- `internal/domain/systems/` — Physics, drilling, fuel, upgrades, items
-- `internal/domain/systems/item_shop.go` — ItemShopSystem for item purchases
-- `internal/domain/world/` — Chunk-based procedural world
+- `internal/domain/systems/shop_ui.go` — ShopUISystem: modal UI interaction, tab cycling, grid navigation, purchase logic
+- `internal/domain/systems/drilling.go` — Drilling animations with depth-scaled durations
+- `internal/domain/systems/fuel.go` — Fuel consumption based on input state
+- `internal/domain/systems/physics.go` — Gravity, collision, damage (fall/heat)
+- `internal/domain/systems/item_shop.go` — ItemShopSystem for consumable purchases
+- `internal/domain/world/` — Chunk-based procedural world with hazard generation
 
 ## Documentation
 

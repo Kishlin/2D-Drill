@@ -23,7 +23,7 @@ func (ps *PhysicsSystem) UpdatePhysics(
 ) {
 	physics.ApplyHeatDamage(player, dt)
 
-	if player.IsDrilling {
+	if player.IsDrilling || player.InShop {
 		return
 	}
 

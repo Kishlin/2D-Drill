@@ -16,7 +16,7 @@ type Game struct {
 	fuelSystem        *systems.FuelSystem
 	fuelStationSystem *systems.FuelStationSystem
 	hospitalSystem    *systems.HospitalSystem
-	upgradeSystem     *systems.UpgradeSystem
+	shopUISystem      *systems.ShopUISystem
 	itemSystem        *systems.ItemSystem
 	itemShopSystem    *systems.ItemShopSystem
 }
@@ -41,29 +41,14 @@ func NewGame(w *world.World) *Game {
 	hospitalY := w.GetGroundLevel() - entities.HospitalHeight
 	hospital := entities.NewHospital(hospitalX, hospitalY)
 
-	// Create upgrade shops to the right of the ore market
+	// Create unified upgrade shop to the right of the ore market
 	upgradeShopY := w.GetGroundLevel() - entities.UpgradeShopHeight
-	engineShopX := marketX + 360.0
-	engineShop := entities.NewEngineUpgradeShop(engineShopX, upgradeShopY)
+	upgradeShopX := marketX + 360.0
+	upgradeShop := entities.NewUpgradeShop(upgradeShopX, upgradeShopY)
 
-	hullShopX := engineShopX + 360.0
-	hullShop := entities.NewHullUpgradeShop(hullShopX, upgradeShopY)
-
-	fuelTankShopX := hullShopX + 360.0
-	fuelTankShop := entities.NewFuelTankUpgradeShop(fuelTankShopX, upgradeShopY)
-
-	cargoHoldShopX := fuelTankShopX + 360.0
-	cargoHoldShop := entities.NewCargoHoldUpgradeShop(cargoHoldShopX, upgradeShopY)
-
-	heatShieldShopX := cargoHoldShopX + 360.0
-	heatShieldShop := entities.NewHeatShieldUpgradeShop(heatShieldShopX, upgradeShopY)
-
-	drillShopX := heatShieldShopX + 360.0
-	drillShop := entities.NewDrillUpgradeShop(drillShopX, upgradeShopY)
-
-	// Create item shops to the right of upgrade shops
+	// Create item shops to the right of upgrade shop
 	itemShopY := w.GetGroundLevel() - entities.ItemShopHeight
-	teleportShopX := drillShopX + 200.0
+	teleportShopX := upgradeShopX + 360.0
 	teleportShop := entities.NewItemShop(teleportShopX, itemShopY, entities.ItemTeleport, 500, "Teleport")
 
 	repairShopX := teleportShopX + 200.0
@@ -87,7 +72,7 @@ func NewGame(w *world.World) *Game {
 		fuelSystem:        systems.NewFuelSystem(),
 		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
 		hospitalSystem:    systems.NewHospitalSystem(hospital),
-		upgradeSystem:     systems.NewUpgradeSystem(engineShop, hullShop, fuelTankShop, cargoHoldShop, heatShieldShop, drillShop),
+		shopUISystem:      systems.NewShopUISystem(upgradeShop),
 		itemSystem:        systems.NewItemSystem(w, spawnX, spawnY),
 		itemShopSystem:    systems.NewItemShopSystem(teleportShop, repairShop, refuelShop, bombShop, bigBombShop),
 	}
@@ -99,35 +84,37 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	playerY := g.player.AABB.Y + g.player.AABB.Height/2
 	g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-	// 1. Physics FIRST - handles landing/fall damage before drilling can start
-	//    Also applies heat damage and skips movement during drilling animation
+	// 1. Modal pause: if shop is open, only process shop UI and pause all gameplay
+	g.shopUISystem.ProcessShopInteraction(g.player, inputState)
+	if g.player.InShop {
+		return nil
+	}
+
+	// 2. Physics - handles landing/fall damage before drilling, heat damage, prevents movement during drilling
 	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-	// 2. Always: fuel consumption (runs even during drilling animation)
+	// 3. Fuel consumption (runs even during drilling animation to maintain resource pressure)
 	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
-	// 3. Handle drilling (vertical + horizontal, with animation)
+	// 4. Drilling animation (vertical + horizontal)
 	g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
 
-	// Skip interactions during drilling animation
+	// Skip interactions if drilling animation is active
 	if g.player.IsDrilling {
 		return nil
 	}
 
-	// 4. Handle item usage
+	// 5. Handle item usage
 	g.itemSystem.ProcessItemUsage(g.player, inputState)
 
-	// 5. Handle market selling
+	// 6. Handle market selling
 	g.marketSystem.ProcessSelling(g.player, inputState)
 
-	// 6. Handle fuel station refueling
+	// 7. Handle fuel station refueling
 	g.fuelStationSystem.ProcessRefueling(g.player, inputState)
 
-	// 7. Handle hospital healing
+	// 8. Handle hospital healing
 	g.hospitalSystem.ProcessHealing(g.player, inputState)
-
-	// 8. Handle upgrade purchases
-	g.upgradeSystem.ProcessUpgrade(g.player, inputState)
 
 	// 9. Handle item shop purchases
 	g.itemShopSystem.ProcessPurchase(g.player, inputState)
@@ -155,28 +142,12 @@ func (g *Game) GetHospital() *entities.Hospital {
 	return g.hospitalSystem.GetHospital()
 }
 
-func (g *Game) GetEngineShop() *entities.EngineUpgradeShop {
-	return g.upgradeSystem.GetEngineShop()
+func (g *Game) GetUpgradeShop() *entities.UpgradeShop {
+	return g.shopUISystem.GetShop()
 }
 
-func (g *Game) GetHullShop() *entities.HullUpgradeShop {
-	return g.upgradeSystem.GetHullShop()
-}
-
-func (g *Game) GetFuelTankShop() *entities.FuelTankUpgradeShop {
-	return g.upgradeSystem.GetFuelTankShop()
-}
-
-func (g *Game) GetCargoHoldShop() *entities.CargoHoldUpgradeShop {
-	return g.upgradeSystem.GetCargoHoldShop()
-}
-
-func (g *Game) GetHeatShieldShop() *entities.HeatShieldUpgradeShop {
-	return g.upgradeSystem.GetHeatShieldShop()
-}
-
-func (g *Game) GetDrillShop() *entities.DrillUpgradeShop {
-	return g.upgradeSystem.GetDrillShop()
+func (g *Game) GetShopUIState() *entities.ShopUIState {
+	return g.shopUISystem.GetUIState()
 }
 
 func (g *Game) GetItemShops() []*entities.ItemShop {

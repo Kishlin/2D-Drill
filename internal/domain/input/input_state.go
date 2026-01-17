@@ -2,16 +2,28 @@ package input
 
 // InputState represents platform-agnostic input state
 type InputState struct {
-	Left        bool
-	Right       bool
-	Up          bool
-	Drill       bool // Down for drilling
-	Sell        bool // E key for selling at market
+	// Continuous inputs (held down for movement)
+	Left  bool
+	Right bool
+	Up    bool
+	Drill bool // Down for drilling
+
+	// Discrete inputs (single press actions)
+	Sell        bool // E key for selling at market / interact / purchase
 	UseTeleport bool // T key for teleport item
 	UseRepair   bool // R key for repair item
 	UseRefuel   bool // F key for refuel item
 	UseBomb     bool // B key for bomb item
 	UseBigBomb  bool // G key for big bomb item
+	PrevTab     bool // Z key for previous tab in shop
+	NextTab     bool // X key for next tab in shop
+	CloseShop   bool // Q or Escape key to close shop
+
+	// Discrete navigation (for UI, single press)
+	NavLeft  bool // Left arrow or A key (discrete)
+	NavRight bool // Right arrow or D key (discrete)
+	NavUp    bool // Up arrow or W key (discrete)
+	NavDown  bool // Down arrow or S key (discrete)
 }
 
 func NewInputState() InputState {
@@ -26,6 +38,13 @@ func NewInputState() InputState {
 		UseRefuel:   false,
 		UseBomb:     false,
 		UseBigBomb:  false,
+		PrevTab:     false,
+		NextTab:     false,
+		CloseShop:   false,
+		NavLeft:     false,
+		NavRight:    false,
+		NavUp:       false,
+		NavDown:     false,
 	}
 }
 
