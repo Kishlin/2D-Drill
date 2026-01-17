@@ -26,6 +26,12 @@ var HazardDistributions = map[HazardType]HazardMetadata{
 	},
 }
 
+// HazardHardness maps drillable hazard types to their drilling duration
+// Lava uses a fixed duration (depth-independent) since damage is the penalty
+var HazardHardness = map[HazardType]float32{
+	HazardLava: 0.3,
+}
+
 func GetAllHazardTypes() []HazardType {
 	return []HazardType{HazardRock, HazardLava}
 }

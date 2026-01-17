@@ -8,11 +8,14 @@ type TileType int
 
 const (
 	TileTypeEmpty TileType = iota // Air/empty space
-	TileTypeDirt                   // Solid dirt (drillable)
-	TileTypeOre                    // Solid ore (drillable, contains ore)
-	TileTypeRock                   // Solid rock (impenetrable, not drillable)
-	TileTypeLava                   // Lava (drillable, deals damage on completion)
+	TileTypeDirt                  // Solid dirt (drillable)
+	TileTypeOre                   // Solid ore (drillable, contains ore)
+	TileTypeRock                  // Solid rock (impenetrable, not drillable)
+	TileTypeLava                  // Lava (drillable, deals damage on completion)
 )
+
+// DirtHardness is the baseline hardness for dirt tiles
+const DirtHardness float32 = 1.0
 
 type Tile struct {
 	Type       TileType

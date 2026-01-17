@@ -267,36 +267,43 @@ func (ds *DrillingSystem) applyLavaDamage(player *entities.Player) {
 	player.DealDamage(damage)
 }
 
-// calculateDrillingDuration computes the time to drill a tile based on depth and type
+// calculateDrillingDuration computes the time to drill a tile based on hardness and depth
 func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entities.Tile) float32 {
-	// Lava tiles are drilled quickly regardless of depth
+	// Lava tiles use fixed duration (depth-independent) since damage is the penalty
 	if tile.Type == entities.TileTypeLava {
-		return 0.3
+		return entities.HazardHardness[entities.HazardLava]
 	}
 
-	baseDuration := ds.calculateBaseDuration(tileY)
+	hardness := ds.getHardness(tile)
+	depthFactor := ds.calculateDepthFactor(tileY)
 
-	// Apply ore hardness multiplier if applicable
-	if tile.Type == entities.TileTypeOre {
-		hardness, ok := entities.OreHardness[tile.OreType]
-		if !ok {
-			hardness = 1.5 // Fallback for unknown ore types
-		}
-		return baseDuration * hardness
-	}
-
-	return baseDuration
+	return minDrillingDuration * hardness * depthFactor
 }
 
-// calculateBaseDuration computes drilling time for dirt based on depth
-// Linear interpolation: 1 second at ground level, 30 seconds at max depth
-func (ds *DrillingSystem) calculateBaseDuration(tileY float32) float32 {
+// getHardness returns the hardness value for a tile based on its type
+func (ds *DrillingSystem) getHardness(tile *entities.Tile) float32 {
+	switch tile.Type {
+	case entities.TileTypeOre:
+		hardness, ok := entities.OreHardness[tile.OreType]
+		if !ok {
+			return 1.5 // Fallback for unknown ore types
+		}
+		return hardness
+	case entities.TileTypeDirt:
+		return entities.DirtHardness
+	default:
+		return entities.DirtHardness // Fallback
+	}
+}
+
+// calculateDepthFactor returns a multiplier based on depth (1.0 at surface → 24.0 at max depth)
+func (ds *DrillingSystem) calculateDepthFactor(tileY float32) float32 {
 	groundLevel := ds.world.GroundLevel
 	depthBelowGround := tileY - groundLevel
 
-	// Above ground: use minimum duration
+	// Above ground: use minimum depth factor
 	if depthBelowGround <= 0 {
-		return minDrillingDuration
+		return 1.0
 	}
 
 	maxDepth := physics.MaxUndergroundY - groundLevel
@@ -307,8 +314,8 @@ func (ds *DrillingSystem) calculateBaseDuration(tileY float32) float32 {
 		normalizedDepth = 1.0
 	}
 
-	// Linear interpolation
-	duration := minDrillingDuration + normalizedDepth*(maxDrillingDuration-minDrillingDuration)
+	// Linear interpolation from 1.0 to maxDrillingDuration
+	depthFactor := 1.0 + normalizedDepth*(maxDrillingDuration-1.0)
 
-	return duration
+	return depthFactor
 }

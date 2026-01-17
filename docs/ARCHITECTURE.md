@@ -292,7 +292,21 @@ func (g *Game) GetPlayer() *entities.Player {
 
 #### Drilling System (`domain/systems/drilling.go`)
 
-Handles both vertical and horizontal drilling with variable animation duration based on depth and ore type. Dirt takes 1.0 seconds at ground level, scaling linearly to 24 seconds at max depth. Ore hardness multipliers (Copper 1.2x → Diamond 3.0x) further increase drilling time. Drill upgrades apply a depth-scaled divisor: at surface only 10% of the upgrade applies, at max depth 100% applies. This ensures upgrades feel impactful at depth without trivializing surface drilling. When a drill is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
+Handles both vertical and horizontal drilling with variable animation duration based on tile hardness and depth. The duration formula is:
+
+```
+duration = baseTime × hardness × depthFactor / drillSpeed
+```
+
+Where:
+- `baseTime`: 1.0 second constant
+- `hardness`: per-tile-type value from `DirtHardness` (1.0), `OreHardness` map (1.2-3.0), or `HazardHardness` map (0.3 for lava)
+- `depthFactor`: scales 1.0 at surface → 24.0 at max depth
+- `drillSpeed`: from drill upgrades (1.0 → 6.0)
+
+Lava tiles are a special case: they use a fixed duration of 0.3s (from `HazardHardness[HazardLava]`) regardless of depth, since damage is already a penalty.
+
+Drill upgrades apply a depth-scaled divisor: at surface only 10% of the upgrade applies, at max depth 100% applies. This ensures upgrades feel impactful at depth without trivializing surface drilling. When a drill is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
 
 **Core Concepts:**
 
@@ -379,12 +393,12 @@ if inputState.Left {
 
 **Lava Tile Drilling:**
 
-Lava tiles are special hazards that drill quickly but deal damage on completion:
+Lava tiles are special hazards that drill quickly but deal damage on completion. Lava hardness is defined in `HazardHardness` map in `hazard_type.go`:
 
 ```go
-// Lava always drills in 0.3 seconds regardless of depth
+// Lava uses fixed duration from HazardHardness (0.3s), depth-independent
 if tile.Type == entities.TileTypeLava {
-    return 0.3  // Fast, constant duration
+    return entities.HazardHardness[entities.HazardLava]  // 0.3s fixed
 }
 
 // On completion, apply damage scaling with heat shield

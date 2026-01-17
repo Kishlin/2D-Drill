@@ -82,11 +82,17 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 
 ### Directional Drilling & Animation
 
-Both vertical and horizontal drilling feature smooth variable-duration animations based on depth and ore type:
-- **Dirt at ground level**: 1.0 seconds
-- **Dirt at max depth**: 24 seconds (linear scaling with depth)
-- **Ore multipliers**: Copper 1.2x, Iron 1.5x, Gold 1.8x, Mythril 2.1x, Platinum 2.5x, Diamond 3.0x
-- **Drill upgrades**: Apply depth-scaled divisor (more effective at depth than surface)
+Both vertical and horizontal drilling feature smooth variable-duration animations based on tile hardness and depth:
+
+**Duration Formula:** `duration = baseTime × hardness × depthFactor / drillSpeed`
+
+Where:
+- **baseTime**: 1.0 second constant
+- **hardness**: per-tile value (Dirt 1.0, Copper 1.2, Iron 1.5, Gold 1.8, Mythril 2.1, Platinum 2.5, Diamond 3.0)
+- **depthFactor**: scales 1.0 at surface → 24.0 at max depth
+- **drillSpeed**: from drill upgrades (1.0 → 6.0)
+
+**Lava Exception:** Fixed 0.3s duration regardless of depth (damage is the penalty).
 
 The player moves toward the tile's center during the animation. The tile is only removed when the animation completes, then ore is collected.
 
@@ -264,7 +270,7 @@ Hazard tiles are impenetrable and drillable obstacles that appear at deeper dept
 
 **Lava Tiles (Drillable Hazards):**
 - **Appearance**: Red-orange blocks
-- **Drillability**: Drillable with fast 0.3-second animation (depth-independent)
+- **Drillability**: Drillable with fixed 0.3-second duration (from `HazardHardness` map, depth-independent)
 - **Depth**: Appear starting ~60-65% depth, more common at 80%+
 - **Damage**: Deals 100 damage on drilling completion (reduced to 50 with Mk5 heat shield)
 - **Damage Formula**: `damage = 100 - (currentHeatResistance / 320.0 * 50)`
