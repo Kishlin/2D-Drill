@@ -461,22 +461,31 @@ Consumable items provide tactical advantages during deep mining expeditions. Eac
 - Effect bypasses normal systems (no hospital visit needed for repair, etc.)
 - Teleport resets velocity and places player at spawn
 
-### Item Shops
+### Item Shop (Unified Modal UI)
 
-Five item shops are located on the surface, to the right of upgrade shops. Each shop specializes in one item type and is spaced 200 pixels apart.
+A single unified item shop is located on the surface, to the right of the upgrade shop. Press **E** while overlapping the shop to open a modal interface. Use **arrows or WASD** to navigate a 2×3 grid of 5 items (last cell empty), and **E** to purchase. Press **Q** or **Escape** to close and resume gameplay.
 
-**Shop Locations & Colors:**
-- **Teleport Shop** (Blue Violet): Buy Teleport items
-- **Repair Shop** (Forest Green): Buy Repair Kits
-- **Refuel Shop** (Orange): Buy Fuel Cans
-- **Bomb Shop** (Deep Pink): Buy Bombs
-- **Big Bomb Shop** (Crimson): Buy Big Bombs
+**Shop Location & Size:**
+- Position: Right of upgrade shop with 40px gap (130px void between market and shops)
+- Size: 320×192 pixels (same as all other buildings)
+- Appearance: Blue-tinted building matching standard building size
+
+**Modal Grid Layout:**
+```
+[Teleport]  [Repair]    [Refuel]
+[Bomb]      [Big Bomb]  [Empty]
+```
+
+**Navigation & Interaction:**
+- **Arrows/WASD**: Navigate through grid with wrapping
+- **Empty Cell**: Automatically skipped during navigation
+- **E Key**: Purchase currently selected item (if affordable)
+- **Q or Escape**: Close modal and resume gameplay
 
 **Purchasing:**
-- Stand in shop (overlapping AABB)
-- Press E to attempt purchase
 - If you have enough money, item count increases by 1
-- If insufficient funds, nothing happens (no feedback yet)
+- If insufficient funds, purchase is blocked (no feedback)
+- All 5 items visible and accessible from single shop
 
 ### Economy Implications
 

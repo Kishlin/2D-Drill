@@ -3,26 +3,40 @@ package entities
 import "github.com/Kishlin/drill-game/internal/domain/types"
 
 const (
-	ItemShopWidth  = 160.0
+	ItemShopWidth  = 320.0
 	ItemShopHeight = 192.0
 )
 
-type ItemShop struct {
-	AABB     types.AABB
+type ItemCatalogEntry struct {
 	ItemType ItemType
 	Price    int
-	Name     string
 }
 
-func NewItemShop(x, y float32, itemType ItemType, price int, name string) *ItemShop {
+type ItemShop struct {
+	AABB    types.AABB
+	Catalog [5]ItemCatalogEntry // Fixed array: Teleport, Repair, Refuel, Bomb, BigBomb
+}
+
+func NewItemShop(x, y float32) *ItemShop {
 	return &ItemShop{
-		AABB:     types.NewAABB(x, y, ItemShopWidth, ItemShopHeight),
-		ItemType: itemType,
-		Price:    price,
-		Name:     name,
+		AABB: types.NewAABB(x, y, ItemShopWidth, ItemShopHeight),
+		Catalog: [5]ItemCatalogEntry{
+			{ItemType: ItemTeleport, Price: 500}, // 0
+			{ItemType: ItemRepair, Price: 200},   // 1
+			{ItemType: ItemRefuel, Price: 100},   // 2
+			{ItemType: ItemBomb, Price: 300},     // 3
+			{ItemType: ItemBigBomb, Price: 800},  // 4
+		},
 	}
 }
 
 func (s *ItemShop) IsPlayerInRange(player *Player) bool {
 	return s.AABB.Intersects(player.AABB)
+}
+
+func (s *ItemShop) GetItem(index int) *ItemCatalogEntry {
+	if index < 0 || index >= len(s.Catalog) {
+		return nil
+	}
+	return &s.Catalog[index]
 }

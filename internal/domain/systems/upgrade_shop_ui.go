@@ -5,22 +5,19 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/input"
 )
 
-// ShopUISystem handles the unified upgrade shop modal interaction
-type ShopUISystem struct {
+type UpgradeShopUISystem struct {
 	shop    *entities.UpgradeShop
-	uiState *entities.ShopUIState
+	uiState *entities.UpgradeShopUIState
 }
 
-// NewShopUISystem creates a new shop UI system
-func NewShopUISystem(shop *entities.UpgradeShop) *ShopUISystem {
-	return &ShopUISystem{
+func NewUpgradeShopUISystem(shop *entities.UpgradeShop) *UpgradeShopUISystem {
+	return &UpgradeShopUISystem{
 		shop:    shop,
-		uiState: entities.NewShopUIState(),
+		uiState: entities.NewUpgradeShopUIState(),
 	}
 }
 
-// ProcessShopInteraction handles all shop-related input
-func (s *ShopUISystem) ProcessShopInteraction(
+func (s *UpgradeShopUISystem) ProcessShopInteraction(
 	player *entities.Player,
 	inputState input.InputState,
 ) {
@@ -31,8 +28,7 @@ func (s *ShopUISystem) ProcessShopInteraction(
 	}
 }
 
-// processClosedShop handles input when the shop is closed
-func (s *ShopUISystem) processClosedShop(
+func (s *UpgradeShopUISystem) processClosedShop(
 	player *entities.Player,
 	inputState input.InputState,
 ) {
@@ -42,8 +38,7 @@ func (s *ShopUISystem) processClosedShop(
 	}
 }
 
-// processOpenShop handles input when the shop is open
-func (s *ShopUISystem) processOpenShop(
+func (s *UpgradeShopUISystem) processOpenShop(
 	player *entities.Player,
 	inputState input.InputState,
 ) {
@@ -81,20 +76,17 @@ func (s *ShopUISystem) processOpenShop(
 	}
 }
 
-// openShop opens the shop modal and pauses gameplay
-func (s *ShopUISystem) openShop(player *entities.Player) {
+func (s *UpgradeShopUISystem) openShop(player *entities.Player) {
 	s.uiState.OpenShop()
 	player.InShop = true
 }
 
-// closeShop closes the shop modal and resumes gameplay
-func (s *ShopUISystem) closeShop(player *entities.Player) {
+func (s *UpgradeShopUISystem) closeShop(player *entities.Player) {
 	s.uiState.CloseShop()
 	player.InShop = false
 }
 
-// tryPurchase attempts to purchase the currently selected upgrade
-func (s *ShopUISystem) tryPurchase(player *entities.Player) {
+func (s *UpgradeShopUISystem) tryPurchase(player *entities.Player) {
 	selectedTier := s.uiState.SelectedTier
 	currentTier := entities.GetPlayerCurrentTier(player, s.uiState.ActiveTab)
 
@@ -113,8 +105,7 @@ func (s *ShopUISystem) tryPurchase(player *entities.Player) {
 	s.applyUpgrade(player, s.uiState.ActiveTab, selectedTier, price)
 }
 
-// applyUpgrade applies the selected upgrade to the player
-func (s *ShopUISystem) applyUpgrade(player *entities.Player, upgradeType entities.UpgradeType, tier int, price int) {
+func (s *UpgradeShopUISystem) applyUpgrade(player *entities.Player, upgradeType entities.UpgradeType, tier int, price int) {
 	switch upgradeType {
 	case entities.UpgradeEngine:
 		if entry := s.shop.GetEngineCatalogEntry(tier); entry != nil {
@@ -143,12 +134,10 @@ func (s *ShopUISystem) applyUpgrade(player *entities.Player, upgradeType entitie
 	}
 }
 
-// GetShop returns the unified upgrade shop
-func (s *ShopUISystem) GetShop() *entities.UpgradeShop {
+func (s *UpgradeShopUISystem) GetShop() *entities.UpgradeShop {
 	return s.shop
 }
 
-// GetUIState returns the shop UI state for rendering
-func (s *ShopUISystem) GetUIState() *entities.ShopUIState {
+func (s *UpgradeShopUISystem) GetUIState() *entities.UpgradeShopUIState {
 	return s.uiState
 }

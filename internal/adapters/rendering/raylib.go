@@ -14,25 +14,25 @@ import (
 )
 
 var (
-	PlayerColor       = rl.Red
-	GroundColor       = rl.Brown
-	SkyColor          = rl.SkyBlue
-	DirtColor         = rl.NewColor(139, 90, 43, 255)   // Brown dirt
-	GridColor         = rl.NewColor(100, 65, 30, 128)   // Semi-transparent grid lines
-	MarketColor       = rl.NewColor(34, 139, 34, 255)   // Forest Green
-	FuelStationColor  = rl.NewColor(255, 165, 0, 255)   // Orange
-	HospitalColor     = rl.NewColor(220, 20, 60, 255)   // Crimson
-	EngineShopColor    = rl.NewColor(70, 130, 180, 255)  // Steel Blue
-	HullShopColor      = rl.NewColor(105, 105, 105, 255) // Dim Gray
-	FuelTankShopColor  = rl.NewColor(255, 99, 71, 255)   // Tomato
-	CargoHoldShopColor = rl.NewColor(148, 0, 211, 255)   // Dark Violet
-	HeatShieldShopColor = rl.NewColor(255, 69, 0, 255)   // Orange Red
-	DrillShopColor      = rl.NewColor(184, 134, 11, 255) // Dark Goldenrod
-	TeleportShopColor   = rl.NewColor(138, 43, 226, 255) // Blue Violet
-	RepairShopColor     = rl.NewColor(34, 139, 34, 255)  // Forest Green
-	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)  // Orange
-	BombShopColor       = rl.NewColor(255, 20, 147, 255) // Deep Pink
-	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)  // Crimson
+	PlayerColor         = rl.Red
+	GroundColor         = rl.Brown
+	SkyColor            = rl.SkyBlue
+	DirtColor           = rl.NewColor(139, 90, 43, 255)   // Brown dirt
+	GridColor           = rl.NewColor(100, 65, 30, 128)   // Semi-transparent grid lines
+	MarketColor         = rl.NewColor(34, 139, 34, 255)   // Forest Green
+	FuelStationColor    = rl.NewColor(255, 165, 0, 255)   // Orange
+	HospitalColor       = rl.NewColor(220, 20, 60, 255)   // Crimson
+	EngineShopColor     = rl.NewColor(70, 130, 180, 255)  // Steel Blue
+	HullShopColor       = rl.NewColor(105, 105, 105, 255) // Dim Gray
+	FuelTankShopColor   = rl.NewColor(255, 99, 71, 255)   // Tomato
+	CargoHoldShopColor  = rl.NewColor(148, 0, 211, 255)   // Dark Violet
+	HeatShieldShopColor = rl.NewColor(255, 69, 0, 255)    // Orange Red
+	DrillShopColor      = rl.NewColor(184, 134, 11, 255)  // Dark Goldenrod
+	TeleportShopColor   = rl.NewColor(138, 43, 226, 255)  // Blue Violet
+	RepairShopColor     = rl.NewColor(34, 139, 34, 255)   // Forest Green
+	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)   // Orange
+	BombShopColor       = rl.NewColor(255, 20, 147, 255)  // Deep Pink
+	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)   // Crimson
 
 	// Ore colors for different ore types
 	OreColors = map[entities.OreType]rl.Color{
@@ -45,8 +45,8 @@ var (
 	}
 
 	// Hazard tile colors
-	RockColor = rl.NewColor(70, 70, 70, 255)    // Dark gray
-	LavaColor = rl.NewColor(255, 50, 0, 255)    // Red-orange
+	RockColor = rl.NewColor(70, 70, 70, 255) // Dark gray
+	LavaColor = rl.NewColor(255, 50, 0, 255) // Red-orange
 )
 
 type RaylibRenderer struct {
@@ -123,22 +123,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderFuelStation(game.GetFuelStation())
 	r.renderHospital(game.GetHospital())
 	r.renderUpgradeShop(game.GetUpgradeShop().AABB, EngineShopColor, rl.DarkBlue)
-	for _, shop := range game.GetItemShops() {
-		var shopColor, borderColor rl.Color
-		switch shop.ItemType {
-		case entities.ItemTeleport:
-			shopColor, borderColor = TeleportShopColor, rl.Purple
-		case entities.ItemRepair:
-			shopColor, borderColor = RepairShopColor, rl.DarkGreen
-		case entities.ItemRefuel:
-			shopColor, borderColor = RefuelShopColor, rl.Orange
-		case entities.ItemBomb:
-			shopColor, borderColor = BombShopColor, rl.Maroon
-		case entities.ItemBigBomb:
-			shopColor, borderColor = BigBombShopColor, rl.Red
-		}
-		r.renderUpgradeShop(shop.AABB, shopColor, borderColor)
-	}
+	r.renderUpgradeShop(game.GetItemShop().AABB, TeleportShopColor, rl.Purple)
 	r.renderPlayer(game.GetPlayer())
 
 	rl.EndMode2D()
@@ -146,9 +131,12 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	// === SCREEN SPACE (no camera, always visible) ===
 	r.renderDebugInfo(game.GetPlayer(), inputState)
 
-	// Render shop modal if open
-	if game.GetShopUIState().Open {
-		r.renderShopModal(game)
+	// Render shop modals if open
+	if game.GetUpgradeShopUIState().Open {
+		r.renderUpgradeShopModal(game)
+	}
+	if game.GetItemShopUIState().Open {
+		r.renderItemShopModal(game)
 	}
 
 	rl.EndDrawing()
@@ -379,9 +367,9 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	rl.DrawText(itemText, posX, posY, fontSize, textColor)
 }
 
-// renderShopModal draws the upgrade shop modal UI
-func (r *RaylibRenderer) renderShopModal(game *engine.Game) {
-	uiState := game.GetShopUIState()
+// renderUpgradeShopModal draws the upgrade shop modal UI
+func (r *RaylibRenderer) renderUpgradeShopModal(game *engine.Game) {
+	uiState := game.GetUpgradeShopUIState()
 	shop := game.GetUpgradeShop()
 	player := game.GetPlayer()
 
@@ -611,4 +599,178 @@ func (r *RaylibRenderer) renderUpgradeStats(shop *entities.UpgradeShop, upgradeT
 			rl.DrawText(fmt.Sprintf("Drill Speed: %.1fx", entry.Drill.DrillSpeed()), x, y, fontSize, rl.LightGray)
 		}
 	}
+}
+
+// renderItemShopModal draws the item shop modal UI
+func (r *RaylibRenderer) renderItemShopModal(game *engine.Game) {
+	uiState := game.GetItemShopUIState()
+	shop := game.GetItemShop()
+	player := game.GetPlayer()
+
+	// Modal dimensions
+	modalWidth := float32(750)
+	modalHeight := float32(500)
+	modalX := (r.screenWidth - modalWidth) / 2
+	modalY := (r.screenHeight - modalHeight) / 2
+
+	// Draw semi-transparent overlay
+	rl.DrawRectangle(0, 0, int32(r.screenWidth), int32(r.screenHeight), rl.NewColor(0, 0, 0, 150))
+
+	// Draw modal background
+	rl.DrawRectangle(int32(modalX), int32(modalY), int32(modalWidth), int32(modalHeight), rl.NewColor(40, 40, 50, 255))
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: modalX, Y: modalY, Width: modalWidth, Height: modalHeight},
+		3.0,
+		rl.NewColor(100, 100, 120, 255),
+	)
+
+	// Title
+	titleText := "ITEM SHOP"
+	titleFontSize := int32(30)
+	titleWidth := rl.MeasureText(titleText, titleFontSize)
+	rl.DrawText(titleText, int32(modalX)+(int32(modalWidth)-titleWidth)/2, int32(modalY)+10, titleFontSize, rl.White)
+
+	// Grid area (2x3 grid)
+	gridStartX := modalX + 50
+	gridStartY := modalY + 70
+	cellSize := float32(100)
+	cellGap := float32(20)
+
+	// Item names
+	itemNames := []string{"Teleport", "Repair", "Refuel", "Bomb", "Big Bomb"}
+
+	// Draw 2x3 grid (5 items, last cell empty)
+	for index := 0; index < 6; index++ {
+		row := index / 3
+		col := index % 3
+
+		cellX := gridStartX + float32(col)*(cellSize+cellGap)
+		cellY := gridStartY + float32(row)*(cellSize+cellGap)
+
+		// Skip the empty cell
+		if index == 5 {
+			continue
+		}
+
+		isSelected := uiState.SelectedIndex == index
+
+		// Get item info
+		catalogEntry := shop.GetItem(index)
+		if catalogEntry == nil {
+			continue
+		}
+
+		price := catalogEntry.Price
+		owned := player.ItemInventory[catalogEntry.ItemType]
+
+		// Cell background: check affordability
+		var bgColor rl.Color
+		if player.CanAfford(price) {
+			bgColor = rl.NewColor(60, 60, 80, 255) // Light for affordable
+		} else {
+			bgColor = rl.NewColor(50, 50, 55, 255) // Dark for expensive
+		}
+		rl.DrawRectangle(int32(cellX), int32(cellY), int32(cellSize), int32(cellSize), bgColor)
+
+		// Selection border
+		if isSelected {
+			rl.DrawRectangleLinesEx(
+				rl.Rectangle{X: cellX, Y: cellY, Width: cellSize, Height: cellSize},
+				3.0,
+				rl.Yellow,
+			)
+		} else {
+			rl.DrawRectangleLinesEx(
+				rl.Rectangle{X: cellX, Y: cellY, Width: cellSize, Height: cellSize},
+				1.0,
+				rl.NewColor(80, 80, 90, 255),
+			)
+		}
+
+		// Item name
+		itemNameWidth := rl.MeasureText(itemNames[index], 18)
+		itemNameX := int32(cellX) + (int32(cellSize)-itemNameWidth)/2
+		itemNameY := int32(cellY) + 10
+		rl.DrawText(itemNames[index], itemNameX, itemNameY, 18, rl.White)
+
+		// Price
+		priceText := fmt.Sprintf("$%d", price)
+		var priceColor rl.Color
+		if player.CanAfford(price) {
+			priceColor = rl.Yellow
+		} else {
+			priceColor = rl.Red
+		}
+		priceWidth := rl.MeasureText(priceText, 16)
+		priceX := int32(cellX) + (int32(cellSize)-priceWidth)/2
+		priceY := int32(cellY) + 40
+		rl.DrawText(priceText, priceX, priceY, 16, priceColor)
+
+		// Owned count
+		ownedText := fmt.Sprintf("Own: %d", owned)
+		ownedWidth := rl.MeasureText(ownedText, 14)
+		ownedX := int32(cellX) + (int32(cellSize)-ownedWidth)/2
+		ownedY := int32(cellY) + 65
+		rl.DrawText(ownedText, ownedX, ownedY, 14, rl.LightGray)
+	}
+
+	// Details panel (right side)
+	detailsX := gridStartX + 3*(cellSize+cellGap) + 30
+	detailsY := gridStartY
+	detailsWidth := modalWidth - (detailsX - modalX) - 30
+
+	// Draw details box
+	rl.DrawRectangle(int32(detailsX), int32(detailsY), int32(detailsWidth), 200, rl.NewColor(30, 30, 40, 255))
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: detailsX, Y: detailsY, Width: detailsWidth, Height: 200},
+		1.0,
+		rl.NewColor(70, 70, 80, 255),
+	)
+
+	// Selected item details
+	selectedEntry := shop.GetItem(uiState.SelectedIndex)
+	if selectedEntry != nil {
+		selectedName := itemNames[uiState.SelectedIndex]
+		rl.DrawText(selectedName, int32(detailsX)+10, int32(detailsY)+10, 24, rl.White)
+
+		// Item effect text
+		effectX := int32(detailsX) + 10
+		effectY := int32(detailsY) + 50
+		effectText := ""
+		switch uiState.SelectedIndex {
+		case 0:
+			effectText = "Teleport to surface"
+		case 1:
+			effectText = "Restore full HP"
+		case 2:
+			effectText = "Refill fuel tank"
+		case 3:
+			effectText = "Destroy nearby tiles"
+		case 4:
+			effectText = "Destroy large area"
+		}
+		rl.DrawText(effectText, effectX, effectY, 16, rl.LightGray)
+
+		// Price
+		price := selectedEntry.Price
+		priceText := fmt.Sprintf("Price: $%d", price)
+		priceColor := rl.Yellow
+		if !player.CanAfford(price) {
+			priceColor = rl.Red
+		}
+		rl.DrawText(priceText, int32(detailsX)+10, int32(detailsY)+160, 20, priceColor)
+	}
+
+	// Player info
+	playerInfoY := detailsY + 220
+	rl.DrawText(fmt.Sprintf("Your Money: $%d", player.Money), int32(detailsX)+10, int32(playerInfoY), 18, rl.White)
+	if selectedEntry != nil {
+		rl.DrawText(fmt.Sprintf("Owned: %d", player.ItemInventory[selectedEntry.ItemType]), int32(detailsX)+10, int32(playerInfoY)+25, 18, rl.LightGray)
+	}
+
+	// Controls hint at bottom
+	controlsY := modalY + modalHeight - 40
+	controlsText := "[Arrows] Navigate   [E] Buy   [Q] Close"
+	controlsWidth := rl.MeasureText(controlsText, 16)
+	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
 }

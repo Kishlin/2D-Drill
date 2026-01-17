@@ -8,17 +8,17 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/systems"
 )
 
-func createTestShopUISystem() (*systems.ShopUISystem, *entities.Player) {
+func createTestUpgradeShopUISystem() (*systems.UpgradeShopUISystem, *entities.Player) {
 	// Create unified shop at position where player (at 0,0) will be in range
 	shop := entities.NewUpgradeShop(0, 0)
-	system := systems.NewShopUISystem(shop)
+	system := systems.NewUpgradeShopUISystem(shop)
 	player := entities.NewPlayer(0, 0)
 
 	return system, player
 }
 
-func TestShopUISystem_OpenShop_WhenInRange(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_OpenShop_WhenInRange(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 
 	// Press E to open shop
 	inputState := input.InputState{Sell: true}
@@ -32,8 +32,8 @@ func TestShopUISystem_OpenShop_WhenInRange(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_OpenShop_WhenOutOfRange(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_OpenShop_WhenOutOfRange(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 	// Move player far away from shop
 	player.AABB.X = 5000
 
@@ -45,8 +45,8 @@ func TestShopUISystem_OpenShop_WhenOutOfRange(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_CloseShop(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_CloseShop(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 
 	// Open shop first
 	system.ProcessShopInteraction(player, input.InputState{Sell: true})
@@ -62,8 +62,8 @@ func TestShopUISystem_CloseShop(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_TabNavigation(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_TabNavigation(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 
 	// Open shop
 	system.ProcessShopInteraction(player, input.InputState{Sell: true})
@@ -92,8 +92,8 @@ func TestShopUISystem_TabNavigation(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_GridNavigation(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_GridNavigation(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 
 	// Open shop
 	system.ProcessShopInteraction(player, input.InputState{Sell: true})
@@ -122,8 +122,8 @@ func TestShopUISystem_GridNavigation(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_PurchaseEngine_Success(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_PurchaseEngine_Success(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 	player.Money = 200 // More than enough for Engine Mk1 ($100)
 
 	// Open shop
@@ -143,8 +143,8 @@ func TestShopUISystem_PurchaseEngine_Success(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_PurchaseEngine_InsufficientFunds(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_PurchaseEngine_InsufficientFunds(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 	player.Money = 50 // Not enough for Engine Mk1 ($100)
 
 	// Open shop
@@ -164,8 +164,8 @@ func TestShopUISystem_PurchaseEngine_InsufficientFunds(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_PurchaseOwnedUpgrade_Fails(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_PurchaseOwnedUpgrade_Fails(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 	player.Money = 1000
 
 	// Open shop
@@ -180,8 +180,8 @@ func TestShopUISystem_PurchaseOwnedUpgrade_Fails(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_PurchaseSkipTier_Success(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_PurchaseSkipTier_Success(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 	player.Money = 10000 // Plenty of money
 
 	// Open shop
@@ -199,8 +199,8 @@ func TestShopUISystem_PurchaseSkipTier_Success(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_ProgressivePurchases(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_ProgressivePurchases(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 	player.Money = 10000 // Plenty for multiple upgrades
 
 	// Open shop
@@ -234,8 +234,8 @@ func TestShopUISystem_ProgressivePurchases(t *testing.T) {
 	}
 }
 
-func TestShopUISystem_PurchaseHull_Success(t *testing.T) {
-	system, player := createTestShopUISystem()
+func TestUpgradeShopUISystem_PurchaseHull_Success(t *testing.T) {
+	system, player := createTestUpgradeShopUISystem()
 	player.Money = 200
 
 	// Open shop

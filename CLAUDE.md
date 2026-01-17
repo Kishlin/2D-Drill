@@ -30,7 +30,7 @@ go test ./...                # Run all tests
 - **Drilling Animation** — Both vertical and horizontal drilling is animated with variable duration based on tile hardness and depth. Formula: `duration = baseTime × hardness × depthFactor / drillSpeed`. Hardness values: `DirtHardness` (1.0) in tile.go, `OreHardness` map (1.2-3.0) in ore_type.go, `HazardHardness` map in hazard_type.go. Depth factor scales 1.0→24.0 from surface to max depth. Drill upgrades apply depth-scaled divisor (more effective at depth than surface). Lava tiles use fixed 0.3s duration (depth-independent) but deal 100 damage on completion (reduced by heat shield). Player progressively moves to tile center via lerp. Tile only removed on animation completion. All inputs blocked during drill except fuel/heat (continuous). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#drilling-system) for details.
 - **Hazard Tiles** — Rock (impenetrable, blocks drilling/movement) and Lava (drillable but deals damage) tiles spawn at deep depths using Gaussian distributions. Hazards dominate terrain at 80%+ depths, creating natural progression gates. Bombs can destroy rocks via `NukeTileAtGrid()` which bypasses drillability checks. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#hazard-tiles) for mechanics.
 - **Depth-Dependent Generation** — All tile types (empty, dirt, ore, hazards) use weighted random selection with weights that vary by depth. Surface (0%) generates mostly dirt/empty; deep (80%+) hazards dominate. Enables natural progression without hard level walls.
-- **Item System** — Consumable items (Teleport, Repair, Refuel, Bomb, Big Bomb) stored in `ItemInventory [5]int`. Items used via T, R, F, B, G keys (discrete input, `IsKeyPressed()`). Bombs and Big Bombs use `NukeTileAtGrid()` to destroy all solid tiles including impenetrable rocks. Purchased at dedicated item shops with E key. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#items) for mechanics.
+- **Unified Item Shop** — Single `ItemShop` entity consolidates all 5 consumable items (Teleport, Repair, Refuel, Bomb, Big Bomb) with a modal UI (similar to upgrade shop). Items stored in `ItemInventory [5]int` and used via T, R, F, B, G keys (discrete input, `IsKeyPressed()`). Bombs and Big Bombs use `NukeTileAtGrid()` to destroy all solid tiles including impenetrable rocks. Purchased via modal at item shop with E key. Grid navigation (arrows/WASD) selects items; E to purchase; Q/Escape to close. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#items) for mechanics.
 
 ## Key Files
 
@@ -39,14 +39,15 @@ go test ./...                # Run all tests
 - `internal/domain/entities/engine.go`, `hull.go`, `fuel_tank.go`, `cargo_hold.go`, `heat_shield.go`, `drill.go` — Component value objects with tiers
 - `internal/domain/entities/upgrade_shop.go` — Unified `UpgradeShop` with all 6 catalogs; catalog entry types (EngineCatalogEntry, etc.)
 - `internal/domain/entities/upgrade_type.go` — UpgradeType enum (Engine, Hull, FuelTank, CargoHold, HeatShield, Drill)
-- `internal/domain/entities/shop_ui.go` — ShopUIState for modal UI state and navigation
+- `internal/domain/entities/upgrade_shop_ui.go` — UpgradeShopUIState for modal UI state and navigation
+- `internal/domain/entities/item_shop_ui.go` — ItemShopUIState for item shop modal UI state and navigation
 - `internal/domain/entities/item.go` — ItemType enum and item names
-- `internal/domain/entities/item_shop.go` — ItemShop entity for purchasing consumables
-- `internal/domain/systems/shop_ui.go` — ShopUISystem: modal UI interaction, tab cycling, grid navigation, purchase logic
+- `internal/domain/entities/item_shop.go` — Unified ItemShop entity for purchasing consumables
+- `internal/domain/systems/upgrade_shop_ui.go` — UpgradeShopUISystem: modal UI interaction, tab cycling, grid navigation, purchase logic
+- `internal/domain/systems/item_shop_ui.go` — ItemShopUISystem: item shop modal UI interaction, purchase logic
 - `internal/domain/systems/drilling.go` — Drilling animations with depth-scaled durations
 - `internal/domain/systems/fuel.go` — Fuel consumption based on input state
 - `internal/domain/systems/physics.go` — Gravity, collision, damage (fall/heat)
-- `internal/domain/systems/item_shop.go` — ItemShopSystem for consumable purchases
 - `internal/domain/world/` — Chunk-based procedural world with hazard generation
 
 ## Documentation

@@ -87,14 +87,14 @@ drill-game/
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
 │       │   ├── fuel_station.go              # FuelStationSystem (refueling)
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
-│       │   ├── shop_ui.go                   # ShopUISystem (modal upgrade UI)
+│       │   ├── upgrade_shop_ui.go           # UpgradeShopUISystem (modal upgrade UI)
+│       │   ├── item_shop_ui.go              # ItemShopUISystem (modal item shop UI)
 │       │   ├── item.go                      # ItemSystem (using consumable items)
-│       │   ├── item_shop.go                 # ItemShopSystem (purchasing items at shops)
 │       │   ├── drilling_test.go             # Drilling & ore collection tests
 │       │   ├── fuel_test.go                 # Fuel consumption tests
 │       │   ├── fuel_station_test.go         # Fuel station transaction tests
 │       │   ├── hospital_test.go             # Hospital healing transaction tests
-│       │   └── shop_ui_test.go              # Shop UI modal interaction tests
+│       │   └── upgrade_shop_ui_test.go      # Upgrade shop UI modal interaction tests
 │       ├── entities/
 │       │   ├── player.go                    # Player aggregate root (AABB, inventory, money, fuel, HP, components)
 │       │   ├── player_test.go               # Player inventory tests
@@ -111,9 +111,10 @@ drill-game/
 │       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
 │       │   ├── upgrade_shop.go              # UpgradeShop unified entity with all 6 catalogs
 │       │   ├── upgrade_type.go              # UpgradeType enum (Engine/Hull/FuelTank/CargoHold/HeatShield/Drill)
-│       │   ├── shop_ui.go                   # ShopUIState for modal UI (tabs, selection, navigation)
+│       │   ├── upgrade_shop_ui.go           # UpgradeShopUIState for modal UI (tabs, selection, navigation)
 │       │   ├── item.go                      # ItemType enum (Teleport/Repair/Refuel/Bomb/BigBomb)
-│       │   ├── item_shop.go                 # ItemShop entity (AABB + ItemType + Price)
+│       │   ├── item_shop.go                 # Unified ItemShop entity with 5-item catalog
+│       │   ├── item_shop_ui.go              # ItemShopUIState for item shop modal UI (selection, navigation)
 │       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters
@@ -233,17 +234,17 @@ Orchestrates domain systems without any framework knowledge:
 
 ```go
 type Game struct {
-    world             *world.World
-    player            *entities.Player
-    physicsSystem     *systems.PhysicsSystem
-    drillingSystem    *systems.DrillingSystem
-    marketSystem      *systems.MarketSystem
-    fuelSystem        *systems.FuelSystem
-    fuelStationSystem *systems.FuelStationSystem
-    hospitalSystem    *systems.HospitalSystem
-    shopUISystem      *systems.ShopUISystem
-    itemSystem        *systems.ItemSystem
-    itemShopSystem    *systems.ItemShopSystem
+    world               *world.World
+    player              *entities.Player
+    physicsSystem       *systems.PhysicsSystem
+    drillingSystem      *systems.DrillingSystem
+    marketSystem        *systems.MarketSystem
+    fuelSystem          *systems.FuelSystem
+    fuelStationSystem   *systems.FuelStationSystem
+    hospitalSystem      *systems.HospitalSystem
+    upgradeShopUISystem *systems.UpgradeShopUISystem
+    itemSystem          *systems.ItemSystem
+    itemShopUISystem    *systems.ItemShopUISystem
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
@@ -254,19 +255,25 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     playerY := g.player.AABB.Y + g.player.AABB.Height/2
     g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-    // 1. Modal pause: Shop UI (complete game pause if open)
-    g.shopUISystem.ProcessShopInteraction(g.player, inputState)
-    if g.player.InShop {
+    // 1. Modal pause: Upgrade shop UI (complete game pause if open)
+    g.upgradeShopUISystem.ProcessShopInteraction(g.player, inputState)
+    if g.upgradeShopUISystem.GetUIState().Open {
         return nil  // Pause all gameplay
     }
 
-    // 2. Physics - handles landing/fall damage, heat damage, prevents movement during drilling
+    // 2. Modal pause: Item shop UI (complete game pause if open)
+    g.itemShopUISystem.ProcessItemShopInteraction(g.player, inputState)
+    if g.itemShopUISystem.GetUIState().Open {
+        return nil  // Pause all gameplay
+    }
+
+    // 3. Physics - handles landing/fall damage, heat damage, prevents movement during drilling
     g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
 
-    // 3. Fuel consumption (runs even during drilling animation for resource pressure)
+    // 4. Fuel consumption (runs even during drilling animation for resource pressure)
     g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
 
-    // 4. Drilling animation (vertical + horizontal with variable duration based on depth/ore)
+    // 5. Drilling animation (vertical + horizontal with variable duration based on depth/ore)
     g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
 
     // Animation pause: Skip interactions if drilling
@@ -274,20 +281,17 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
         return nil
     }
 
-    // 5. Item usage (consumable items)
+    // 6. Item usage (consumable items)
     g.itemSystem.ProcessItemUsage(g.player, inputState)
 
-    // 6. Market selling
+    // 7. Market selling
     g.marketSystem.ProcessSelling(g.player, inputState)
 
-    // 7. Fuel station refueling
+    // 8. Fuel station refueling
     g.fuelStationSystem.ProcessRefueling(g.player, inputState)
 
-    // 8. Hospital healing
+    // 9. Hospital healing
     g.hospitalSystem.ProcessHealing(g.player, inputState)
-
-    // 9. Item shop purchases
-    g.itemShopSystem.ProcessPurchase(g.player, inputState)
 
     return nil
 }
@@ -799,17 +803,17 @@ func (hs *HospitalSystem) ProcessHealing(
 - Direct field mutation for clarity
 - Fully testable without framework (7 comprehensive unit tests)
 
-#### Shop UI System (`domain/systems/shop_ui.go`)
+#### Upgrade Shop UI System (`domain/systems/upgrade_shop_ui.go`)
 
 Manages the unified upgrade shop modal UI with tab cycling, grid navigation, and purchase logic:
 
 ```go
-type ShopUISystem struct {
+type UpgradeShopUISystem struct {
     shop    *entities.UpgradeShop
-    uiState *entities.ShopUIState
+    uiState *entities.UpgradeShopUIState
 }
 
-func (s *ShopUISystem) ProcessShopInteraction(
+func (s *UpgradeShopUISystem) ProcessShopInteraction(
     player *entities.Player,
     inputState input.InputState,
 ) {
@@ -820,14 +824,14 @@ func (s *ShopUISystem) ProcessShopInteraction(
     }
 }
 
-func (s *ShopUISystem) processClosedShop(player *entities.Player, inputState input.InputState) {
+func (s *UpgradeShopUISystem) processClosedShop(player *entities.Player, inputState input.InputState) {
     // Open shop when player presses E (Sell) and is in range
     if inputState.Sell && s.shop.IsPlayerInRange(player) {
         s.openShop(player)
     }
 }
 
-func (s *ShopUISystem) processOpenShop(player *entities.Player, inputState input.InputState) {
+func (s *UpgradeShopUISystem) processOpenShop(player *entities.Player, inputState input.InputState) {
     // Tab navigation (Z/X)
     if inputState.PrevTab {
         s.uiState.PrevTab()  // Wraps to last tab
@@ -861,7 +865,7 @@ func (s *ShopUISystem) processOpenShop(player *entities.Player, inputState input
     }
 }
 
-func (s *ShopUISystem) tryPurchase(player *entities.Player) {
+func (s *UpgradeShopUISystem) tryPurchase(player *entities.Player) {
     selectedTier := s.uiState.SelectedTier
     currentTier := entities.GetPlayerCurrentTier(player, s.uiState.ActiveTab)
 
@@ -899,7 +903,7 @@ func (s *ShopUISystem) tryPurchase(player *entities.Player) {
 - Tab navigation + grid UI provides efficient browsing
 - Unified catalog system (DDD: shop knows what it sells)
 - Player is aggregate root (mutations go through Player methods)
-- Fully testable without framework (11 comprehensive unit tests in shop_ui_test.go)
+- Fully testable without framework (11 comprehensive unit tests in upgrade_shop_ui_test.go)
 
 #### Item System (`domain/systems/item.go`)
 
@@ -983,55 +987,81 @@ func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
 - Teleport resets velocity (safe movement after arrival)
 - Bombs destroy ore (not collected) — purely terrain-clearing tool
 
-#### Item Shop System (`domain/systems/item_shop.go`)
+#### Item Shop UI System (`domain/systems/item_shop_ui.go`)
 
-Manages item purchases at dedicated shops:
+Manages the unified item shop modal UI with grid navigation and purchase logic (similar to upgrade shop but without tabs since there's only one page):
 
 ```go
-type ItemShopSystem struct {
-    shops []*entities.ItemShop
+type ItemShopUISystem struct {
+    shop    *entities.ItemShop
+    uiState *entities.ItemShopUIState
 }
 
-func NewItemShopSystem(shops ...*entities.ItemShop) *ItemShopSystem {
-    return &ItemShopSystem{shops: shops}
-}
-
-func (iss *ItemShopSystem) ProcessPurchase(player *entities.Player, inputState input.InputState) {
-    if !inputState.Sell {
-        return
-    }
-
-    for _, shop := range iss.shops {
-        if shop.IsPlayerInRange(player) {
-            iss.tryPurchase(player, shop)
-            return
-        }
+func (s *ItemShopUISystem) ProcessItemShopInteraction(
+    player *entities.Player,
+    inputState input.InputState,
+) {
+    if s.uiState.Open {
+        s.processOpenShop(player, inputState)
+    } else {
+        s.processClosedShop(player, inputState)
     }
 }
 
-func (iss *ItemShopSystem) tryPurchase(player *entities.Player, shop *entities.ItemShop) {
-    if !player.CanAfford(shop.Price) {
-        return  // Insufficient funds (no feedback yet)
+func (s *ItemShopUISystem) processClosedShop(player *entities.Player, inputState input.InputState) {
+    // Open shop when player presses E (Sell) and is in range
+    if inputState.Sell && s.shop.IsPlayerInRange(player) {
+        s.uiState.OpenShop()
+    }
+}
+
+func (s *ItemShopUISystem) processOpenShop(player *entities.Player, inputState input.InputState) {
+    // Grid navigation (arrows/WASD for 2x3 grid, skips empty cell at position 5)
+    if inputState.NavLeft {
+        s.uiState.NavigateLeft()
+    }
+    if inputState.NavRight {
+        s.uiState.NavigateRight()
+    }
+    if inputState.NavUp {
+        s.uiState.NavigateUp()
+    }
+    if inputState.NavDown {
+        s.uiState.NavigateDown()
     }
 
-    player.Money -= shop.Price
-    player.AddItem(shop.ItemType)  // Increment item count
+    // Purchase with E key
+    if inputState.Sell {
+        s.tryPurchase(player)
+    }
+
+    // Close with Q or Escape
+    if inputState.CloseShop {
+        s.uiState.CloseShop()
+    }
 }
 ```
 
-**Shop Rules:**
-- 5 shops, one per item type
-- Located 200 pixels apart to the right of upgrade shops
-- Press E to attempt purchase
-- Each shop increases item count by 1 on success
-- No transaction if insufficient funds (silent rejection)
+**Modal UI Features:**
+- **Grid Navigation**: 2x3 grid (6 cells, last one empty). Arrows/WASD to navigate with wrapping; automatically skips empty cell
+- **No Tabs**: All 5 items fit on single screen (unlike 6-tab upgrade shop)
+- **Purchase**: E key purchases selected item
+- **Visual Feedback**: Item name, price, quantity owned displayed
+- **Modal Pause**: Opens with E (Sell) when in range, closes with Q/Escape, pauses all gameplay
+
+**Item Shop Rules:**
+- **Grid Layout**: Teleport, Repair, Refuel on top row; Bomb, BigBomb on bottom row with empty cell
+- **Single Location**: Unified shop to the right of upgrade shop (320px wide, same size as all other buildings)
+- **No Sequential Requirement**: Buy any item regardless of prior purchases
+- **Permanent Purchase**: Item stays in inventory permanently
 
 **Why this design:**
-- Mirrors UpgradeSystem pattern (AABB + E key interaction)
-- Shops hold item type (parameterized, not hardcoded)
-- Called after upgrades (consistent processing order)
-- Simple: only tracks shop locations, not inventory management
-- Fully testable without framework
+- Single shop consolidates all 5 item types (cleaner than 5 separate shops)
+- Modal UI pauses gameplay (consistent with upgrade shop pattern)
+- No tabs needed (all items fit on one screen)
+- Grid navigation skips empty cell automatically
+- Unified modal pattern makes UI familiar to players
+- Fully testable without framework (9 comprehensive unit tests)
 
 #### World Methods
 
@@ -2082,6 +2112,32 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 | Size | 320×192 pixels | 5 tiles wide × 3 tiles tall |
 | Appearance | Forest green rect with dark border | Visual identification |
 | Interaction | E key to sell | Triggers inventory sale |
+
+### Upgrade Shop Configuration (`internal/domain/entities/upgrade_shop.go`)
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| Position | (1410, 576) | 450px right of market (130px void), ground level |
+| Size | 320×192 pixels | 5 tiles wide × 3 tiles tall (standard building size) |
+| Interaction | E key to open modal | Opens unified 6-tab shop interface |
+| Modal Grid | 2x3 (6 tiers per tab) | Base + Mk1-Mk5 shown per upgrade type |
+| Tab Keys | Z (prev) / X (next) | Cycle between 6 upgrade categories |
+| Navigation | Arrows or WASD | Move through grid with wrapping |
+| Purchase Key | E | Buy selected tier if affordable |
+| Close Key | Q or Escape | Close modal, resume gameplay |
+
+### Item Shop Configuration (`internal/domain/entities/item_shop.go`)
+
+| Property | Value | Purpose |
+|----------|-------|---------|
+| Position | (1770, 576) | 360px right of upgrade shop (40px gap), ground level |
+| Size | 320×192 pixels | 5 tiles wide × 3 tiles tall (standard building size) |
+| Interaction | E key to open modal | Opens unified 5-item shop interface |
+| Modal Grid | 2x3 (5 items + 1 empty) | All items fit on single screen |
+| Layout | Top row: Teleport, Repair, Refuel<br>Bottom row: Bomb, BigBomb, (empty) | 6-cell grid with position 5 empty |
+| Navigation | Arrows or WASD | Move through grid, auto-skips empty cell |
+| Purchase Key | E | Buy selected item if affordable |
+| Close Key | Q or Escape | Close modal, resume gameplay |
 
 ### Ore Values
 

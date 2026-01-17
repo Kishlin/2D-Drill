@@ -4,53 +4,45 @@ const (
 	// Grid layout: 2 rows x 3 columns for Base + Mk1-Mk5
 	ShopGridCols = 3
 	ShopGridRows = 2
-	ShopTierCount = 6 // Base (0) + Mk1-Mk5 (1-5)
 )
 
-// ShopUIState tracks the current state of the shop modal UI
-type ShopUIState struct {
+type UpgradeShopUIState struct {
 	Open         bool        // Whether the shop modal is open
 	ActiveTab    UpgradeType // Currently selected upgrade category (0-5)
 	SelectedTier int         // Currently selected tier in the grid (0-5)
 }
 
-// NewShopUIState creates a new shop UI state (closed by default)
-func NewShopUIState() *ShopUIState {
-	return &ShopUIState{
+func NewUpgradeShopUIState() *UpgradeShopUIState {
+	return &UpgradeShopUIState{
 		Open:         false,
 		ActiveTab:    UpgradeEngine,
 		SelectedTier: 0,
 	}
 }
 
-// OpenShop opens the modal and resets selection to first available upgrade
-func (s *ShopUIState) OpenShop() {
+func (s *UpgradeShopUIState) OpenShop() {
 	s.Open = true
 	s.ActiveTab = UpgradeEngine
 	s.SelectedTier = 0
 }
 
-// CloseShop closes the modal
-func (s *ShopUIState) CloseShop() {
+func (s *UpgradeShopUIState) CloseShop() {
 	s.Open = false
 }
 
-// NextTab cycles to the next upgrade type (wraps around)
-func (s *ShopUIState) NextTab() {
+func (s *UpgradeShopUIState) NextTab() {
 	s.ActiveTab = UpgradeType((int(s.ActiveTab) + 1) % int(UpgradeTypeCount))
 	// Reset selection to first tier when changing tabs
 	s.SelectedTier = 0
 }
 
-// PrevTab cycles to the previous upgrade type (wraps around)
-func (s *ShopUIState) PrevTab() {
+func (s *UpgradeShopUIState) PrevTab() {
 	s.ActiveTab = UpgradeType((int(s.ActiveTab) - 1 + int(UpgradeTypeCount)) % int(UpgradeTypeCount))
 	// Reset selection to first tier when changing tabs
 	s.SelectedTier = 0
 }
 
-// NavigateUp moves selection up one row in the grid
-func (s *ShopUIState) NavigateUp() {
+func (s *UpgradeShopUIState) NavigateUp() {
 	row := s.SelectedTier / ShopGridCols
 	col := s.SelectedTier % ShopGridCols
 
@@ -64,8 +56,7 @@ func (s *ShopUIState) NavigateUp() {
 	s.SelectedTier = row*ShopGridCols + col
 }
 
-// NavigateDown moves selection down one row in the grid
-func (s *ShopUIState) NavigateDown() {
+func (s *UpgradeShopUIState) NavigateDown() {
 	row := s.SelectedTier / ShopGridCols
 	col := s.SelectedTier % ShopGridCols
 
@@ -79,8 +70,7 @@ func (s *ShopUIState) NavigateDown() {
 	s.SelectedTier = row*ShopGridCols + col
 }
 
-// NavigateLeft moves selection left one column in the grid
-func (s *ShopUIState) NavigateLeft() {
+func (s *UpgradeShopUIState) NavigateLeft() {
 	row := s.SelectedTier / ShopGridCols
 	col := s.SelectedTier % ShopGridCols
 
@@ -94,8 +84,7 @@ func (s *ShopUIState) NavigateLeft() {
 	s.SelectedTier = row*ShopGridCols + col
 }
 
-// NavigateRight moves selection right one column in the grid
-func (s *ShopUIState) NavigateRight() {
+func (s *UpgradeShopUIState) NavigateRight() {
 	row := s.SelectedTier / ShopGridCols
 	col := s.SelectedTier % ShopGridCols
 
@@ -109,12 +98,10 @@ func (s *ShopUIState) NavigateRight() {
 	s.SelectedTier = row*ShopGridCols + col
 }
 
-// GetSelectedRow returns the row (0 or 1) of the current selection
-func (s *ShopUIState) GetSelectedRow() int {
+func (s *UpgradeShopUIState) GetSelectedRow() int {
 	return s.SelectedTier / ShopGridCols
 }
 
-// GetSelectedCol returns the column (0, 1, or 2) of the current selection
-func (s *ShopUIState) GetSelectedCol() int {
+func (s *UpgradeShopUIState) GetSelectedCol() int {
 	return s.SelectedTier % ShopGridCols
 }
