@@ -1803,16 +1803,37 @@ ps.constrainPlayerToWorldBounds(player)
 
 ---
 
+## World Configuration
+
+All world parameters are centralized in `WorldConfig` struct (`internal/domain/world/config.go`):
+
+```go
+type WorldConfig struct {
+    Width          float32         // World width in pixels
+    Height         float32         // World height in pixels
+    GroundLevel    float32         // Y coordinate of ground level
+    Seed           int64           // Procedural generation seed
+    PlayerSpawn    PlayerSpawn     // Player starting position (X, Y)
+    BuildingLayout BuildingLayout  // Building X positions (Y auto-calculated)
+}
+```
+
+**Configuration Location:** All hardcoded values in `cmd/game/main.go` (constants section). Change world layout by editing this file.
+
+---
+
 ## World Dimensions
 
 The game world extends far beyond the screen:
 
 | Dimension | Size | Tiles |
 |-----------|------|-------|
-| Width | 7680 pixels | 120 tiles wide (6× screen width) |
+| Width | 3072 pixels | 48 tiles wide (compact, configurable) |
 | Height | 51200 pixels | 800 tiles deep |
 | Ground Level | 640 pixels | 10 tiles up from bottom |
 | Tile Size | 64×64 pixels | Standard |
+
+**Layout:** `[480px pad] [Hospital] [50px] [FuelStation] [230px] [Market] [130px] [UpgradeShop] [50px] [ItemShop] [532px pad]`
 
 **Sparse tile storage:** Only non-empty tiles are stored in memory, enabling efficient large worlds.
 

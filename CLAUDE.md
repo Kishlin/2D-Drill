@@ -21,6 +21,7 @@ go test ./...                # Run all tests
 
 ## Key Design Decisions
 
+- **Configurable World** — `WorldConfig` struct holds all world parameters (dimensions, seed, building positions). Enables easy layout tweaks and future expansion to ore pricing, upgrade costs, etc. All hardcoded values in `cmd/game/main.go` only.
 - **Player as Aggregate Root** — `Engine`, `Hull`, `FuelTank`, `CargoHold`, `HeatShield`, `Drill` are exported component value objects. Access stats via `player.Engine.MaxSpeed()`, not through wrapper methods. Damage mutations go through `player.DealDamage(damage)`.
 - **Named Constructors** — Components use `NewEngineBase()`, `NewEngineMk1()`, etc. Tier data lives in constructors.
 - **Unified Upgrade Shop** — Single `UpgradeShop` entity consolidates all 6 upgrade types (Engine, Hull, FuelTank, CargoHold, HeatShield, Drill). Each type has its own catalog with prices and component instances (Base tier free, Mk1-Mk5 at varying prices). Accessed via modal UI (`ShopUISystem`) with tab cycling, grid navigation, and no sequential purchase requirement—players can skip tiers with sufficient funds.
@@ -34,6 +35,8 @@ go test ./...                # Run all tests
 
 ## Key Files
 
+- `cmd/game/main.go` — Application entry point; contains all hardcoded config values (world dimensions, seed, building positions)
+- `internal/domain/world/config.go` — `WorldConfig` struct with `PlayerSpawn` and `BuildingLayout` nested types; validation logic
 - `internal/domain/engine/game.go` — Game loop orchestration with update order: chunks → shop UI (modal pause) → physics → fuel → drilling → interactions
 - `internal/domain/entities/player.go` — Player aggregate root with `InShop` and `IsDrilling` pause flags
 - `internal/domain/entities/engine.go`, `hull.go`, `fuel_tank.go`, `cargo_hold.go`, `heat_shield.go`, `drill.go` — Component value objects with tiers

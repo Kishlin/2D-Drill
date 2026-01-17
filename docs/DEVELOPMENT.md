@@ -304,6 +304,36 @@ dlv debug cmd/game/main.go
 
 ## Making Changes
 
+### Configuring the World
+
+World dimensions, building positions, player spawn, and seed are all configurable via `WorldConfig` struct. To modify the world layout:
+
+1. **Edit constants in `cmd/game/main.go`** (lines 13-37):
+   - `worldWidth`, `worldHeight` — World dimensions
+   - `groundLevel` — Y position of ground (must be aligned to 64px tile boundary)
+   - `playerSpawnX`, `playerSpawnY` — Player starting position
+   - `hospitalX`, `fuelStationX`, `marketX`, `upgradeShopX`, `itemShopX` — Building X positions
+   - `worldSeed` — Procedural generation seed
+
+2. **Configuration is validated automatically** in `main()`:
+   - Dimensions must be positive
+   - Player spawn must be within bounds
+   - Buildings must not be completely off-screen (partial off-screen is allowed)
+
+3. **Example:** To center buildings differently:
+   ```go
+   const (
+       worldWidth = 3072.0
+       hospitalX = 100.0    // Adjust to reposition
+       fuelStationX = 450.0 // All building positions in pixels
+       // ... etc
+   )
+   ```
+
+**Design Tip:** Keep world width as a multiple of 64 (tile size) for clean alignment. Use `WorldConfig` validation to catch errors before game starts.
+
+---
+
 ### Adding a New Entity
 
 1. **Create entity file** in `internal/domain/entities/newentity.go`:

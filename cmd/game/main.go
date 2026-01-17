@@ -15,12 +15,26 @@ const (
 	screenHeight = 720
 	targetFPS    = 60
 
-	// Extended world dimensions (6× width, 1000 tiles deep)
-	worldWidth  = screenWidth * 6 // 7680 pixels
-	worldHeight = 64 * 800        // 51200 pixels (800 tiles × 64px)
-	groundLevel = 640.0           // Aligned to tile boundary (10 * TileSize)
+	// Compact world dimensions (500px padding on each side of buildings)
+	worldWidth  = 3072     // 500px + buildings + 500px
+	worldHeight = 64 * 800 // 51200 pixels (800 tiles × 64px)
+	groundLevel = 640.0    // Aligned to tile boundary (10 * TileSize)
 
 	worldSeed = int64(42) // Seed for procedural world generation
+
+	// Player spawn position (centered in world)
+	playerSpawnX = worldWidth / 2
+	playerSpawnY = 570.0 // Just above ground
+
+	// 320 per building
+
+	// Building positions (X coordinates, Y calculated from ground level)
+	// Layout: 480px pad | Hospital | 50px | FuelStation | 230px | Market | 130px | UpgradeShop | 50px | ItemShop | 532px pad
+	hospitalX    = 480.0
+	fuelStationX = 850.0
+	marketX      = 1400
+	upgradeShopX = 1850.0
+	itemShopX    = 2220.0
 )
 
 func main() {
@@ -42,8 +56,31 @@ func main() {
 
 	slog.Info("Initializing Game")
 
-	gameWorld := world.NewWorld(worldWidth, worldHeight, groundLevel, worldSeed)
-	game := engine.NewGame(gameWorld)
+	config := &world.WorldConfig{
+		Width:       worldWidth,
+		Height:      worldHeight,
+		GroundLevel: groundLevel,
+		Seed:        worldSeed,
+		PlayerSpawn: world.PlayerSpawn{
+			X: playerSpawnX,
+			Y: playerSpawnY,
+		},
+		BuildingLayout: world.BuildingLayout{
+			MarketX:      marketX,
+			FuelStationX: fuelStationX,
+			HospitalX:    hospitalX,
+			UpgradeShopX: upgradeShopX,
+			ItemShopX:    itemShopX,
+		},
+	}
+
+	if err := config.Validate(); err != nil {
+		slog.Error("Invalid world configuration", "error", err)
+		return
+	}
+
+	gameWorld := world.NewWorld(config)
+	game := engine.NewGame(gameWorld, config)
 
 	for {
 		dt := renderer.GetFrameTime() // Delta time in seconds

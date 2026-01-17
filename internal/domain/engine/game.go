@@ -21,35 +21,24 @@ type Game struct {
 	itemShopUISystem  *systems.ItemShopUISystem
 }
 
-func NewGame(w *world.World) *Game {
-	// Spawn player at center of world horizontally, just above ground
-	spawnX := (w.Width / 2) - (entities.PlayerWidth / 2)
-	spawnY := w.GetGroundLevel() - entities.PlayerHeight - 10
+func NewGame(w *world.World, config *world.WorldConfig) *Game {
+	// Use configured player spawn position
+	spawnX := config.PlayerSpawn.X
+	spawnY := config.PlayerSpawn.Y
 
-	// Create market to the right of player spawn
-	marketX := spawnX + 200.0 // ~3 tiles to the right
+	// Calculate building Y positions (always ground level - building height)
 	marketY := w.GetGroundLevel() - entities.MarketHeight
-	market := entities.NewMarket(marketX, marketY)
-
-	// Create fuel station to the left of player spawn
-	fuelStationX := spawnX - 520.0 // ~8 tiles to the left
 	fuelStationY := w.GetGroundLevel() - entities.FuelStationHeight
-	fuelStation := entities.NewFuelStation(fuelStationX, fuelStationY)
-
-	// Create hospital to the left of fuel station
-	hospitalX := fuelStationX - 360.0 // ~5 tiles + gap to the left
 	hospitalY := w.GetGroundLevel() - entities.HospitalHeight
-	hospital := entities.NewHospital(hospitalX, hospitalY)
-
-	// Create unified upgrade shop to the right of the ore market (with void spacing)
 	upgradeShopY := w.GetGroundLevel() - entities.UpgradeShopHeight
-	upgradeShopX := marketX + 450.0
-	upgradeShop := entities.NewUpgradeShop(upgradeShopX, upgradeShopY)
-
-	// Create unified item shop to the right of upgrade shop (with 40px gap, matching fuel/hospital spacing)
 	itemShopY := w.GetGroundLevel() - entities.ItemShopHeight
-	itemShopX := upgradeShopX + 360.0
-	itemShop := entities.NewItemShop(itemShopX, itemShopY)
+
+	// Create buildings at configured positions
+	market := entities.NewMarket(config.BuildingLayout.MarketX, marketY)
+	fuelStation := entities.NewFuelStation(config.BuildingLayout.FuelStationX, fuelStationY)
+	hospital := entities.NewHospital(config.BuildingLayout.HospitalX, hospitalY)
+	upgradeShop := entities.NewUpgradeShop(config.BuildingLayout.UpgradeShopX, upgradeShopY)
+	itemShop := entities.NewItemShop(config.BuildingLayout.ItemShopX, itemShopY)
 
 	return &Game{
 		world:             w,

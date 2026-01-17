@@ -9,7 +9,7 @@ import (
 )
 
 func TestVerticalDrilling_StartsAnimation(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -38,7 +38,7 @@ func TestVerticalDrilling_StartsAnimation(t *testing.T) {
 }
 
 func TestVerticalDrilling_DirtDuration(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -74,7 +74,7 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 
 	for _, test := range oreTests {
 		// Reset for each ore type
-		w2 := world.NewWorld(7680, 64000, 640, 42)
+		w2 := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 		player2 := entities.NewPlayer(100, 500)
 		player2.OnGround = true
 		ds := NewDrillingSystem(w2)
@@ -98,7 +98,7 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 }
 
 func TestDrilling_DepthAffectsDuration(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	drillingSystem := NewDrillingSystem(w)
 
 	depthTests := []struct {
@@ -124,7 +124,7 @@ func TestDrilling_DepthAffectsDuration(t *testing.T) {
 }
 
 func TestHorizontalDrilling_CollectsOre(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -164,7 +164,7 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 }
 
 func TestDrilling_DoesNotStartOnNonDrillableTile(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -181,7 +181,7 @@ func TestDrilling_DoesNotStartOnNonDrillableTile(t *testing.T) {
 }
 
 func TestDrilling_AnimationProgress(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -223,7 +223,7 @@ func TestDrilling_AnimationProgress(t *testing.T) {
 }
 
 func TestDrilling_TileRemovedOnCompletion(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -255,7 +255,7 @@ func TestDrilling_TileRemovedOnCompletion(t *testing.T) {
 }
 
 func TestDrilling_DoesNotCollectDirt(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -296,7 +296,7 @@ func TestDrilling_DoesNotCollectDirt(t *testing.T) {
 }
 
 func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -330,7 +330,7 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 // === Hazard Tile Drilling Tests ===
 
 func TestDrilling_LavaTileDrillsQuickly(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	drillingSystem := NewDrillingSystem(w)
 
 	// Test at various depths
@@ -352,7 +352,7 @@ func TestDrilling_LavaTileDrillsQuicklyAtAnyDepth(t *testing.T) {
 	depthTests := []int{50, 200, 500, 800}  // Various depths
 
 	for _, tileGridY := range depthTests {
-		w2 := world.NewWorld(7680, 64000, 640, 42)
+		w2 := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 		player := entities.NewPlayer(100, 500)
 		player.OnGround = true
 		ds := NewDrillingSystem(w2)
@@ -368,7 +368,7 @@ func TestDrilling_LavaTileDrillsQuicklyAtAnyDepth(t *testing.T) {
 }
 
 func TestDrilling_RockTileBlocksDrilling(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -391,7 +391,7 @@ func TestDrilling_RockTileBlocksDrilling(t *testing.T) {
 }
 
 func TestDrilling_LavaDealsDamage(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
@@ -418,7 +418,7 @@ func TestDrilling_LavaDealsDamage(t *testing.T) {
 }
 
 func TestDrilling_LavaTileRemovedAfterDrilling(t *testing.T) {
-	w := world.NewWorld(7680, 64000, 640, 42)
+	w := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
 	player := entities.NewPlayer(100, 500)
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)

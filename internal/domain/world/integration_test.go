@@ -7,8 +7,8 @@ import (
 )
 
 func TestIntegration_WorldGenerationDeterministic(t *testing.T) {
-	world1 := NewWorld(7680, 64000, 640, 12345)
-	world2 := NewWorld(7680, 64000, 640, 12345)
+	world1 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 12345))
+	world2 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 12345))
 
 	// Query 100 random tile coordinates
 	for i := 0; i < 100; i++ {
@@ -37,7 +37,7 @@ func TestIntegration_WorldGenerationDeterministic(t *testing.T) {
 }
 
 func TestIntegration_GroundLevelSolid(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	groundTileY := 10 // 640 / 64 = 10
 
@@ -57,7 +57,7 @@ func TestIntegration_GroundLevelSolid(t *testing.T) {
 }
 
 func TestIntegration_OreDistribution(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// At depth 300 (gold's peak), count ore types
 	depth := 300
@@ -95,7 +95,7 @@ func TestIntegration_OreDistribution(t *testing.T) {
 }
 
 func TestIntegration_EmptyTileCollision(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Find an empty tile by scanning underground
 	foundEmpty := false
@@ -126,7 +126,7 @@ func TestIntegration_EmptyTileCollision(t *testing.T) {
 }
 
 func TestIntegration_DrillingOre(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Find an ore tile by scanning underground
 	foundOre := false
@@ -175,7 +175,7 @@ func TestIntegration_DrillingOre(t *testing.T) {
 }
 
 func TestIntegration_AboveGroundIsEmpty(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	groundTileY := 10
 
@@ -201,8 +201,8 @@ func TestIntegration_AboveGroundIsEmpty(t *testing.T) {
 }
 
 func TestIntegration_DifferentSeeds(t *testing.T) {
-	world1 := NewWorld(7680, 64000, 640, 111)
-	world2 := NewWorld(7680, 64000, 640, 222)
+	world1 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 111))
+	world2 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 222))
 
 	// Different seeds should produce different worlds
 	differences := 0
@@ -257,7 +257,7 @@ func BenchmarkChunkGeneration(b *testing.B) {
 
 // Benchmark tile lookup on cached chunk
 func BenchmarkGetTileAtGrid_CachedChunk(b *testing.B) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Preload chunk
 	world.EnsureChunkLoaded(5, 5)

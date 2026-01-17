@@ -13,17 +13,19 @@ type World struct {
 	generator    *ChunkGenerator
 	loadedChunks map[[2]int]bool
 	seed         int64
+	config       *WorldConfig
 }
 
-func NewWorld(width, height, groundLevel float32, seed int64) *World {
+func NewWorld(config *WorldConfig) *World {
 	return &World{
-		Width:        width,
-		Height:       height,
-		GroundLevel:  groundLevel,
+		Width:        config.Width,
+		Height:       config.Height,
+		GroundLevel:  config.GroundLevel,
 		tiles:        make(map[[2]int]*entities.Tile),
-		generator:    NewChunkGenerator(seed, groundLevel),
+		generator:    NewChunkGenerator(config.Seed, config.GroundLevel),
 		loadedChunks: make(map[[2]int]bool),
-		seed:         seed,
+		seed:         config.Seed,
+		config:       config,
 	}
 }
 

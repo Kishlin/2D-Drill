@@ -7,7 +7,7 @@ import (
 )
 
 func TestEnsureChunkLoaded_OnlyOnce(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// First load
 	world.EnsureChunkLoaded(0, 0)
@@ -26,7 +26,7 @@ func TestEnsureChunkLoaded_OnlyOnce(t *testing.T) {
 }
 
 func TestEnsureChunkLoaded_StoresOnlySolid(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Load a chunk
 	world.EnsureChunkLoaded(0, 1) // Below ground
@@ -52,7 +52,7 @@ func TestEnsureChunkLoaded_StoresOnlySolid(t *testing.T) {
 }
 
 func TestGetTileAtGrid_TriggersLoad(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Chunk should not be loaded initially
 	if world.loadedChunks[[2]int{5, 5}] {
@@ -69,7 +69,7 @@ func TestGetTileAtGrid_TriggersLoad(t *testing.T) {
 }
 
 func TestUpdateChunksAroundPlayer_Loads3x3(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Player at center of chunk (5, 5): pixel (80*64, 80*64) = (5120, 5120)
 	playerX := float32(5120)
@@ -92,8 +92,8 @@ func TestUpdateChunksAroundPlayer_Loads3x3(t *testing.T) {
 }
 
 func TestWorld_Deterministic(t *testing.T) {
-	world1 := NewWorld(7680, 64000, 640, 12345)
-	world2 := NewWorld(7680, 64000, 640, 12345)
+	world1 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 12345))
+	world2 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 12345))
 
 	// Query 100 random tile coordinates
 	for i := 0; i < 100; i++ {
@@ -122,7 +122,7 @@ func TestWorld_Deterministic(t *testing.T) {
 }
 
 func TestGetTileAt_PixelToGrid(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Pixel (128, 192) should map to grid (2, 3)
 	// Grid (2, 3) is in chunk (0, 0)
@@ -140,7 +140,7 @@ func TestGetTileAt_PixelToGrid(t *testing.T) {
 }
 
 func TestDrillTile_RemovesFromSparseMap(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Ensure ground level chunk is loaded
 	world.EnsureChunkLoaded(0, 0)
@@ -170,7 +170,7 @@ func TestDrillTile_RemovesFromSparseMap(t *testing.T) {
 // === Hazard Tile and Bomb Tests ===
 
 func TestNukeTileAtGrid_RemovesRock(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Place rock tile at grid (100, 500) directly in the sparse map
 	gridX, gridY := 100, 500
@@ -195,7 +195,7 @@ func TestNukeTileAtGrid_RemovesRock(t *testing.T) {
 }
 
 func TestNukeTileAtGrid_RemovesLava(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Place lava tile directly in sparse map
 	gridX, gridY := 100, 500
@@ -219,7 +219,7 @@ func TestNukeTileAtGrid_RemovesLava(t *testing.T) {
 }
 
 func TestNukeTileAtGrid_BypassesDrillability(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Place rock tile (not drillable)
 	gridX, gridY := 100, 500
@@ -250,7 +250,7 @@ func TestNukeTileAtGrid_BypassesDrillability(t *testing.T) {
 }
 
 func TestNukeTileAtGrid_DoesNotAffectEmpty(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Try to nuke at a location with no tile (empty)
 	gridX, gridY := 100, 500
@@ -266,7 +266,7 @@ func TestNukeTileAtGrid_DoesNotAffectEmpty(t *testing.T) {
 }
 
 func TestNukeTileAtGrid_RemovesDirt(t *testing.T) {
-	world := NewWorld(7680, 64000, 640, 42)
+	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
 
 	// Place dirt tile directly in sparse map (should also be removable with nuke)
 	gridX, gridY := 100, 500
