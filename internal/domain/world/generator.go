@@ -11,15 +11,36 @@ const ChunkSize = 16 // 16x16 tiles per chunk
 
 // ChunkGenerator handles procedural tile generation using depth-dependent Gaussian distributions
 type ChunkGenerator struct {
-	seed        int64
-	groundTileY int
+	seed           int64
+	groundTileY    int
+	oreLookup      OreLookup
+	hazardLookup   HazardLookup
+	baseTileConfig *BaseTileConfig
 }
 
 // NewChunkGenerator creates a generator with the given world seed and ground level
+// Deprecated: Use NewChunkGeneratorWithConfig instead
 func NewChunkGenerator(seed int64, groundLevel float32) *ChunkGenerator {
 	return &ChunkGenerator{
 		seed:        seed,
 		groundTileY: int(groundLevel / TileSize),
+	}
+}
+
+// NewChunkGeneratorWithConfig creates a generator with configuration lookups
+func NewChunkGeneratorWithConfig(
+	seed int64,
+	groundLevel float32,
+	oreLookup OreLookup,
+	hazardLookup HazardLookup,
+	baseTileConfig *BaseTileConfig,
+) *ChunkGenerator {
+	return &ChunkGenerator{
+		seed:           seed,
+		groundTileY:    int(groundLevel / TileSize),
+		oreLookup:      oreLookup,
+		hazardLookup:   hazardLookup,
+		baseTileConfig: baseTileConfig,
 	}
 }
 
@@ -69,25 +90,49 @@ func (cg *ChunkGenerator) calculateAllTileWeights(tileY int) TileWeights {
 	depthFactor := float32(tileY-cg.groundTileY) / (1000.0 - float32(cg.groundTileY))
 	depthFactor = clamp(depthFactor, 0, 1)
 
-	// Empty: decreases with depth (8.0 at surface → 0.5 at max depth)
-	weights.Empty = 8.0 - 7.5*depthFactor
+	// Empty and Dirt: use config or hardcoded defaults if no config
+	if cg.baseTileConfig != nil {
+		weights.Empty = cg.baseTileConfig.EmptyBaseWeight - (depthFactor * cg.baseTileConfig.EmptyDepthReduction)
+		weights.Dirt = cg.baseTileConfig.DirtBaseWeight - (depthFactor * cg.baseTileConfig.DirtDepthReduction)
+	} else {
+		// Fallback to hardcoded values for backward compatibility
+		weights.Empty = 8.0 - 7.5*depthFactor
+		weights.Dirt = 20.0 - 18.0*depthFactor
+	}
 
-	// Dirt: decreases with depth (20.0 at surface → 2.0 at max depth)
-	weights.Dirt = 20.0 - 18.0*depthFactor
-
-	// Ore weights (existing Gaussian logic)
-	for oreType, meta := range entities.OreDistributions {
-		weight := cg.gaussianWeight(float32(tileY), meta.PeakDepth, meta.Sigma, meta.MaxWeight)
-		if weight >= 0.01 {
-			weights.Ores[oreType] = weight
+	// Ore weights using config or global map as fallback
+	if cg.oreLookup != nil {
+		for oreType, dist := range cg.oreLookup.GetAllDistributions() {
+			weight := cg.gaussianWeight(float32(tileY), dist.PeakDepth, dist.Sigma, dist.MaxWeight)
+			if weight >= 0.01 {
+				weights.Ores[oreType] = weight
+			}
+		}
+	} else {
+		// Fallback to global map for backward compatibility
+		for oreType, meta := range entities.OreDistributions {
+			weight := cg.gaussianWeight(float32(tileY), meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+			if weight >= 0.01 {
+				weights.Ores[oreType] = weight
+			}
 		}
 	}
 
-	// Hazard weights (Gaussian logic)
-	for hazardType, meta := range entities.HazardDistributions {
-		weight := cg.gaussianWeight(float32(tileY), meta.PeakDepth, meta.Sigma, meta.MaxWeight)
-		if weight >= 0.01 {
-			weights.Hazards[hazardType] = weight
+	// Hazard weights using config or global map as fallback
+	if cg.hazardLookup != nil {
+		for hazardType, dist := range cg.hazardLookup.GetAllDistributions() {
+			weight := cg.gaussianWeight(float32(tileY), dist.PeakDepth, dist.Sigma, dist.MaxWeight)
+			if weight >= 0.01 {
+				weights.Hazards[hazardType] = weight
+			}
+		}
+	} else {
+		// Fallback to global map for backward compatibility
+		for hazardType, meta := range entities.HazardDistributions {
+			weight := cg.gaussianWeight(float32(tileY), meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+			if weight >= 0.01 {
+				weights.Hazards[hazardType] = weight
+			}
 		}
 	}
 

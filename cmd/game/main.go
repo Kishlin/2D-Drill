@@ -8,6 +8,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/adapters/rendering"
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/world"
+	"github.com/Kishlin/drill-game/internal/domain/worlds"
 )
 
 const (
@@ -15,26 +16,13 @@ const (
 	screenHeight = 720
 	targetFPS    = 60
 
-	// Compact world dimensions (500px padding on each side of buildings)
-	worldWidth  = 3072     // 500px + buildings + 500px
-	worldHeight = 64 * 800 // 51200 pixels (800 tiles × 64px)
-	groundLevel = 640.0    // Aligned to tile boundary (10 * TileSize)
-
-	worldSeed = int64(42) // Seed for procedural world generation
-
-	// Player spawn position (centered in world)
-	playerSpawnX = worldWidth / 2
-	playerSpawnY = 570.0 // Just above ground
-
-	// 320 per building
-
-	// Building positions (X coordinates, Y calculated from ground level)
-	// Layout: 480px pad | Hospital | 50px | FuelStation | 230px | Market | 130px | UpgradeShop | 50px | ItemShop | 532px pad
-	hospitalX    = 480.0
-	fuelStationX = 850.0
-	marketX      = 1400
-	upgradeShopX = 1850.0
-	itemShopX    = 2220.0
+	// World selection: change this to switch between different world configurations
+	// Available worlds:
+	//   - "default":      Normal game balance, player starts with $0 and Base upgrades
+	//   - "hard_mode":    Harder difficulty - 50% ore values, 2x upgrade prices, more hazards
+	//   - "sandbox":      Easy testing - 10x ore values, free upgrades, no hazards, Mk5 start
+	//   - "endgame_test": Mid-tier start with Mk3 upgrades for testing deep content
+	selectedWorld = "default"
 )
 
 func main() {
@@ -44,6 +32,10 @@ func main() {
 	slog.SetDefault(logger)
 
 	slog.Info("Starting Drill Game")
+
+	// Load world configuration
+	slog.Info("Loading world configuration", "world", selectedWorld)
+	worldConfig := worlds.MustGetWorld(selectedWorld)
 
 	renderer := rendering.NewRaylibRenderer(screenWidth, screenHeight)
 	inputAdapter := input.NewRaylibInputAdapter()
@@ -56,31 +48,21 @@ func main() {
 
 	slog.Info("Initializing Game")
 
-	config := &world.WorldConfig{
-		Width:       worldWidth,
-		Height:      worldHeight,
-		GroundLevel: groundLevel,
-		Seed:        worldSeed,
-		PlayerSpawn: world.PlayerSpawn{
-			X: playerSpawnX,
-			Y: playerSpawnY,
-		},
-		BuildingLayout: world.BuildingLayout{
-			MarketX:      marketX,
-			FuelStationX: fuelStationX,
-			HospitalX:    hospitalX,
-			UpgradeShopX: upgradeShopX,
-			ItemShopX:    itemShopX,
-		},
-	}
-
-	if err := config.Validate(); err != nil {
+	// Validate world configuration
+	if err := worldConfig.World.Validate(); err != nil {
 		slog.Error("Invalid world configuration", "error", err)
 		return
 	}
 
-	gameWorld := world.NewWorld(config)
-	game := engine.NewGame(gameWorld, config)
+	// Create configuration lookups for procedural generation
+	oreLookup := worlds.NewOreConfigLookup(&worldConfig.Ores)
+	hazardLookup := worlds.NewHazardConfigLookup(&worldConfig.Hazards)
+
+	// Create game world with config lookups
+	gameWorld := world.NewWorldWithConfig(worldConfig.World, oreLookup, hazardLookup, &worldConfig.BaseTiles)
+
+	// Create game (to be updated in Phase 4 for full config support)
+	game := engine.NewGame(gameWorld, worldConfig.World)
 
 	for {
 		dt := renderer.GetFrameTime() // Delta time in seconds

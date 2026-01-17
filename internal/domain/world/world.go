@@ -29,6 +29,25 @@ func NewWorld(config *WorldConfig) *World {
 	}
 }
 
+// NewWorldWithConfig creates a world with configuration lookups for procedural generation
+func NewWorldWithConfig(
+	config *WorldConfig,
+	oreLookup OreLookup,
+	hazardLookup HazardLookup,
+	baseTileConfig *BaseTileConfig,
+) *World {
+	return &World{
+		Width:        config.Width,
+		Height:       config.Height,
+		GroundLevel:  config.GroundLevel,
+		tiles:        make(map[[2]int]*entities.Tile),
+		generator:    NewChunkGeneratorWithConfig(config.Seed, config.GroundLevel, oreLookup, hazardLookup, baseTileConfig),
+		loadedChunks: make(map[[2]int]bool),
+		seed:         config.Seed,
+		config:       config,
+	}
+}
+
 // EnsureChunkLoaded generates a chunk if not already loaded
 func (w *World) EnsureChunkLoaded(chunkX, chunkY int) {
 	key := [2]int{chunkX, chunkY}
