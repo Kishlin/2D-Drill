@@ -511,6 +511,64 @@ Strategic Item Use:
 - Repair/Refuel items extend expedition length vs making return trips
 - Mix of item usage and traditional methods balances spending
 
+## Boss Fights
+
+### Overview
+
+Boss encounters are end-of-level challenges that occur at the bottom of the mineable world. Players dig through normal terrain to reach a boss room, then must defeat the boss to complete the level. Boss rooms feature solid, indestructible floor tiles that prevent digging further.
+
+### Boss Room Layout
+
+Each boss room has three layers:
+1. **Mining Area** — Normal terrain with ores and hazards (top section)
+2. **Boss Room** — Empty space where the boss waits (middle section, ~720 pixels)
+3. **Floor** — Solid concrete or lava tiles (bottom section, indestructible)
+
+The camera clamps at the world bottom to prevent viewing or nuking below the floor.
+
+### Boss Mechanics
+
+**Activation & Deactivation:**
+- Boss activates when player enters the boss room (crosses threshold)
+- Boss deactivates when player leaves the room
+- HP is preserved if player exits and re-enters
+
+**Interaction:**
+- Bombs deal damage to bomb-vulnerable bosses (10 HP per bomb, 25 HP per big bomb)
+- Boss dies when HP reaches 0
+- Victory screen appears on boss defeat
+- Current game state (Playing/Victory/Defeat) is tracked and rendered
+
+**TestBoss** (current implementation):
+- 100 HP, 200×200 pixel sprite
+- Located at center of boss room
+- Takes damage from bombs and big bombs
+- Simple physical boss for testing and development
+
+### Floor Types
+
+Boss rooms can have different floor mechanics configured per level:
+
+**Concrete Floor:**
+- Solid, walkable surface
+- Appears gray
+- Safe to stand on indefinitely
+- No special effects
+
+**Lava Floor:**
+- Solid, but deals damage while standing on it
+- Appears orange/red
+- Encourages quick movement or escape
+- Damage rate configurable per level
+
+### Design Notes
+
+- Boss fights serve as level conclusion points
+- Bomb weapons become tactical in boss encounters
+- Extensible via `Boss` interface (non-physical bosses possible, e.g., bullet-hell)
+- Floor types allow varied boss mechanics (safe vs hazardous arenas)
+- Game state tracking enables future pause/menu features
+
 ## Progression Curve
 
 ### Early Game (Surface to 5000px / ~78 tiles)

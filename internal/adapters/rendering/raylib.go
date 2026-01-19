@@ -5,6 +5,7 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
+	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
@@ -34,6 +35,10 @@ var (
 	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)   // Orange
 	BombShopColor       = rl.NewColor(255, 20, 147, 255)  // Deep Pink
 	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)   // Crimson
+	BossColor           = rl.NewColor(255, 0, 0, 255)     // Red
+	BossBorderColor     = rl.NewColor(139, 0, 0, 255)     // Dark Red
+	FloorConcreteColor  = rl.NewColor(100, 100, 100, 255) // Dark Gray
+	FloorLavaColor      = rl.NewColor(255, 100, 0, 255)   // Orange
 )
 
 type RaylibRenderer struct {
@@ -90,6 +95,7 @@ func (r *RaylibRenderer) updateCamera(player *entities.Player, w *world.World) {
 	minX := halfScreenW
 	maxX := r.worldWidth - halfScreenW
 	minY := w.GetGroundLevel() - halfScreenH // Can't view above sky
+	maxY := w.Height - r.screenHeight + 128  // Stop at world bottom with 128px margin
 
 	// Horizontal clamping
 	targetX := playerCenterX
@@ -99,12 +105,14 @@ func (r *RaylibRenderer) updateCamera(player *entities.Player, w *world.World) {
 		targetX = maxX
 	}
 
-	// Vertical clamping (top only, no bottom limit per user requirement)
+	// Vertical clamping (top and bottom)
 	targetY := playerCenterY
 	if targetY < minY {
 		targetY = minY
 	}
-	// No maxY check - camera follows player infinitely downward
+	if targetY > maxY {
+		targetY = maxY
+	}
 
 	r.camera.Target = rl.Vector2{X: targetX, Y: targetY}
 }
@@ -128,10 +136,24 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	r.renderUpgradeShop(game.GetItemShop().AABB, TeleportShopColor, rl.Purple)
 	r.renderPlayer(game.GetPlayer())
 
+	// Boss rendering
+	if game.GetBoss() != nil {
+		r.renderBoss(game.GetBoss())
+		r.renderProjectiles(game.GetBoss())
+	}
+
 	rl.EndMode2D()
 
 	// === SCREEN SPACE (no camera, always visible) ===
 	r.renderDebugInfo(game.GetPlayer(), inputState)
+
+	// Boss HP bar
+	if game.GetBoss() != nil {
+		r.renderBossHPBar(game.GetBoss())
+	}
+
+	// Game state overlay (victory/defeat screens)
+	r.renderGameStateOverlay(game)
 
 	// Render shop modals if open
 	if game.GetUpgradeShopUIState().Open {
@@ -282,6 +304,8 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 			} else {
 				color = rl.Magenta // Error color for unknown hazard
 			}
+		case entities.TileTypeFloor:
+			color = FloorConcreteColor
 		default:
 			color = rl.Magenta // Error color for unknown tile type
 		}
@@ -775,4 +799,187 @@ func (r *RaylibRenderer) renderItemShopModal(game *engine.Game) {
 	controlsText := "[Arrows] Navigate   [E] Buy   [Q] Close"
 	controlsWidth := rl.MeasureText(controlsText, 16)
 	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
+}
+
+func (r *RaylibRenderer) renderBoss(boss bosses.Boss) {
+	if boss == nil {
+		return
+	}
+
+	physicalBoss, ok := boss.(bosses.PhysicalBoss)
+	if !ok {
+		return // Skip non-physical bosses
+	}
+
+	aabb := physicalBoss.GetAABB()
+
+	// Draw boss as colored rectangle
+	rl.DrawRectangle(
+		int32(aabb.X),
+		int32(aabb.Y),
+		int32(aabb.Width),
+		int32(aabb.Height),
+		BossColor,
+	)
+
+	// Draw boss outline
+	rl.DrawRectangleLines(
+		int32(aabb.X),
+		int32(aabb.Y),
+		int32(aabb.Width),
+		int32(aabb.Height),
+		BossBorderColor,
+	)
+}
+
+func (r *RaylibRenderer) renderBossHPBar(boss bosses.Boss) {
+	if boss == nil || !boss.IsActive() {
+		return
+	}
+
+	barWidth := float32(200)
+	barHeight := float32(20)
+	barX := r.screenWidth/2 - barWidth/2 // Center horizontally
+	barY := float32(20)                  // Top of screen
+
+	// Background (empty bar)
+	rl.DrawRectangle(
+		int32(barX),
+		int32(barY),
+		int32(barWidth),
+		int32(barHeight),
+		rl.DarkGray,
+	)
+
+	// Health fill
+	healthPercent := boss.GetHP() / boss.GetMaxHP()
+	fillWidth := barWidth * healthPercent
+
+	// Color changes based on health
+	var color rl.Color
+	if healthPercent > 0.66 {
+		color = rl.Green
+	} else if healthPercent > 0.33 {
+		color = rl.Orange
+	} else {
+		color = rl.Red
+	}
+
+	rl.DrawRectangle(
+		int32(barX),
+		int32(barY),
+		int32(fillWidth),
+		int32(barHeight),
+		color,
+	)
+
+	// Border
+	rl.DrawRectangleLines(
+		int32(barX),
+		int32(barY),
+		int32(barWidth),
+		int32(barHeight),
+		rl.Black,
+	)
+
+	// Text: "HP: X / Y"
+	hpText := fmt.Sprintf("HP: %.0f / %.0f", boss.GetHP(), boss.GetMaxHP())
+	rl.DrawText(
+		hpText,
+		int32(barX+5),
+		int32(barY+2),
+		12,
+		rl.White,
+	)
+}
+
+// renderProjectiles renders boss projectiles
+func (r *RaylibRenderer) renderProjectiles(boss bosses.Boss) {
+	if boss == nil {
+		return
+	}
+
+	projectiles := boss.GetProjectiles()
+	for _, proj := range projectiles {
+		if !proj.Active {
+			continue
+		}
+
+		// Draw projectile as small circle
+		centerX := proj.AABB.X + proj.AABB.Width/2
+		centerY := proj.AABB.Y + proj.AABB.Height/2
+
+		rl.DrawCircle(
+			int32(centerX),
+			int32(centerY),
+			proj.AABB.Width/2,
+			rl.Yellow,
+		)
+	}
+}
+
+// renderGameStateOverlay renders victory/defeat screens
+func (r *RaylibRenderer) renderGameStateOverlay(game *engine.Game) {
+	state := game.GetGameState()
+
+	switch state {
+	case entities.GameStateVictory:
+		r.renderVictoryScreen()
+	case entities.GameStateDefeat:
+		r.renderDefeatScreen()
+	}
+}
+
+func (r *RaylibRenderer) renderVictoryScreen() {
+	// Semi-transparent overlay
+	rl.DrawRectangle(0, 0, int32(r.screenWidth), int32(r.screenHeight), rl.NewColor(0, 0, 0, 200))
+
+	// Victory text
+	victoryText := "VICTORY!"
+	victoryWidth := rl.MeasureText(victoryText, 40)
+	rl.DrawText(
+		victoryText,
+		int32(r.screenWidth)/2-victoryWidth/2,
+		int32(r.screenHeight)/2-40,
+		40,
+		rl.Green,
+	)
+
+	// Instructions
+	instructText := "Press ESC to return to main menu"
+	instructWidth := rl.MeasureText(instructText, 20)
+	rl.DrawText(
+		instructText,
+		int32(r.screenWidth)/2-instructWidth/2,
+		int32(r.screenHeight)/2+40,
+		20,
+		rl.White,
+	)
+}
+
+func (r *RaylibRenderer) renderDefeatScreen() {
+	// Semi-transparent overlay
+	rl.DrawRectangle(0, 0, int32(r.screenWidth), int32(r.screenHeight), rl.NewColor(0, 0, 0, 200))
+
+	// Defeat text
+	defeatText := "DEFEATED!"
+	defeatWidth := rl.MeasureText(defeatText, 40)
+	rl.DrawText(
+		defeatText,
+		int32(r.screenWidth)/2-defeatWidth/2,
+		int32(r.screenHeight)/2-40,
+		40,
+		rl.Red,
+	)
+
+	// Instructions
+	instructText := "Press ESC to try again"
+	instructWidth := rl.MeasureText(instructText, 20)
+	rl.DrawText(
+		instructText,
+		int32(r.screenWidth)/2-instructWidth/2,
+		int32(r.screenHeight)/2+40,
+		20,
+		rl.White,
+	)
 }

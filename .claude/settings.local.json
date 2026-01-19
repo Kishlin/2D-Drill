@@ -12,7 +12,9 @@
       "Bash(gofmt:*)",
       "Bash(go list:*)",
       "Bash(grep:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

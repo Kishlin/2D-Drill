@@ -1,6 +1,10 @@
 package engine
 
 import (
+	"fmt"
+
+	"github.com/Kishlin/drill-game/internal/domain/bosses"
+	"github.com/Kishlin/drill-game/internal/domain/bosses/test_boss"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
@@ -20,6 +24,9 @@ type Game struct {
 	upgradeShopUISystem *systems.UpgradeShopUISystem
 	itemSystem          *systems.ItemSystem
 	itemShopUISystem    *systems.ItemShopUISystem
+	boss                bosses.Boss
+	bossFightSystem     *systems.BossFightSystem
+	gameState           entities.GameState
 	config              *config.GameConfig
 }
 
@@ -65,6 +72,25 @@ func NewGame(w *world.World, gameCfg *config.GameConfig) *Game {
 	// Create market system with ore configs for value lookup
 	marketSystem := systems.NewMarketSystemWithConfig(market, gameCfg.Generation.Ores)
 
+	// Create item system
+	itemSystem := systems.NewItemSystemWithConfig(w, spawnX, spawnY, gameCfg.Items)
+
+	// Create boss and boss fight system if configured
+	var boss bosses.Boss
+	var bossFightSystem *systems.BossFightSystem
+	if gameCfg.Level.BossRoom != nil {
+		var err error
+		boss, err = createBossByType(
+			gameCfg.Level.BossRoom.BossType,
+			worldCfg.Height-gameCfg.Level.BossRoom.RoomHeight-gameCfg.Level.BossRoom.FloorHeight*world.TileSize,
+			worldCfg.Width,
+		)
+		if err == nil && boss != nil {
+			bossFightSystem = systems.NewBossFightSystem(boss, gameCfg.Level.BossRoom, worldCfg.Height)
+			itemSystem.SetBossFightSystem(bossFightSystem)
+		}
+	}
+
 	return &Game{
 		world:               w,
 		player:              player,
@@ -75,8 +101,11 @@ func NewGame(w *world.World, gameCfg *config.GameConfig) *Game {
 		fuelStationSystem:   systems.NewFuelStationSystem(fuelStation),
 		hospitalSystem:      systems.NewHospitalSystem(hospital),
 		upgradeShopUISystem: systems.NewUpgradeShopUISystem(upgradeShop),
-		itemSystem:          systems.NewItemSystemWithConfig(w, spawnX, spawnY, gameCfg.Items),
+		itemSystem:          itemSystem,
 		itemShopUISystem:    systems.NewItemShopUISystem(itemShop),
+		boss:                boss,
+		bossFightSystem:     bossFightSystem,
+		gameState:           entities.GameStatePlaying,
 		config:              gameCfg,
 	}
 }
@@ -125,6 +154,11 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 9. Handle hospital healing
 	g.hospitalSystem.ProcessHealing(g.player, inputState)
 
+	// 10. Update boss fight system (if active)
+	if g.bossFightSystem != nil {
+		g.gameState = g.bossFightSystem.Update(g.player, dt)
+	}
+
 	return nil
 }
 
@@ -166,4 +200,32 @@ func (g *Game) GetItemShopUIState() *entities.ItemShopUIState {
 
 func (g *Game) GetConfig() *config.GameConfig {
 	return g.config
+}
+
+func (g *Game) GetBoss() bosses.Boss {
+	return g.boss
+}
+
+func (g *Game) GetBossFightSystem() *systems.BossFightSystem {
+	return g.bossFightSystem
+}
+
+func (g *Game) GetGameState() entities.GameState {
+	return g.gameState
+}
+
+func (g *Game) IsBossFightActive() bool {
+	if g.bossFightSystem == nil {
+		return false
+	}
+	return g.bossFightSystem.IsBossFightActive()
+}
+
+func createBossByType(bossType string, roomStartY, worldWidth float32) (bosses.Boss, error) {
+	switch bossType {
+	case "test_boss":
+		return test_boss.New(roomStartY, worldWidth), nil
+	default:
+		return nil, fmt.Errorf("unknown boss type: %s", bossType)
+	}
 }

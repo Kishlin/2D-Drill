@@ -78,18 +78,26 @@ drill-game/
 │   │       └── raylib.go                    # RaylibRenderer (receives GenerationConfig for colors)
 │   │
 │   └── domain/                              # Pure Business Logic
-│       ├── config/                          # Configuration structs (NEW)
+│       ├── bosses/                          # Boss System
+│       │   ├── boss.go                      # Boss interface + PhysicalBoss interface
+│       │   ├── projectile.go                # Projectile entity for boss attacks
+│       │   └── test_boss/
+│       │       └── boss.go                  # TestBoss implementation (100 HP, physical)
+│       │
+│       ├── config/                          # Configuration structs
 │       │   ├── game_config.go               # GameConfig aggregate with Validate()
 │       │   ├── world_config.go              # WorldConfig (dimensions, spawn, buildings)
 │       │   ├── player_config.go             # PlayerConfig (starting money, items, upgrades)
 │       │   ├── generation_config.go         # GenerationConfig (ores, hazards, distributions)
 │       │   ├── upgrade_config.go            # UpgradeConfig (6 upgrade type tiers with prices/stats)
 │       │   ├── item_config.go               # ItemConfig (5 items with prices/effects)
+│       │   ├── boss_room_config.go          # BossRoomConfig (boss type, floor type, dimensions)
 │       │   └── component_stats.go           # EngineStats, HullStats, etc. for generic tiers
 │       │
-│       ├── levels/                          # Level definitions (NEW)
+│       ├── levels/                          # Level definitions
 │       │   ├── level1.go                    # GetLevel1Config() — production level
 │       │   ├── level_dev.go                 # GetTestLevelConfig() — test level (-1)
+│       │   ├── level_boss.go                # GetBossTestLevelConfig() — boss test level (-2)
 │       │   └── registry.go                  # GetLevelConfig(levelNum) dispatcher
 │       │
 │       ├── engine/
@@ -103,7 +111,8 @@ drill-game/
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
 │       │   ├── upgrade_shop_ui.go           # UpgradeShopUISystem (modal upgrade UI)
 │       │   ├── item_shop_ui.go              # ItemShopUISystem (modal item shop UI)
-│       │   ├── item.go                      # ItemSystem (reads bomb radius from config)
+│       │   ├── item.go                      # ItemSystem (reads bomb radius, handles bomb-boss collisions)
+│       │   ├── boss_fight.go                # BossFightSystem (boss activation, projectiles, floor damage)
 │       │   └── *_test.go                    # System tests
 │       ├── entities/
 │       │   ├── player.go                    # Player aggregate root; NewPlayerFromConfig()
@@ -113,7 +122,8 @@ drill-game/
 │       │   ├── cargo_hold.go                # CargoHold component; NewCargoHoldFromStats()
 │       │   ├── heat_shield.go               # HeatShield component; NewHeatShieldFromStats()
 │       │   ├── drill.go                     # Drill component; NewDrillFromStats()
-│       │   ├── tile.go                      # Tile entity (stores OreID/HazardID strings)
+│       │   ├── tile.go                      # Tile entity (includes TileTypeFloor for indestructible floors)
+│       │   ├── game_state.go                # GameState enum (Playing, Victory, Defeat)
 │       │   ├── upgrade_shop.go              # UpgradeShop; NewUpgradeShopFromConfig()
 │       │   ├── item_shop.go                 # ItemShop; NewItemShopFromConfig()
 │       │   └── ...                          # Other entities
@@ -2053,6 +2063,127 @@ Two hazard types use Gaussian distributions to create depth-based challenges:
 - Lava's slightly lower peak (750 vs 650) places it deeper, after rock introduction
 - Hazards scale with depth factor, ensuring surface mining remains pure ore/dirt
 - Fast lava drilling (0.3s) prevents tedious endgame drilling while maintaining risk
+
+---
+
+## Boss System
+
+### Overview
+
+The boss system provides extensible end-of-level encounters. Bosses are implemented as a separate package with common interfaces, enabling different boss types with varying mechanics.
+
+### Architecture
+
+**Interfaces (Domain Logic):**
+
+```go
+// Boss defines the interface all bosses must implement
+type Boss interface {
+    Update(player *entities.Player, dt float32)
+    GetHP() float32
+    GetMaxHP() float32
+    IsDefeated() bool
+    IsActive() bool
+    Activate()
+    Deactivate()
+    GetProjectiles() []*Projectile
+}
+
+// PhysicalBoss extends Boss for bomb-vulnerable bosses
+type PhysicalBoss interface {
+    Boss
+    GetAABB() types.AABB
+    TakeDamage(damage float32)
+}
+```
+
+**Components:**
+
+- **Boss Entities** — Separate packages per boss type (e.g., `bosses/test_boss/`)
+- **Projectile Entity** — Reusable projectile with AABB collision detection
+- **BossFightSystem** — Orchestrates boss encounters, tracks active state, handles projectile collisions
+- **GameState** — Enum tracking Playing/Victory/Defeat states
+- **BossRoomConfig** — Configuration for boss type, floor type, dimensions
+
+### World Generation Integration
+
+Boss rooms are generated as:
+
+1. **Empty Space** — Boss room area has no tiles (players can navigate freely)
+2. **Floor Tiles** — Solid, indestructible `TileTypeFloor` tiles below the boss room
+3. **Camera Clamping** — Camera stops at world bottom to prevent viewing/nuking below floor
+
+The world generator receives `BossRoomConfig` and tracks:
+- `bossRoomStartY` — Top of boss room
+- `bossRoomEndY` — Bottom of boss room (start of floor)
+- `floorEndY` — Bottom of floor
+
+### Bomb-Boss Interaction
+
+When a bomb is used:
+1. ItemSystem creates a circular AABB for the blast radius
+2. Checks if blast AABB intersects boss's AABB
+3. If hit, calls `BossFightSystem.DamageBoss(damage)`
+4. Boss HP decreases, defeated state tracked
+
+**Damage Values:**
+- Regular bomb: 10 HP
+- Big bomb: 25 HP
+
+### Game State Transitions
+
+```
+GameStatePlaying (initial)
+    ├─ Normal gameplay
+    ├─ Boss can be active or inactive
+    ├─ BossFightSystem.Update() called every frame
+    └─ If boss.IsDefeated() → GameStateVictory
+       If player.HP <= 0 → GameStateDefeat
+
+GameStateVictory (terminal)
+    └─ Boss defeated, victory screen displayed
+
+GameStateDefeat (terminal)
+    └─ Player defeated, defeat screen displayed
+```
+
+### Extensibility
+
+**Adding a New Boss Type:**
+
+1. Create `internal/domain/bosses/my_boss/boss.go`
+2. Implement `Boss` or `PhysicalBoss` interface
+3. Add case in `engine/game.go` `createBossByType()`:
+   ```go
+   case "my_boss":
+       return my_boss.New(roomStartY, worldWidth), nil
+   ```
+4. Configure in level config:
+   ```go
+   BossRoom: &config.BossRoomConfig{
+       BossType: "my_boss",
+       FloorType: config.FloorConcrete,
+       RoomHeight: 720.0,
+       FloorHeight: 6.0,
+   }
+   ```
+
+**Example: Bullet-Hell Boss** (non-physical):
+- No AABB, can't be hit by bombs
+- Spawns projectiles during Update()
+- HP depletes over time or through other mechanics
+- BossFightSystem handles projectile-player collision detection
+
+### Rendering Integration
+
+**Adapter Layer** (`internal/adapters/rendering/raylib.go`):
+- `renderBoss()` — Draws boss AABB as colored rectangle
+- `renderBossHPBar()` — HP bar at screen top with health gradient
+- `renderProjectiles()` — Active projectiles in world space
+- `renderGameStateOverlay()` — Victory/defeat screens
+- Floor tiles styled based on `FloorType` (concrete gray, lava orange)
+
+Boss rendering is purely visual; all game logic lives in domain layer.
 
 ---
 

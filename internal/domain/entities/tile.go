@@ -13,6 +13,7 @@ const (
 	TileTypeOre                   // Solid ore (drillable, contains ore)
 	TileTypeRock                  // Solid rock (impenetrable, not drillable)
 	TileTypeLava                  // Lava (drillable, deals damage on completion)
+	TileTypeFloor                 // Floor (solid, not drillable, not nukeable)
 )
 
 type Tile struct {
@@ -41,7 +42,8 @@ func (t *Tile) IsSolid() bool {
 }
 
 func (t *Tile) IsDrillable() bool {
-	// Rock is NOT drillable, but Lava IS drillable (deals damage on completion)
+	// Rock and Floor are NOT drillable
+	// Lava IS drillable (deals damage on completion)
 	return t.Type == TileTypeDirt || t.Type == TileTypeOre || t.Type == TileTypeLava
 }
 

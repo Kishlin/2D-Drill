@@ -33,6 +33,7 @@ go test ./...                # Run all tests
 - **Hazard Tiles** — Rock (impenetrable, blocks drilling/movement) and Lava (drillable but deals damage) tiles spawn at deep depths using Gaussian distributions. Hazards dominate terrain at 80%+ depths, creating natural progression gates. Bombs can destroy rocks via `NukeTileAtGrid()` which bypasses drillability checks. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#hazard-tiles) for mechanics.
 - **Depth-Dependent Generation** — All tile types (empty, dirt, ore, hazards) use weighted random selection with weights that vary by depth. Surface (0%) generates mostly dirt/empty; deep (80%+) hazards dominate. Enables natural progression without hard level walls.
 - **Unified Item Shop** — Single `ItemShop` entity consolidates all 5 consumable items (Teleport, Repair, Refuel, Bomb, Big Bomb) with a modal UI (similar to upgrade shop). Items stored in `ItemInventory [5]int` and used via T, R, F, B, G keys (discrete input, `IsKeyPressed()`). Bombs and Big Bombs use `NukeTileAtGrid()` to destroy all solid tiles including impenetrable rocks. Purchased via modal at item shop with E key. Grid navigation (arrows/WASD) selects items; E to purchase; Q/Escape to close. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#items) for mechanics.
+- **Boss Fight System** — End-of-level boss encounters with configurable boss types and floor mechanics. Boss rooms are generated as empty spaces below the mining area, with solid, indestructible floor tiles. Bosses implement the `Boss` interface; bomb-vulnerable bosses implement `PhysicalBoss` for AABB collision detection. Game state tracks Playing/Victory/Defeat. Boss HP bar renders at screen top when boss is active. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#boss-fights) for full mechanics.
 
 ## Key Files
 
@@ -54,7 +55,16 @@ go test ./...                # Run all tests
 - `internal/domain/systems/drilling.go` — Drilling animations with depth-scaled durations; reads hazard config for lava damage
 - `internal/domain/systems/fuel.go` — Fuel consumption based on input state
 - `internal/domain/systems/physics.go` — Gravity, collision, damage (fall/heat)
+- `internal/domain/systems/boss_fight.go` — BossFightSystem: orchestrates boss fights, tracks player entry/exit, handles projectile collisions, applies floor damage
 - `internal/domain/world/` — Chunk-based procedural world; generator reads `GenerationConfig` for ore/hazard distributions
+
+### Boss System
+- `internal/domain/bosses/boss.go` — `Boss` interface (all bosses) and `PhysicalBoss` interface (bomb-vulnerable bosses)
+- `internal/domain/bosses/projectile.go` — Projectile entity for boss attacks with AABB collision detection
+- `internal/domain/bosses/test_boss/boss.go` — TestBoss implementation (100 HP, 200x200px, bomb-vulnerable)
+- `internal/domain/config/boss_room_config.go` — `BossRoomConfig` struct with boss type, floor type, room height, floor height
+- `internal/domain/entities/game_state.go` — `GameState` enum: Playing, Victory, Defeat
+- `internal/domain/levels/level_boss.go` — Boss test level (-2) configuration for development and testing
 
 ## Documentation
 
