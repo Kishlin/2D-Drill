@@ -7,6 +7,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/adapters/input"
 	"github.com/Kishlin/drill-game/internal/adapters/rendering"
 	"github.com/Kishlin/drill-game/internal/domain/engine"
+	"github.com/Kishlin/drill-game/internal/domain/levels"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
@@ -14,27 +15,6 @@ const (
 	screenWidth  = 1280
 	screenHeight = 720
 	targetFPS    = 60
-
-	// Compact world dimensions (500px padding on each side of buildings)
-	worldWidth  = 3072     // 500px + buildings + 500px
-	worldHeight = 64 * 800 // 51200 pixels (800 tiles × 64px)
-	groundLevel = 640.0    // Aligned to tile boundary (10 * TileSize)
-
-	worldSeed = int64(42) // Seed for procedural world generation
-
-	// Player spawn position (centered in world)
-	playerSpawnX = worldWidth / 2
-	playerSpawnY = 570.0 // Just above ground
-
-	// 320 per building
-
-	// Building positions (X coordinates, Y calculated from ground level)
-	// Layout: 480px pad | Hospital | 50px | FuelStation | 230px | Market | 130px | UpgradeShop | 50px | ItemShop | 532px pad
-	hospitalX    = 480.0
-	fuelStationX = 850.0
-	marketX      = 1400
-	upgradeShopX = 1850.0
-	itemShopX    = 2220.0
 )
 
 func main() {
@@ -56,31 +36,20 @@ func main() {
 
 	slog.Info("Initializing Game")
 
-	config := &world.WorldConfig{
-		Width:       worldWidth,
-		Height:      worldHeight,
-		GroundLevel: groundLevel,
-		Seed:        worldSeed,
-		PlayerSpawn: world.PlayerSpawn{
-			X: playerSpawnX,
-			Y: playerSpawnY,
-		},
-		BuildingLayout: world.BuildingLayout{
-			MarketX:      marketX,
-			FuelStationX: fuelStationX,
-			HospitalX:    hospitalX,
-			UpgradeShopX: upgradeShopX,
-			ItemShopX:    itemShopX,
-		},
-	}
-
-	if err := config.Validate(); err != nil {
-		slog.Error("Invalid world configuration", "error", err)
+	gameCfg, err := levels.GetLevelConfig(1)
+	if err != nil {
+		slog.Error("Failed to load level config", "error", err)
 		return
 	}
 
-	gameWorld := world.NewWorld(config)
-	game := engine.NewGame(gameWorld, config)
+	if err := gameCfg.Validate(); err != nil {
+		slog.Error("Invalid game configuration", "error", err)
+		return
+	}
+
+	gameWorld := world.NewWorldFromConfig(&gameCfg.World, gameCfg.Generation)
+
+	game := engine.NewGame(gameWorld, gameCfg)
 
 	for {
 		dt := renderer.GetFrameTime() // Delta time in seconds

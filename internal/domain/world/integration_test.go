@@ -29,8 +29,8 @@ func TestIntegration_WorldGenerationDeterministic(t *testing.T) {
 				t.Errorf("Tile type mismatch at (%d,%d): %v vs %v", x, y, tile1.Type, tile2.Type)
 			}
 
-			if tile1.Type == entities.TileTypeOre && tile1.OreType != tile2.OreType {
-				t.Errorf("Ore type mismatch at (%d,%d): %v vs %v", x, y, tile1.OreType, tile2.OreType)
+			if tile1.Type == entities.TileTypeOre && tile1.OreID != tile2.OreID {
+				t.Errorf("Ore ID mismatch at (%d,%d): %v vs %v", x, y, tile1.OreID, tile2.OreID)
 			}
 		}
 	}
@@ -61,7 +61,7 @@ func TestIntegration_OreDistribution(t *testing.T) {
 
 	// At depth 300 (gold's peak), count ore types
 	depth := 300
-	oreCounts := make(map[entities.OreType]int)
+	oreCounts := make(map[string]int)
 	totalTiles := 0
 	solidTiles := 0
 
@@ -72,7 +72,7 @@ func TestIntegration_OreDistribution(t *testing.T) {
 		if tile != nil {
 			solidTiles++
 			if tile.Type == entities.TileTypeOre {
-				oreCounts[tile.OreType]++
+				oreCounts[tile.OreID]++
 			}
 		}
 	}
@@ -89,7 +89,7 @@ func TestIntegration_OreDistribution(t *testing.T) {
 
 	// Gold should have weight at its peak (not necessarily most common due to RNG)
 	// Just verify gold appears
-	if oreCounts[entities.OreGold] == 0 {
+	if oreCounts["gold"] == 0 {
 		t.Log("Note: Gold didn't appear in sample (might be RNG variation)")
 	}
 }
@@ -223,7 +223,7 @@ func TestIntegration_DifferentSeeds(t *testing.T) {
 		if tile1 != nil && tile2 != nil {
 			if tile1.Type != tile2.Type {
 				differences++
-			} else if tile1.Type == entities.TileTypeOre && tile1.OreType != tile2.OreType {
+			} else if tile1.Type == entities.TileTypeOre && tile1.OreID != tile2.OreID {
 				differences++
 			}
 		}

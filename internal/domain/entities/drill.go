@@ -1,5 +1,7 @@
 package entities
 
+import "github.com/Kishlin/drill-game/internal/domain/config"
+
 type Drill struct {
 	tier       int
 	name       string
@@ -63,5 +65,13 @@ func NewDrillMk5() Drill {
 		tier:       5,
 		name:       "Drill Mk5",
 		drillSpeed: 6.0,
+	}
+}
+
+func NewDrillFromConfig(tier int, name string, stats config.DrillStats) Drill {
+	return Drill{
+		tier:       tier,
+		name:       name,
+		drillSpeed: stats.DrillSpeed,
 	}
 }

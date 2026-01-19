@@ -1,5 +1,7 @@
 package entities
 
+import "github.com/Kishlin/drill-game/internal/domain/config"
+
 type HeatShield struct {
 	tier           int
 	name           string
@@ -63,5 +65,13 @@ func NewHeatShieldMk5() HeatShield {
 		tier:           5,
 		name:           "Heat Shield Mk5",
 		heatResistance: 320.0,
+	}
+}
+
+func NewHeatShieldFromConfig(tier int, name string, stats config.HeatShieldStats) HeatShield {
+	return HeatShield{
+		tier:           tier,
+		name:           name,
+		heatResistance: stats.HeatResistance,
 	}
 }

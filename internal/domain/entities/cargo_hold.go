@@ -1,5 +1,7 @@
 package entities
 
+import "github.com/Kishlin/drill-game/internal/domain/config"
+
 type CargoHold struct {
 	tier     int
 	name     string
@@ -63,5 +65,13 @@ func NewCargoHoldMk5() CargoHold {
 		tier:     5,
 		name:     "Cargo Hold Mk5",
 		capacity: 40,
+	}
+}
+
+func NewCargoHoldFromConfig(tier int, name string, stats config.CargoHoldStats) CargoHold {
+	return CargoHold{
+		tier:     tier,
+		name:     name,
+		capacity: stats.Capacity,
 	}
 }

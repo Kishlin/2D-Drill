@@ -1,6 +1,7 @@
 package systems
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/types"
@@ -8,16 +9,20 @@ import (
 )
 
 type ItemSystem struct {
-	world  *world.World
-	spawnX float32
-	spawnY float32
+	world         *world.World
+	spawnX        float32
+	spawnY        float32
+	bombRadius    int
+	bigBombRadius int
 }
 
-func NewItemSystem(w *world.World, spawnX, spawnY float32) *ItemSystem {
+func NewItemSystemWithConfig(w *world.World, spawnX, spawnY float32, itemCfg config.ItemConfig) *ItemSystem {
 	return &ItemSystem{
-		world:  w,
-		spawnX: spawnX,
-		spawnY: spawnY,
+		world:         w,
+		spawnX:        spawnX,
+		spawnY:        spawnY,
+		bombRadius:    itemCfg.Bomb.Radius,
+		bigBombRadius: itemCfg.BigBomb.Radius,
 	}
 }
 
@@ -33,10 +38,10 @@ func (is *ItemSystem) ProcessItemUsage(player *entities.Player, inputState input
 		is.applyRefuel(player)
 	}
 	if inputState.UseBomb && player.UseItem(entities.ItemBomb) {
-		is.applyBomb(player, 2)
+		is.applyBomb(player, is.bombRadius)
 	}
 	if inputState.UseBigBomb && player.UseItem(entities.ItemBigBomb) {
-		is.applyBomb(player, 4)
+		is.applyBomb(player, is.bigBombRadius)
 	}
 }
 

@@ -1,19 +1,23 @@
 package systems
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 )
 
 type MarketSystem struct {
-	market *entities.Market
+	market     *entities.Market
+	oreConfigs []config.OreConfig
 }
 
-func NewMarketSystem(market *entities.Market) *MarketSystem {
-	return &MarketSystem{market: market}
+func NewMarketSystemWithConfig(market *entities.Market, oreConfigs []config.OreConfig) *MarketSystem {
+	return &MarketSystem{
+		market:     market,
+		oreConfigs: oreConfigs,
+	}
 }
 
-// ProcessSelling handles player selling inventory at market
 func (ms *MarketSystem) ProcessSelling(
 	player *entities.Player,
 	inputState input.InputState,
@@ -26,10 +30,13 @@ func (ms *MarketSystem) ProcessSelling(
 		return
 	}
 
-	player.SellInventory()
+	player.SellInventory(ms.oreConfigs)
 }
 
-// GetMarket returns the market entity for rendering
 func (ms *MarketSystem) GetMarket() *entities.Market {
 	return ms.market
+}
+
+func (ms *MarketSystem) GetOreConfigs() []config.OreConfig {
+	return ms.oreConfigs
 }

@@ -3,6 +3,7 @@ package world
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 )
 
@@ -114,8 +115,8 @@ func TestWorld_Deterministic(t *testing.T) {
 				t.Errorf("Tile type mismatch at (%d,%d): %v vs %v", x, y, tile1.Type, tile2.Type)
 			}
 
-			if tile1.Type == entities.TileTypeOre && tile1.OreType != tile2.OreType {
-				t.Errorf("Ore type mismatch at (%d,%d): %v vs %v", x, y, tile1.OreType, tile2.OreType)
+			if tile1.Type == entities.TileTypeOre && tile1.OreID != tile2.OreID {
+				t.Errorf("Ore ID mismatch at (%d,%d): %v vs %v", x, y, tile1.OreID, tile2.OreID)
 			}
 		}
 	}
@@ -174,7 +175,8 @@ func TestNukeTileAtGrid_RemovesRock(t *testing.T) {
 
 	// Place rock tile at grid (100, 500) directly in the sparse map
 	gridX, gridY := 100, 500
-	rockTile := entities.NewHazardTile(entities.HazardRock)
+	rockCfg := &config.HazardConfig{Drillable: false}
+	rockTile := entities.NewHazardTileByID("rock", rockCfg)
 	world.tiles[[2]int{gridX, gridY}] = rockTile
 
 	// Nuke the tile (use bomb)
@@ -199,7 +201,7 @@ func TestNukeTileAtGrid_RemovesLava(t *testing.T) {
 
 	// Place lava tile directly in sparse map
 	gridX, gridY := 100, 500
-	lavaTile := entities.NewHazardTile(entities.HazardLava)
+	lavaTile := entities.NewHazardTileByID("lava", nil)
 	world.tiles[[2]int{gridX, gridY}] = lavaTile
 
 	// Nuke the tile
@@ -223,7 +225,8 @@ func TestNukeTileAtGrid_BypassesDrillability(t *testing.T) {
 
 	// Place rock tile (not drillable)
 	gridX, gridY := 100, 500
-	rockTile := entities.NewHazardTile(entities.HazardRock)
+	rockCfg := &config.HazardConfig{Drillable: false}
+	rockTile := entities.NewHazardTileByID("rock", rockCfg)
 	world.SetTile(gridX, gridY, rockTile)
 
 	// DrillTileAtGrid should fail (rock not drillable)

@@ -5,6 +5,7 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
@@ -33,31 +34,25 @@ var (
 	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)   // Orange
 	BombShopColor       = rl.NewColor(255, 20, 147, 255)  // Deep Pink
 	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)   // Crimson
-
-	// Ore colors for different ore types
-	OreColors = map[entities.OreType]rl.Color{
-		entities.OreCopper:   rl.NewColor(255, 140, 0, 255),   // Orange
-		entities.OreIron:     rl.NewColor(128, 128, 128, 255), // Gray
-		entities.OreGold:     rl.NewColor(255, 215, 0, 255),   // Gold
-		entities.OreMythril:  rl.NewColor(0, 255, 255, 255),   // Cyan
-		entities.OrePlatinum: rl.NewColor(230, 230, 250, 255), // White-ish
-		entities.OreDiamond:  rl.NewColor(0, 191, 255, 255),   // Blue
-	}
-
-	// Hazard tile colors
-	RockColor = rl.NewColor(70, 70, 70, 255) // Dark gray
-	LavaColor = rl.NewColor(255, 50, 0, 255) // Red-orange
 )
 
 type RaylibRenderer struct {
 	camera       rl.Camera2D
 	screenWidth  float32
 	screenHeight float32
-	worldWidth   float32 // Cached for boundary clamping
+	worldWidth   float32                  // Cached for boundary clamping
+	genCfg       *config.GenerationConfig // Ore/hazard colors from config
+	oreColors    map[string]rl.Color      // Cached ore colors by ID
+	hazardColors map[string]rl.Color      // Cached hazard colors by ID
 }
 
 func NewRaylibRenderer(screenWidth, screenHeight int32) *RaylibRenderer {
-	return &RaylibRenderer{
+	genCfg := config.DefaultGenerationConfig()
+	return NewRaylibRendererWithConfig(screenWidth, screenHeight, &genCfg)
+}
+
+func NewRaylibRendererWithConfig(screenWidth, screenHeight int32, genCfg *config.GenerationConfig) *RaylibRenderer {
+	r := &RaylibRenderer{
 		camera: rl.Camera2D{
 			Offset:   rl.Vector2{X: float32(screenWidth) / 2, Y: float32(screenHeight) / 2},
 			Target:   rl.Vector2{X: 0, Y: 0},
@@ -67,7 +62,19 @@ func NewRaylibRenderer(screenWidth, screenHeight int32) *RaylibRenderer {
 		screenWidth:  float32(screenWidth),
 		screenHeight: float32(screenHeight),
 		worldWidth:   0, // Set on first render
+		genCfg:       genCfg,
+		oreColors:    make(map[string]rl.Color),
+		hazardColors: make(map[string]rl.Color),
 	}
+
+	for _, oreCfg := range genCfg.Ores {
+		r.oreColors[oreCfg.ID] = rl.NewColor(oreCfg.Color[0], oreCfg.Color[1], oreCfg.Color[2], oreCfg.Color[3])
+	}
+	for _, hazardCfg := range genCfg.Hazards {
+		r.hazardColors[hazardCfg.ID] = rl.NewColor(hazardCfg.Color[0], hazardCfg.Color[1], hazardCfg.Color[2], hazardCfg.Color[3])
+	}
+
+	return r
 }
 
 // updateCamera sets camera target to player position with boundary clamping
@@ -269,15 +276,17 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 		case entities.TileTypeDirt:
 			color = DirtColor
 		case entities.TileTypeOre:
-			var ok bool
-			color, ok = OreColors[tile.OreType]
-			if !ok {
+			if oreColor, ok := r.oreColors[tile.OreID]; ok {
+				color = oreColor
+			} else {
 				color = rl.Magenta // Error color for unknown ore
 			}
-		case entities.TileTypeRock:
-			color = RockColor
-		case entities.TileTypeLava:
-			color = LavaColor
+		case entities.TileTypeRock, entities.TileTypeLava:
+			if hazardColor, ok := r.hazardColors[tile.HazardID]; ok {
+				color = hazardColor
+			} else {
+				color = rl.Magenta // Error color for unknown hazard
+			}
 		default:
 			color = rl.Magenta // Error color for unknown tile type
 		}
@@ -326,14 +335,12 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	rl.DrawText(inputText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
-	// Draw ore inventory
-	inventoryText := fmt.Sprintf("Ore: Cu=%d Fe=%d Au=%d My=%d Pt=%d Di=%d",
-		player.OreInventory[entities.OreCopper],
-		player.OreInventory[entities.OreIron],
-		player.OreInventory[entities.OreGold],
-		player.OreInventory[entities.OreMythril],
-		player.OreInventory[entities.OrePlatinum],
-		player.OreInventory[entities.OreDiamond])
+	// Draw ore inventory (dynamically from config)
+	inventoryText := "Ore:"
+	for _, oreCfg := range r.genCfg.Ores {
+		count := player.OreInventory[oreCfg.ID]
+		inventoryText += fmt.Sprintf(" %s=%d", oreCfg.ID[:2], count)
+	}
 	rl.DrawText(inventoryText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 

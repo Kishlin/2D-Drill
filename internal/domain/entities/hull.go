@@ -1,5 +1,7 @@
 package entities
 
+import "github.com/Kishlin/drill-game/internal/domain/config"
+
 type Hull struct {
 	tier  int
 	name  string
@@ -63,5 +65,13 @@ func NewHullMk5() Hull {
 		tier:  5,
 		name:  "Hull Mk5",
 		maxHP: 75.0,
+	}
+}
+
+func NewHullFromConfig(tier int, name string, stats config.HullStats) Hull {
+	return Hull{
+		tier:  tier,
+		name:  name,
+		maxHP: stats.MaxHP,
 	}
 }

@@ -1,6 +1,9 @@
 package entities
 
-import "github.com/Kishlin/drill-game/internal/domain/types"
+import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
+	"github.com/Kishlin/drill-game/internal/domain/types"
+)
 
 const (
 	ItemShopWidth  = 320.0
@@ -26,6 +29,19 @@ func NewItemShop(x, y float32) *ItemShop {
 			{ItemType: ItemRefuel, Price: 100},   // 2
 			{ItemType: ItemBomb, Price: 300},     // 3
 			{ItemType: ItemBigBomb, Price: 800},  // 4
+		},
+	}
+}
+
+func NewItemShopFromConfig(x, y float32, itemCfg config.ItemConfig) *ItemShop {
+	return &ItemShop{
+		AABB: types.NewAABB(x, y, ItemShopWidth, ItemShopHeight),
+		Catalog: [5]ItemCatalogEntry{
+			{ItemType: ItemTeleport, Price: itemCfg.Teleport.Price},
+			{ItemType: ItemRepair, Price: itemCfg.Repair.Price},
+			{ItemType: ItemRefuel, Price: itemCfg.Refuel.Price},
+			{ItemType: ItemBomb, Price: itemCfg.Bomb.Price},
+			{ItemType: ItemBigBomb, Price: itemCfg.BigBomb.Price},
 		},
 	}
 }

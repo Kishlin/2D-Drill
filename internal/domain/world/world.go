@@ -1,6 +1,9 @@
 package world
 
-import "github.com/Kishlin/drill-game/internal/domain/entities"
+import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
+	"github.com/Kishlin/drill-game/internal/domain/entities"
+)
 
 const TileSize = 64 // pixels
 
@@ -10,22 +13,35 @@ type World struct {
 	Height      float32
 	tiles       map[[2]int]*entities.Tile // Sparse map: [x, y] -> Tile
 
-	generator    *ChunkGenerator
+	Generator    *ChunkGenerator // Exported for systems that need generation config
 	loadedChunks map[[2]int]bool
 	seed         int64
 	config       *WorldConfig
 }
 
-func NewWorld(config *WorldConfig) *World {
+func NewWorld(cfg *WorldConfig) *World {
 	return &World{
-		Width:        config.Width,
-		Height:       config.Height,
-		GroundLevel:  config.GroundLevel,
+		Width:        cfg.Width,
+		Height:       cfg.Height,
+		GroundLevel:  cfg.GroundLevel,
 		tiles:        make(map[[2]int]*entities.Tile),
-		generator:    NewChunkGenerator(config.Seed, config.GroundLevel),
+		Generator:    NewChunkGenerator(cfg.Seed, cfg.GroundLevel),
 		loadedChunks: make(map[[2]int]bool),
-		seed:         config.Seed,
-		config:       config,
+		seed:         cfg.Seed,
+		config:       cfg,
+	}
+}
+
+func NewWorldFromConfig(worldCfg *WorldConfig, genCfg config.GenerationConfig) *World {
+	return &World{
+		Width:        worldCfg.Width,
+		Height:       worldCfg.Height,
+		GroundLevel:  worldCfg.GroundLevel,
+		tiles:        make(map[[2]int]*entities.Tile),
+		Generator:    NewChunkGeneratorFromConfig(worldCfg.Seed, worldCfg.GroundLevel, genCfg),
+		loadedChunks: make(map[[2]int]bool),
+		seed:         worldCfg.Seed,
+		config:       worldCfg,
 	}
 }
 
@@ -45,7 +61,7 @@ func (w *World) EnsureChunkLoaded(chunkX, chunkY int) {
 				continue
 			}
 
-			tile := w.generator.GenerateTile(tileX, tileY)
+			tile := w.Generator.GenerateTile(tileX, tileY)
 
 			// Only store solid tiles (Dirt, Ore) - sparse storage
 			if tile.Type != entities.TileTypeEmpty {

@@ -1,6 +1,7 @@
 package systems
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/physics"
@@ -38,11 +39,23 @@ type DrillingAnimation struct {
 
 type DrillingSystem struct {
 	world     *world.World
+	genCfg    *config.GenerationConfig
 	animation DrillingAnimation
 }
 
 func NewDrillingSystem(w *world.World) *DrillingSystem {
-	return &DrillingSystem{world: w}
+	return &DrillingSystem{
+		world:  w,
+		genCfg: w.Generator.GetGenerationConfig(),
+	}
+}
+
+// NewDrillingSystemWithConfig creates a drilling system with explicit configuration
+func NewDrillingSystemWithConfig(w *world.World, genCfg *config.GenerationConfig) *DrillingSystem {
+	return &DrillingSystem{
+		world:  w,
+		genCfg: genCfg,
+	}
 }
 
 // ProcessDrilling handles vertical and horizontal drilling with animation
@@ -226,7 +239,7 @@ func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) {
 
 		// Apply damage if drilling through lava
 		if dugTile.Type == entities.TileTypeLava {
-			ds.applyLavaDamage(player)
+			ds.applyLavaDamage(player, dugTile)
 		}
 	}
 
@@ -243,25 +256,30 @@ func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) {
 // Ore is lost if cargo is full
 func (ds *DrillingSystem) collectOreIfPresent(player *entities.Player, dugTile *entities.Tile) {
 	if dugTile != nil && dugTile.Type == entities.TileTypeOre {
-		player.AddOre(dugTile.OreType)
-		// If AddOre returns false (cargo full), ore is silently lost
+		player.AddOreByID(dugTile.OreID)
+		// If AddOreByID returns false (cargo full), ore is silently lost
 	}
 }
 
 // applyLavaDamage calculates and applies damage when player drills through lava
 // Damage is reduced linearly based on heat resistance
-// Base damage: 100, reduced to 50 at max heat resistance (320°C)
-func (ds *DrillingSystem) applyLavaDamage(player *entities.Player) {
+// Base damage comes from config, reduced to 50% at max heat resistance (320°C)
+func (ds *DrillingSystem) applyLavaDamage(player *entities.Player, tile *entities.Tile) {
 	const (
-		baseDamage         = 100.0
 		maxHeatResistance  = 320.0
-		maxDamageReduction = 50.0
+		maxDamageReduction = 0.5 // 50% reduction at max resistance
 	)
+
+	// Get base damage from config
+	baseDamage := float32(100.0) // Default
+	if hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID); hazardCfg != nil {
+		baseDamage = hazardCfg.OnDrillDamage
+	}
 
 	currentHeatResistance := player.HeatShield.HeatResistance()
 
-	// Linear reduction: 100 damage at 0 resistance, 50 damage at max resistance
-	damageReduction := (currentHeatResistance / maxHeatResistance) * maxDamageReduction
+	// Linear reduction: 100% damage at 0 resistance, 50% damage at max resistance
+	damageReduction := (currentHeatResistance / maxHeatResistance) * baseDamage * maxDamageReduction
 	damage := baseDamage - damageReduction
 
 	player.DealDamage(damage)
@@ -271,7 +289,10 @@ func (ds *DrillingSystem) applyLavaDamage(player *entities.Player) {
 func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entities.Tile) float32 {
 	// Lava tiles use fixed duration (depth-independent) since damage is the penalty
 	if tile.Type == entities.TileTypeLava {
-		return entities.HazardHardness[entities.HazardLava]
+		if hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID); hazardCfg != nil && hazardCfg.FixedDuration > 0 {
+			return hazardCfg.FixedDuration
+		}
+		return 0.3 // Default lava duration
 	}
 
 	hardness := ds.getHardness(tile)
@@ -284,15 +305,14 @@ func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entitie
 func (ds *DrillingSystem) getHardness(tile *entities.Tile) float32 {
 	switch tile.Type {
 	case entities.TileTypeOre:
-		hardness, ok := entities.OreHardness[tile.OreType]
-		if !ok {
-			return 1.5 // Fallback for unknown ore types
+		if oreCfg := ds.genCfg.GetOreByID(tile.OreID); oreCfg != nil {
+			return oreCfg.Hardness
 		}
-		return hardness
+		return 1.5 // Fallback for unknown ore types
 	case entities.TileTypeDirt:
-		return entities.DirtHardness
+		return ds.genCfg.DirtHardness
 	default:
-		return entities.DirtHardness // Fallback
+		return ds.genCfg.DirtHardness // Fallback
 	}
 }
 

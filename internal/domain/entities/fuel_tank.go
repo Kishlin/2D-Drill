@@ -1,5 +1,7 @@
 package entities
 
+import "github.com/Kishlin/drill-game/internal/domain/config"
+
 type FuelTank struct {
 	tier     int
 	name     string
@@ -63,5 +65,13 @@ func NewFuelTankMk5() FuelTank {
 		tier:     5,
 		name:     "Tank Mk5",
 		capacity: 65.0,
+	}
+}
+
+func NewFuelTankFromConfig(tier int, name string, stats config.FuelTankStats) FuelTank {
+	return FuelTank{
+		tier:     tier,
+		name:     name,
+		capacity: stats.Capacity,
 	}
 }

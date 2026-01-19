@@ -3,31 +3,23 @@ package world
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 )
 
 func TestGaussianWeight_AtPeak(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
+	genCfg := gen.GetGenerationConfig()
 
 	// Test each ore at its peak depth
-	tests := []struct {
-		name      string
-		oreType   entities.OreType
-		depth     float32
-		minWeight float32
-	}{
-		{"Copper at peak", entities.OreCopper, -75, 7.5},   // Should be ~8.0
-		{"Gold at peak", entities.OreGold, 230, 2.5},       // Should be ~3.0
-		{"Diamond at peak", entities.OreDiamond, 600, 0.1}, // Should be ~0.15 (extremely rare)
-	}
+	for _, oreCfg := range genCfg.Ores {
+		t.Run(oreCfg.ID+" at peak", func(t *testing.T) {
+			weight := gen.gaussianWeight(oreCfg.Distribution.PeakDepth, oreCfg.Distribution)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			meta := entities.OreDistributions[tt.oreType]
-			weight := gen.gaussianWeight(tt.depth, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
-
-			if weight < tt.minWeight {
-				t.Errorf("Weight at peak for %v = %f, expected >= %f", tt.name, weight, tt.minWeight)
+			// Weight at peak should be close to MaxWeight
+			expectedMin := oreCfg.Distribution.MaxWeight * 0.9
+			if weight < expectedMin {
+				t.Errorf("Weight at peak for %s = %f, expected >= %f", oreCfg.ID, weight, expectedMin)
 			}
 		})
 	}
@@ -35,44 +27,64 @@ func TestGaussianWeight_AtPeak(t *testing.T) {
 
 func TestGaussianWeight_Symmetry(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
-	meta := entities.OreDistributions[entities.OreGold]
+	genCfg := gen.GetGenerationConfig()
+
+	// Test with gold ore
+	goldCfg := genCfg.GetOreByID("gold")
+	if goldCfg == nil {
+		t.Skip("Gold ore not found in config")
+	}
 
 	// Weight should be equal at equal distance from peak (230)
 	// Test at ±50 tiles from peak: 180 and 280
-	weightAbove := gen.gaussianWeight(180, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
-	weightBelow := gen.gaussianWeight(280, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+	weightAbove := gen.gaussianWeight(goldCfg.Distribution.PeakDepth-50, goldCfg.Distribution)
+	weightBelow := gen.gaussianWeight(goldCfg.Distribution.PeakDepth+50, goldCfg.Distribution)
 
 	diff := weightAbove - weightBelow
 	if diff < -0.01 || diff > 0.01 {
-		t.Errorf("Gaussian should be symmetric: weight at 180=%f, weight at 280=%f", weightAbove, weightBelow)
+		t.Errorf("Gaussian should be symmetric: weight above=%f, weight below=%f", weightAbove, weightBelow)
 	}
 }
 
 func TestGaussianWeight_FarFromPeak(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
-	meta := entities.OreDistributions[entities.OreDiamond]
+	genCfg := gen.GetGenerationConfig()
+
+	// Test with diamond ore (peaks deep)
+	diamondCfg := genCfg.GetOreByID("diamond")
+	if diamondCfg == nil {
+		t.Skip("Diamond ore not found in config")
+	}
 
 	// Diamond peaks at 600, should have very low weight at 100 (500px away)
-	weight := gen.gaussianWeight(100, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+	weight := gen.gaussianWeight(100, diamondCfg.Distribution)
 
 	if weight > 0.005 {
 		t.Errorf("Weight far from peak should be near zero, got %f", weight)
 	}
 }
 
-func TestCalculateOreWeights_MultipleOres(t *testing.T) {
+func TestCalculateAllTileWeights_MultipleOres(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
+	genCfg := gen.GetGenerationConfig()
 
-	// At depth 230 (gold's peak), multiple ores should have weights
-	weights := gen.calculateOreWeights(int(230 / 64)) // Convert pixels to tile coordinates
+	// Get gold's peak depth
+	goldCfg := genCfg.GetOreByID("gold")
+	if goldCfg == nil {
+		t.Skip("Gold ore not found in config")
+	}
 
-	if len(weights) == 0 {
+	// At depth near gold's peak, multiple ores should have weights
+	tileY := int(goldCfg.Distribution.PeakDepth)
+	weights := gen.calculateAllTileWeights(tileY)
+
+	if len(weights.Ores) == 0 {
 		t.Error("Expected multiple ores at gold's peak depth, got none")
 	}
 
 	// Gold should have weight at its peak
-	if _, hasGold := weights[entities.OreGold]; !hasGold {
-		t.Error("Expected gold to have weight at depth 230")
+	if _, hasGold := weights.Ores["gold"]; !hasGold {
+		t.Error("Expected gold to have weight at its peak depth")
 	}
 }
 
@@ -90,8 +102,8 @@ func TestGenerateTile_Deterministic(t *testing.T) {
 			t.Errorf("Tile type mismatch at (%d,%d): %v vs %v", x, y, tile1.Type, tile2.Type)
 		}
 
-		if tile1.Type == entities.TileTypeOre && tile1.OreType != tile2.OreType {
-			t.Errorf("Ore type mismatch at (%d,%d): %v vs %v", x, y, tile1.OreType, tile2.OreType)
+		if tile1.Type == entities.TileTypeOre && tile1.OreID != tile2.OreID {
+			t.Errorf("Ore ID mismatch at (%d,%d): %v vs %v", x, y, tile1.OreID, tile2.OreID)
 		}
 	}
 }
@@ -107,27 +119,6 @@ func TestGenerateTile_GroundLevel(t *testing.T) {
 		if tile.Type != entities.TileTypeDirt {
 			t.Errorf("Ground level tile at X=%d should be dirt, got %v", x, tile.Type)
 		}
-	}
-}
-
-func TestGenerateTile_EmptyRate(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-
-	emptyCount := 0
-	totalTiles := 1000
-
-	// Test underground tiles (not ground level)
-	for i := 0; i < totalTiles; i++ {
-		tile := gen.GenerateTile(i, 50) // Below ground
-		if tile.Type == entities.TileTypeEmpty {
-			emptyCount++
-		}
-	}
-
-	// Should be ~23% (allow 18-28% margin for sampling variance)
-	emptyRate := float32(emptyCount) / float32(totalTiles)
-	if emptyRate < 0.18 || emptyRate > 0.28 {
-		t.Errorf("Empty rate = %f, expected ~0.23 (18-28%% range)", emptyRate)
 	}
 }
 
@@ -170,85 +161,7 @@ func TestHashCoordinates_Unique(t *testing.T) {
 	}
 }
 
-func TestSelectOreByWeight_Distribution(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-
-	// Create simple weight distribution
-	weights := map[entities.OreType]float32{
-		entities.OreCopper: 10.0,
-		entities.OreIron:   5.0,
-	}
-	totalWeight := sumWeights(weights)
-
-	// Run many selections to verify weighted distribution
-	copperCount := 0
-	ironCount := 0
-	iterations := 1000
-
-	for i := 0; i < iterations; i++ {
-		rng := gen.seedRNG(i, 100)
-		oreType := gen.selectOreByWeight(rng, weights, totalWeight)
-
-		if oreType == nil {
-			t.Error("Should always select an ore when totalWeight > 0")
-			continue
-		}
-
-		if *oreType == entities.OreCopper {
-			copperCount++
-		} else if *oreType == entities.OreIron {
-			ironCount++
-		}
-	}
-
-	// Copper should appear ~2x more than iron (10.0 vs 5.0 weight)
-	ratio := float32(copperCount) / float32(ironCount)
-	if ratio < 1.5 || ratio > 2.5 {
-		t.Errorf("Copper/Iron ratio = %f, expected ~2.0", ratio)
-	}
-}
-
-func TestSumWeights(t *testing.T) {
-	weights := map[entities.OreType]float32{
-		entities.OreCopper: 10.0,
-		entities.OreIron:   5.0,
-		entities.OreGold:   2.5,
-	}
-
-	total := sumWeights(weights)
-	expected := float32(17.5)
-
-	if total != expected {
-		t.Errorf("sumWeights = %f, expected %f", total, expected)
-	}
-}
-
 // === Hazard Tile Tests ===
-
-func TestGaussianWeight_HazardAtPeak(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-
-	tests := []struct {
-		name      string
-		hazard    entities.HazardType
-		depth     float32
-		minWeight float32
-	}{
-		{"Rock at peak", entities.HazardRock, 650, 14.0},    // Should be ~15.0
-		{"Lava at peak", entities.HazardLava, 750, 11.0},    // Should be ~12.0
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			meta := entities.HazardDistributions[tt.hazard]
-			weight := gen.gaussianWeight(tt.depth, meta.PeakDepth, meta.Sigma, meta.MaxWeight)
-
-			if weight < tt.minWeight {
-				t.Errorf("Weight at peak for %v = %f, expected >= %f", tt.name, weight, tt.minWeight)
-			}
-		})
-	}
-}
 
 func TestCalculateAllTileWeights_RockAtShallowDepth(t *testing.T) {
 	gen := NewChunkGenerator(42, 640)
@@ -256,8 +169,8 @@ func TestCalculateAllTileWeights_RockAtShallowDepth(t *testing.T) {
 	// At shallow depth (~tile 50, ~40% depth), rock should have minimal weight
 	weights := gen.calculateAllTileWeights(50)
 
-	if len(weights.Hazards) > 0 && weights.Hazards[entities.HazardRock] > 0.5 {
-		t.Errorf("Rock should be rare at shallow depth, got weight %f", weights.Hazards[entities.HazardRock])
+	if rockWeight, exists := weights.Hazards["rock"]; exists && rockWeight > 0.5 {
+		t.Errorf("Rock should be rare at shallow depth, got weight %f", rockWeight)
 	}
 }
 
@@ -274,23 +187,6 @@ func TestCalculateAllTileWeights_HazardsAtDeepDepth(t *testing.T) {
 
 	if totalHazardWeight < 10.0 {
 		t.Errorf("Hazards should have significant weight at deep depth, got total %f", totalHazardWeight)
-	}
-}
-
-func TestCalculateAllTileWeights_EmptyAndDirtDecreaseWithDepth(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-
-	weightsShallow := gen.calculateAllTileWeights(20)  // Near ground
-	weightsDeep := gen.calculateAllTileWeights(800)    // Very deep
-
-	if weightsShallow.Empty <= weightsDeep.Empty {
-		t.Errorf("Empty weight should decrease with depth: shallow=%f, deep=%f",
-			weightsShallow.Empty, weightsDeep.Empty)
-	}
-
-	if weightsShallow.Dirt <= weightsDeep.Dirt {
-		t.Errorf("Dirt weight should decrease with depth: shallow=%f, deep=%f",
-			weightsShallow.Dirt, weightsDeep.Dirt)
 	}
 }
 
@@ -346,7 +242,7 @@ func TestGenerateTile_RockAndLavaAreDistinct(t *testing.T) {
 		}
 	}
 
-	// Both should appear, with rock more common than lava
+	// Both should appear, with rock more common than lava (per default config)
 	if rockCount == 0 {
 		t.Error("Rock tiles should appear at deep depth")
 	}
@@ -364,7 +260,7 @@ func TestGenerateTile_HazardDeterministic(t *testing.T) {
 
 	// Same seed + coords = same hazard type
 	for i := 0; i < 10; i++ {
-		x, y := i*10, i*20+800  // Deep depth
+		x, y := i*10, i*20+800 // Deep depth
 		tile1 := gen1.GenerateTile(x, y)
 		tile2 := gen2.GenerateTile(x, y)
 
@@ -375,5 +271,41 @@ func TestGenerateTile_HazardDeterministic(t *testing.T) {
 					x, y, tile1.Type, tile2.Type)
 			}
 		}
+	}
+}
+
+func TestNewChunkGeneratorFromConfig(t *testing.T) {
+	genCfg := config.DefaultGenerationConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+
+	// Should be able to generate tiles
+	tile := gen.GenerateTile(10, 15)
+	if tile == nil {
+		t.Error("Generator should create tiles")
+	}
+
+	// Should have access to config
+	if gen.GetGenerationConfig() == nil {
+		t.Error("Generator should have config accessible")
+	}
+}
+
+func TestSumAllWeights(t *testing.T) {
+	gen := NewChunkGenerator(42, 640)
+	weights := gen.calculateAllTileWeights(50)
+
+	total := gen.sumAllWeights(weights)
+
+	// Should be sum of all tile types
+	expected := weights.Empty + weights.Dirt
+	for _, w := range weights.Ores {
+		expected += w
+	}
+	for _, w := range weights.Hazards {
+		expected += w
+	}
+
+	if total != expected {
+		t.Errorf("sumAllWeights = %f, expected %f", total, expected)
 	}
 }

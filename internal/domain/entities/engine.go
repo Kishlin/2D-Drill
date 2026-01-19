@@ -1,5 +1,7 @@
 package entities
 
+import "github.com/Kishlin/drill-game/internal/domain/config"
+
 type Engine struct {
 	tier            int
 	name            string
@@ -96,5 +98,16 @@ func NewEngineMk5() Engine {
 		acceleration:    3500.0,
 		flyAcceleration: 3500.0,
 		maxUpwardSpeed:  -775.0,
+	}
+}
+
+func NewEngineFromConfig(tier int, name string, stats config.EngineStats) Engine {
+	return Engine{
+		tier:            tier,
+		name:            name,
+		maxSpeed:        stats.MaxSpeed,
+		acceleration:    stats.Acceleration,
+		flyAcceleration: stats.FlyAcceleration,
+		maxUpwardSpeed:  stats.MaxUpwardSpeed,
 	}
 }

@@ -1,92 +1,93 @@
 package entities
 
-import "testing"
+import (
+	"testing"
 
-func TestPlayer_AddOre_SingleType(t *testing.T) {
+	"github.com/Kishlin/drill-game/internal/domain/config"
+)
+
+func TestPlayer_AddOreByID_SingleType(t *testing.T) {
 	player := NewPlayer(0, 0)
 
-	success := player.AddOre(OreCopper)
+	success := player.AddOreByID("copper")
 
 	if !success {
-		t.Errorf("Expected AddOre to succeed")
+		t.Errorf("Expected AddOreByID to succeed")
 	}
-	if player.OreInventory[OreCopper] != 1 {
-		t.Errorf("Expected 1 copper, got %d", player.OreInventory[OreCopper])
+	if player.OreInventory["copper"] != 1 {
+		t.Errorf("Expected 1 copper, got %d", player.OreInventory["copper"])
 	}
 }
 
-func TestPlayer_AddOre_MultipleTypes(t *testing.T) {
+func TestPlayer_AddOreByID_MultipleTypes(t *testing.T) {
 	player := NewPlayer(0, 0)
 
-	player.AddOre(OreCopper)
-	player.AddOre(OreCopper)
-	player.AddOre(OreCopper)
-	player.AddOre(OreGold)
-	player.AddOre(OreGold)
-	player.AddOre(OreGold)
-	player.AddOre(OreGold)
-	player.AddOre(OreDiamond)
+	player.AddOreByID("copper")
+	player.AddOreByID("copper")
+	player.AddOreByID("copper")
+	player.AddOreByID("gold")
+	player.AddOreByID("gold")
+	player.AddOreByID("gold")
+	player.AddOreByID("gold")
+	player.AddOreByID("diamond")
 
-	if player.OreInventory[OreCopper] != 3 {
-		t.Errorf("Expected 3 copper, got %d", player.OreInventory[OreCopper])
+	if player.OreInventory["copper"] != 3 {
+		t.Errorf("Expected 3 copper, got %d", player.OreInventory["copper"])
 	}
-	if player.OreInventory[OreGold] != 4 {
-		t.Errorf("Expected 4 gold, got %d", player.OreInventory[OreGold])
+	if player.OreInventory["gold"] != 4 {
+		t.Errorf("Expected 4 gold, got %d", player.OreInventory["gold"])
 	}
-	if player.OreInventory[OreDiamond] != 1 {
-		t.Errorf("Expected 1 diamond, got %d", player.OreInventory[OreDiamond])
+	if player.OreInventory["diamond"] != 1 {
+		t.Errorf("Expected 1 diamond, got %d", player.OreInventory["diamond"])
 	}
 }
 
-func TestPlayer_AddOre_Accumulates(t *testing.T) {
+func TestPlayer_AddOreByID_Accumulates(t *testing.T) {
 	player := NewPlayer(0, 0)
 
 	for i := 0; i < 10; i++ {
-		player.AddOre(OreIron)
+		player.AddOreByID("iron")
 	}
 
-	if player.OreInventory[OreIron] != 10 {
-		t.Errorf("Expected 10 iron, got %d", player.OreInventory[OreIron])
+	if player.OreInventory["iron"] != 10 {
+		t.Errorf("Expected 10 iron, got %d", player.OreInventory["iron"])
 	}
 }
 
 func TestPlayer_NewPlayer_StartsWithZeroOres(t *testing.T) {
 	player := NewPlayer(0, 0)
 
-	for _, oreType := range GetAllOreTypes() {
-		if player.OreInventory[oreType] != 0 {
-			t.Errorf("New player should have 0 of ore type %d, got %d", oreType, player.OreInventory[oreType])
+	// Check default ore IDs from config
+	genCfg := config.DefaultGenerationConfig()
+	for _, oreCfg := range genCfg.Ores {
+		if player.OreInventory[oreCfg.ID] != 0 {
+			t.Errorf("New player should have 0 of ore %s, got %d", oreCfg.ID, player.OreInventory[oreCfg.ID])
 		}
 	}
 }
 
-func TestPlayer_AddOre_BoundsCheck(t *testing.T) {
+func TestPlayer_AddOreByID_BoundsCheck(t *testing.T) {
 	player := NewPlayer(0, 0)
 
-	// Should return false on invalid ore types and not panic
-	if player.AddOre(OreType(-1)) {
-		t.Errorf("Should return false for invalid ore type")
-	}
-	if player.AddOre(OreType(999)) {
-		t.Errorf("Should return false for invalid ore type")
+	// Should return false on empty ore ID
+	if player.AddOreByID("") {
+		t.Errorf("Should return false for empty ore ID")
 	}
 
-	// Verify inventory is still all zeros
-	for _, oreType := range GetAllOreTypes() {
-		if player.OreInventory[oreType] != 0 {
-			t.Errorf("Invalid ore types should not affect inventory")
-		}
+	// Empty string should not be in inventory
+	if player.OreInventory[""] != 0 {
+		t.Errorf("Empty ore ID should not affect inventory")
 	}
 }
 
-func TestPlayer_AddOre_CargoCapacity(t *testing.T) {
+func TestPlayer_AddOreByID_CargoCapacity(t *testing.T) {
 	player := NewPlayer(0, 0)
 	// Player starts with Base CargoHold, capacity 10
 
 	// Fill cargo to capacity
 	for i := 0; i < 10; i++ {
-		if !player.AddOre(OreCopper) {
-			t.Errorf("AddOre should succeed at position %d", i)
+		if !player.AddOreByID("copper") {
+			t.Errorf("AddOreByID should succeed at position %d", i)
 		}
 	}
 
@@ -95,12 +96,12 @@ func TestPlayer_AddOre_CargoCapacity(t *testing.T) {
 	}
 
 	// Next ore should fail
-	if player.AddOre(OreCopper) {
-		t.Errorf("AddOre should fail when cargo is full")
+	if player.AddOreByID("copper") {
+		t.Errorf("AddOreByID should fail when cargo is full")
 	}
 
 	if player.GetTotalOreCount() != 10 {
-		t.Errorf("Failed AddOre should not change inventory")
+		t.Errorf("Failed AddOreByID should not change inventory")
 	}
 }
 

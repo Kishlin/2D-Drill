@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
@@ -14,28 +15,25 @@ const (
 	TileTypeLava                  // Lava (drillable, deals damage on completion)
 )
 
-// DirtHardness is the baseline hardness for dirt tiles
-const DirtHardness float32 = 1.0
-
 type Tile struct {
-	Type       TileType
-	OreType    OreType    // Only meaningful if Type == TileTypeOre
-	HazardType HazardType // Only meaningful if Type == TileTypeRock or TileTypeLava
+	Type     TileType
+	OreID    string // Only meaningful if Type == TileTypeOre (e.g., "copper", "gold")
+	HazardID string // Only meaningful if Type == TileTypeRock or TileTypeLava (e.g., "rock", "lava")
 }
 
 func NewTile(tileType TileType) *Tile {
 	return &Tile{Type: tileType}
 }
 
-func NewOreTile(oreType OreType) *Tile {
-	return &Tile{Type: TileTypeOre, OreType: oreType}
+func NewOreTileByID(oreID string) *Tile {
+	return &Tile{Type: TileTypeOre, OreID: oreID}
 }
 
-func NewHazardTile(hazardType HazardType) *Tile {
-	if hazardType == HazardRock {
-		return &Tile{Type: TileTypeRock, HazardType: hazardType}
+func NewHazardTileByID(hazardID string, hazardCfg *config.HazardConfig) *Tile {
+	if hazardCfg != nil && !hazardCfg.Drillable {
+		return &Tile{Type: TileTypeRock, HazardID: hazardID}
 	}
-	return &Tile{Type: TileTypeLava, HazardType: hazardType}
+	return &Tile{Type: TileTypeLava, HazardID: hazardID}
 }
 
 func (t *Tile) IsSolid() bool {
@@ -47,7 +45,6 @@ func (t *Tile) IsDrillable() bool {
 	return t.Type == TileTypeDirt || t.Type == TileTypeOre || t.Type == TileTypeLava
 }
 
-// GetAABB returns the tile's bounding box at given grid coordinates
 func (t *Tile) GetAABB(gridX, gridY int, tileSize float32) types.AABB {
 	return types.AABB{
 		X:      float32(gridX) * tileSize,

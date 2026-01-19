@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/systems"
@@ -8,23 +9,26 @@ import (
 )
 
 type Game struct {
-	world             *world.World
-	player            *entities.Player
-	physicsSystem     *systems.PhysicsSystem
-	drillingSystem    *systems.DrillingSystem
-	marketSystem      *systems.MarketSystem
-	fuelSystem        *systems.FuelSystem
-	fuelStationSystem *systems.FuelStationSystem
-	hospitalSystem    *systems.HospitalSystem
+	world               *world.World
+	player              *entities.Player
+	physicsSystem       *systems.PhysicsSystem
+	drillingSystem      *systems.DrillingSystem
+	marketSystem        *systems.MarketSystem
+	fuelSystem          *systems.FuelSystem
+	fuelStationSystem   *systems.FuelStationSystem
+	hospitalSystem      *systems.HospitalSystem
 	upgradeShopUISystem *systems.UpgradeShopUISystem
-	itemSystem        *systems.ItemSystem
-	itemShopUISystem  *systems.ItemShopUISystem
+	itemSystem          *systems.ItemSystem
+	itemShopUISystem    *systems.ItemShopUISystem
+	config              *config.GameConfig
 }
 
-func NewGame(w *world.World, config *world.WorldConfig) *Game {
+func NewGame(w *world.World, gameCfg *config.GameConfig) *Game {
+	worldCfg := gameCfg.World
+
 	// Use configured player spawn position
-	spawnX := config.PlayerSpawn.X
-	spawnY := config.PlayerSpawn.Y
+	spawnX := worldCfg.PlayerSpawn.X
+	spawnY := worldCfg.PlayerSpawn.Y
 
 	// Calculate building Y positions (always ground level - building height)
 	marketY := w.GetGroundLevel() - entities.MarketHeight
@@ -34,24 +38,46 @@ func NewGame(w *world.World, config *world.WorldConfig) *Game {
 	itemShopY := w.GetGroundLevel() - entities.ItemShopHeight
 
 	// Create buildings at configured positions
-	market := entities.NewMarket(config.BuildingLayout.MarketX, marketY)
-	fuelStation := entities.NewFuelStation(config.BuildingLayout.FuelStationX, fuelStationY)
-	hospital := entities.NewHospital(config.BuildingLayout.HospitalX, hospitalY)
-	upgradeShop := entities.NewUpgradeShop(config.BuildingLayout.UpgradeShopX, upgradeShopY)
-	itemShop := entities.NewItemShop(config.BuildingLayout.ItemShopX, itemShopY)
+	market := entities.NewMarket(worldCfg.BuildingLayout.MarketX, marketY)
+	fuelStation := entities.NewFuelStation(worldCfg.BuildingLayout.FuelStationX, fuelStationY)
+	hospital := entities.NewHospital(worldCfg.BuildingLayout.HospitalX, hospitalY)
+
+	// Create shops from config (allows per-level pricing and tiers)
+	upgradeShop := entities.NewUpgradeShopFromConfig(
+		worldCfg.BuildingLayout.UpgradeShopX,
+		upgradeShopY,
+		gameCfg.Upgrades,
+	)
+	itemShop := entities.NewItemShopFromConfig(
+		worldCfg.BuildingLayout.ItemShopX,
+		itemShopY,
+		gameCfg.Items,
+	)
+
+	// Create player from config (allows per-level starting upgrades, money, items)
+	player := entities.NewPlayerFromConfig(
+		spawnX,
+		spawnY,
+		gameCfg.Player,
+		gameCfg.Upgrades,
+	)
+
+	// Create market system with ore configs for value lookup
+	marketSystem := systems.NewMarketSystemWithConfig(market, gameCfg.Generation.Ores)
 
 	return &Game{
-		world:             w,
-		player:            entities.NewPlayer(spawnX, spawnY),
-		physicsSystem:     systems.NewPhysicsSystem(w),
-		drillingSystem:    systems.NewDrillingSystem(w),
-		marketSystem:      systems.NewMarketSystem(market),
-		fuelSystem:        systems.NewFuelSystem(),
-		fuelStationSystem: systems.NewFuelStationSystem(fuelStation),
-		hospitalSystem:    systems.NewHospitalSystem(hospital),
+		world:               w,
+		player:              player,
+		physicsSystem:       systems.NewPhysicsSystem(w),
+		drillingSystem:      systems.NewDrillingSystem(w),
+		marketSystem:        marketSystem,
+		fuelSystem:          systems.NewFuelSystem(),
+		fuelStationSystem:   systems.NewFuelStationSystem(fuelStation),
+		hospitalSystem:      systems.NewHospitalSystem(hospital),
 		upgradeShopUISystem: systems.NewUpgradeShopUISystem(upgradeShop),
-		itemSystem:        systems.NewItemSystem(w, spawnX, spawnY),
-		itemShopUISystem:  systems.NewItemShopUISystem(itemShop),
+		itemSystem:          systems.NewItemSystemWithConfig(w, spawnX, spawnY, gameCfg.Items),
+		itemShopUISystem:    systems.NewItemShopUISystem(itemShop),
+		config:              gameCfg,
 	}
 }
 
@@ -136,4 +162,8 @@ func (g *Game) GetItemShop() *entities.ItemShop {
 
 func (g *Game) GetItemShopUIState() *entities.ItemShopUIState {
 	return g.itemShopUISystem.GetUIState()
+}
+
+func (g *Game) GetConfig() *config.GameConfig {
+	return g.config
 }

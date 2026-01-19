@@ -4,22 +4,31 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 )
 
 const ChunkSize = 16 // 16x16 tiles per chunk
 
-// ChunkGenerator handles procedural tile generation using depth-dependent Gaussian distributions
 type ChunkGenerator struct {
 	seed        int64
 	groundTileY int
+	genCfg      config.GenerationConfig
 }
 
-// NewChunkGenerator creates a generator with the given world seed and ground level
 func NewChunkGenerator(seed int64, groundLevel float32) *ChunkGenerator {
 	return &ChunkGenerator{
 		seed:        seed,
 		groundTileY: int(groundLevel / TileSize),
+		genCfg:      config.DefaultGenerationConfig(),
+	}
+}
+
+func NewChunkGeneratorFromConfig(seed int64, groundLevel float32, genCfg config.GenerationConfig) *ChunkGenerator {
+	return &ChunkGenerator{
+		seed:        seed,
+		groundTileY: int(groundLevel / TileSize),
+		genCfg:      genCfg,
 	}
 }
 
@@ -27,8 +36,8 @@ func NewChunkGenerator(seed int64, groundLevel float32) *ChunkGenerator {
 type TileWeights struct {
 	Empty   float32
 	Dirt    float32
-	Ores    map[entities.OreType]float32
-	Hazards map[entities.HazardType]float32
+	Ores    map[string]float32 // Keyed by ore ID
+	Hazards map[string]float32 // Keyed by hazard ID
 }
 
 // GenerateTile creates a single tile at the given tile coordinates
@@ -53,84 +62,41 @@ func (cg *ChunkGenerator) GenerateTile(tileX, tileY int) *entities.Tile {
 
 // gaussianWeight calculates the weight of a tile type at a given depth using Gaussian distribution
 // Formula: weight = maxWeight × e^(-(depth - peak)² / (2σ²))
-func (cg *ChunkGenerator) gaussianWeight(tileY float32, peak, sigma, maxWeight float32) float32 {
-	exponent := -math.Pow(float64(tileY-peak), 2) / (2 * math.Pow(float64(sigma), 2))
-	return maxWeight * float32(math.Exp(exponent))
+func (cg *ChunkGenerator) gaussianWeight(tileY float32, dist config.TileDistribution) float32 {
+	exponent := -math.Pow(float64(tileY-dist.PeakDepth), 2) / (2 * math.Pow(float64(dist.Sigma), 2))
+	return dist.MaxWeight * float32(math.Exp(exponent))
 }
 
 // calculateAllTileWeights computes spawn weights for all tile types at the given depth
 func (cg *ChunkGenerator) calculateAllTileWeights(tileY int) TileWeights {
 	weights := TileWeights{
-		Ores:    make(map[entities.OreType]float32),
-		Hazards: make(map[entities.HazardType]float32),
+		Ores:    make(map[string]float32),
+		Hazards: make(map[string]float32),
 	}
 
-	// Depth factor: 0.0 at ground, 1.0 at max depth
-	depthFactor := float32(tileY-cg.groundTileY) / (1000.0 - float32(cg.groundTileY))
-	depthFactor = clamp(depthFactor, 0, 1)
+	// Empty: use Gaussian distribution from config
+	weights.Empty = cg.gaussianWeight(float32(tileY), cg.genCfg.Empty)
 
-	// Empty: decreases with depth (8.0 at surface → 0.5 at max depth)
-	weights.Empty = 8.0 - 7.5*depthFactor
+	// Dirt: use Gaussian distribution from config
+	weights.Dirt = cg.gaussianWeight(float32(tileY), cg.genCfg.Dirt)
 
-	// Dirt: decreases with depth (20.0 at surface → 2.0 at max depth)
-	weights.Dirt = 20.0 - 18.0*depthFactor
-
-	// Ore weights (existing Gaussian logic)
-	for oreType, meta := range entities.OreDistributions {
-		weight := cg.gaussianWeight(float32(tileY), meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+	// Ore weights (Gaussian from config)
+	for _, oreCfg := range cg.genCfg.Ores {
+		weight := cg.gaussianWeight(float32(tileY), oreCfg.Distribution)
 		if weight >= 0.01 {
-			weights.Ores[oreType] = weight
+			weights.Ores[oreCfg.ID] = weight
 		}
 	}
 
-	// Hazard weights (Gaussian logic)
-	for hazardType, meta := range entities.HazardDistributions {
-		weight := cg.gaussianWeight(float32(tileY), meta.PeakDepth, meta.Sigma, meta.MaxWeight)
+	// Hazard weights (Gaussian from config)
+	for _, hazardCfg := range cg.genCfg.Hazards {
+		weight := cg.gaussianWeight(float32(tileY), hazardCfg.Distribution)
 		if weight >= 0.01 {
-			weights.Hazards[hazardType] = weight
+			weights.Hazards[hazardCfg.ID] = weight
 		}
 	}
 
 	return weights
-}
-
-// calculateOreWeights computes the spawn weight for each ore type at the given depth (legacy, kept for compatibility)
-func (cg *ChunkGenerator) calculateOreWeights(tileY int) map[entities.OreType]float32 {
-	weights := make(map[entities.OreType]float32)
-
-	for oreType, meta := range entities.OreDistributions {
-		weight := cg.gaussianWeight(float32(tileY), meta.PeakDepth, meta.Sigma, meta.MaxWeight)
-		if weight >= 0.01 {
-			weights[oreType] = weight
-		}
-	}
-
-	return weights
-}
-
-// selectOreByWeight performs weighted random selection from available ores
-// Iterates in deterministic order (all ore types) to ensure consistent results
-func (cg *ChunkGenerator) selectOreByWeight(
-	rng *rand.Rand,
-	weights map[entities.OreType]float32,
-	totalWeight float32,
-) *entities.OreType {
-	r := rng.Float32() * totalWeight
-
-	// Iterate in fixed order for determinism (map iteration is non-deterministic)
-	for _, oreType := range entities.GetAllOreTypes() {
-		weight, exists := weights[oreType]
-		if !exists {
-			continue
-		}
-
-		r -= weight
-		if r <= 0 {
-			return &oreType
-		}
-	}
-
-	return nil // Shouldn't happen if totalWeight > 0
 }
 
 // sumAllWeights calculates the total weight of all tile types
@@ -173,22 +139,23 @@ func (cg *ChunkGenerator) selectTileByWeight(
 		return entities.NewTile(entities.TileTypeDirt)
 	}
 
-	// Check Ores (deterministic order)
-	for _, oreType := range entities.GetAllOreTypes() {
-		if weight, exists := weights.Ores[oreType]; exists {
+	// Check Ores (deterministic order based on config order)
+	for _, oreCfg := range cg.genCfg.Ores {
+		if weight, exists := weights.Ores[oreCfg.ID]; exists {
 			r -= weight
 			if r <= 0 {
-				return entities.NewOreTile(oreType)
+				return entities.NewOreTileByID(oreCfg.ID)
 			}
 		}
 	}
 
-	// Check Hazards (deterministic order)
-	for _, hazardType := range entities.GetAllHazardTypes() {
-		if weight, exists := weights.Hazards[hazardType]; exists {
+	// Check Hazards (deterministic order based on config order)
+	for i := range cg.genCfg.Hazards {
+		hazardCfg := &cg.genCfg.Hazards[i]
+		if weight, exists := weights.Hazards[hazardCfg.ID]; exists {
 			r -= weight
 			if r <= 0 {
-				return entities.NewHazardTile(hazardType)
+				return entities.NewHazardTileByID(hazardCfg.ID, hazardCfg)
 			}
 		}
 	}
@@ -215,15 +182,6 @@ func (cg *ChunkGenerator) seedRNG(tileX, tileY int) *rand.Rand {
 	return rand.New(rand.NewSource(seed))
 }
 
-// sumWeights calculates the total weight of all ores (legacy, kept for compatibility)
-func sumWeights(weights map[entities.OreType]float32) float32 {
-	total := float32(0)
-	for _, w := range weights {
-		total += w
-	}
-	return total
-}
-
 func clamp(value, min, max float32) float32 {
 	if value < min {
 		return min
@@ -232,4 +190,9 @@ func clamp(value, min, max float32) float32 {
 		return max
 	}
 	return value
+}
+
+// GetGenerationConfig returns the generator's configuration (for systems that need ore/hazard info)
+func (cg *ChunkGenerator) GetGenerationConfig() *config.GenerationConfig {
+	return &cg.genCfg
 }

@@ -3,6 +3,7 @@ package systems
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/world"
@@ -61,15 +62,15 @@ func TestVerticalDrilling_DirtDuration(t *testing.T) {
 
 func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 	oreTests := []struct {
-		oreType  entities.OreType
+		oreID    string
 		expected float32
 	}{
-		{entities.OreCopper, 1.2},   // 1.0 * 1.2
-		{entities.OreIron, 1.5},     // 1.0 * 1.5
-		{entities.OreGold, 1.8},     // 1.0 * 1.8
-		{entities.OreMythril, 2.1},  // 1.0 * 2.1
-		{entities.OrePlatinum, 2.5}, // 1.0 * 2.5
-		{entities.OreDiamond, 3.0},  // 1.0 * 3.0
+		{"copper", 1.2},   // 1.0 * 1.2
+		{"iron", 1.5},     // 1.0 * 1.5
+		{"gold", 1.8},     // 1.0 * 1.8
+		{"mythril", 2.1},  // 1.0 * 2.1
+		{"platinum", 2.5}, // 1.0 * 2.5
+		{"diamond", 3.0},  // 1.0 * 3.0
 	}
 
 	for _, test := range oreTests {
@@ -83,7 +84,7 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 		playerBottomY := player2.AABB.Y + player2.AABB.Height
 		tileX := int(playerCenterX / world.TileSize)
 		tileY := int(playerBottomY / world.TileSize)
-		w2.SetTile(tileX, tileY, entities.NewOreTile(test.oreType))
+		w2.SetTile(tileX, tileY, entities.NewOreTileByID(test.oreID))
 
 		inputState := input.InputState{Drill: true}
 		ds.ProcessDrilling(player2, inputState, 0.01)
@@ -91,8 +92,8 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 		// Use tolerance-based comparison for floats
 		const tolerance = 0.001
 		if ds.animation.Duration < test.expected-tolerance || ds.animation.Duration > test.expected+tolerance {
-			t.Errorf("Ore %v at ground level: expected ~%f seconds, got %f",
-				test.oreType, test.expected, ds.animation.Duration)
+			t.Errorf("Ore %s at ground level: expected ~%f seconds, got %f",
+				test.oreID, test.expected, ds.animation.Duration)
 		}
 	}
 }
@@ -106,9 +107,9 @@ func TestDrilling_DepthAffectsDuration(t *testing.T) {
 		minExpect float32
 		maxExpect float32
 	}{
-		{10, 0.9, 1.1},       // Near ground (Y=640): ~1.0s
-		{500, 12.0, 13.0},    // Mid-depth (Y=32000): ~12.4s
-		{990, 23.5, 24.5},    // Deep (Y=63360): ~24s
+		{10, 0.9, 1.1},    // Near ground (Y=640): ~1.0s
+		{500, 12.0, 13.0}, // Mid-depth (Y=32000): ~12.4s
+		{990, 23.5, 24.5}, // Deep (Y=63360): ~24s
 	}
 
 	for _, test := range depthTests {
@@ -133,7 +134,7 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 	playerCenterY := player.AABB.Y + player.AABB.Height/2
 	tileX := int((player.AABB.X - 1) / world.TileSize)
 	tileY := int(playerCenterY / world.TileSize)
-	w.SetTile(tileX, tileY, entities.NewOreTile(entities.OreDiamond))
+	w.SetTile(tileX, tileY, entities.NewOreTileByID("diamond"))
 
 	// Drill left (start animation)
 	inputState := input.InputState{Left: true}
@@ -153,8 +154,8 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 	drillingSystem.ProcessDrilling(player, inputState, dt)
 
 	// Should collect diamond
-	if player.OreInventory[entities.OreDiamond] != 1 {
-		t.Errorf("Expected 1 diamond collected, got %d", player.OreInventory[entities.OreDiamond])
+	if player.OreInventory["diamond"] != 1 {
+		t.Errorf("Expected 1 diamond collected, got %d", player.OreInventory["diamond"])
 	}
 
 	// Animation should be complete
@@ -190,7 +191,7 @@ func TestDrilling_AnimationProgress(t *testing.T) {
 	playerCenterY := player.AABB.Y + player.AABB.Height/2
 	tileX := int((player.AABB.X + player.AABB.Width + 1) / world.TileSize)
 	tileY := int(playerCenterY / world.TileSize)
-	w.SetTile(tileX, tileY, entities.NewOreTile(entities.OreIron))
+	w.SetTile(tileX, tileY, entities.NewOreTileByID("iron"))
 
 	startX := player.AABB.X
 
@@ -233,7 +234,7 @@ func TestDrilling_TileRemovedOnCompletion(t *testing.T) {
 	playerBottomY := player.AABB.Y + player.AABB.Height
 	tileX := int(playerCenterX / world.TileSize)
 	tileY := int(playerBottomY / world.TileSize)
-	w.SetTile(tileX, tileY, entities.NewOreTile(entities.OreGold))
+	w.SetTile(tileX, tileY, entities.NewOreTileByID("gold"))
 
 	// Verify tile exists before drilling
 	tileBeforeDrilling := w.GetTileAtGrid(tileX, tileY)
@@ -306,7 +307,7 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 	playerBottomY := player.AABB.Y + player.AABB.Height
 	tileX := int(playerCenterX / world.TileSize)
 	tileY := int(playerBottomY / world.TileSize)
-	w.SetTile(tileX, tileY, entities.NewOreTile(entities.OreIron))
+	w.SetTile(tileX, tileY, entities.NewOreTileByID("iron"))
 
 	// Start vertical drilling
 	inputState := input.InputState{Drill: true}
@@ -337,7 +338,7 @@ func TestDrilling_LavaTileDrillsQuickly(t *testing.T) {
 	depths := []int{50, 200, 500, 800}
 	for _, depth := range depths {
 		tileY := float32(depth) * world.TileSize
-		lavaTile := entities.NewHazardTile(entities.HazardLava)
+		lavaTile := entities.NewHazardTileByID("lava", nil)
 		duration := drillingSystem.calculateDrillingDuration(tileY, lavaTile)
 
 		// Lava should always drill in exactly 0.3 seconds (before any floor clamp)
@@ -349,7 +350,7 @@ func TestDrilling_LavaTileDrillsQuickly(t *testing.T) {
 
 func TestDrilling_LavaTileDrillsQuicklyAtAnyDepth(t *testing.T) {
 	// Test lava drilling at multiple depths
-	depthTests := []int{50, 200, 500, 800}  // Various depths
+	depthTests := []int{50, 200, 500, 800} // Various depths
 
 	for _, tileGridY := range depthTests {
 		w2 := world.NewWorld(world.NewWorldConfigForTesting(7680, 64000, 640, 42))
@@ -358,7 +359,7 @@ func TestDrilling_LavaTileDrillsQuicklyAtAnyDepth(t *testing.T) {
 		ds := NewDrillingSystem(w2)
 
 		tileY := float32(tileGridY) * world.TileSize
-		lavaTile := entities.NewHazardTile(entities.HazardLava)
+		lavaTile := entities.NewHazardTileByID("lava", nil)
 		duration := ds.calculateDrillingDuration(tileY, lavaTile)
 
 		if duration != 0.3 {
@@ -373,12 +374,13 @@ func TestDrilling_RockTileBlocksDrilling(t *testing.T) {
 	player.OnGround = true
 	drillingSystem := NewDrillingSystem(w)
 
-	// Place rock tile below player
+	// Place rock tile below player (rock is not drillable)
 	playerCenterX := player.AABB.X + player.AABB.Width/2
 	playerBottomY := player.AABB.Y + player.AABB.Height
 	tileX := int(playerCenterX / world.TileSize)
 	tileY := int(playerBottomY / world.TileSize)
-	w.SetTile(tileX, tileY, entities.NewHazardTile(entities.HazardRock))
+	rockCfg := &config.HazardConfig{Drillable: false}
+	w.SetTile(tileX, tileY, entities.NewHazardTileByID("rock", rockCfg))
 
 	// Try to drill
 	inputState := input.InputState{Drill: true}
@@ -401,7 +403,7 @@ func TestDrilling_LavaDealsDamage(t *testing.T) {
 	playerBottomY := player.AABB.Y + player.AABB.Height
 	tileX := int(playerCenterX / world.TileSize)
 	tileY := int(playerBottomY / world.TileSize)
-	w.SetTile(tileX, tileY, entities.NewHazardTile(entities.HazardLava))
+	w.SetTile(tileX, tileY, entities.NewHazardTileByID("lava", nil))
 
 	initialHP := player.HP
 
@@ -428,7 +430,7 @@ func TestDrilling_LavaTileRemovedAfterDrilling(t *testing.T) {
 	playerBottomY := player.AABB.Y + player.AABB.Height
 	tileX := int(playerCenterX / world.TileSize)
 	tileY := int(playerBottomY / world.TileSize)
-	w.SetTile(tileX, tileY, entities.NewHazardTile(entities.HazardLava))
+	w.SetTile(tileX, tileY, entities.NewHazardTileByID("lava", nil))
 
 	// Verify tile exists
 	if w.GetTileAtGrid(tileX, tileY) == nil {

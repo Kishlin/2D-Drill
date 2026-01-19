@@ -1,6 +1,9 @@
 package entities
 
-import "github.com/Kishlin/drill-game/internal/domain/types"
+import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
+	"github.com/Kishlin/drill-game/internal/domain/types"
+)
 
 const (
 	UpgradeShopWidth  = 320.0
@@ -101,6 +104,62 @@ func NewUpgradeShop(x, y float32) *UpgradeShop {
 			{Price: 6500, Drill: NewDrillMk5()},
 		},
 	}
+}
+
+func NewUpgradeShopFromConfig(x, y float32, upgradeCfg config.UpgradeConfig) *UpgradeShop {
+	shop := &UpgradeShop{
+		AABB:            types.NewAABB(x, y, UpgradeShopWidth, UpgradeShopHeight),
+		EngineCatalog:   make([]EngineCatalogEntry, len(upgradeCfg.Engines)),
+		HullCatalog:     make([]HullCatalogEntry, len(upgradeCfg.Hulls)),
+		FuelTankCatalog: make([]FuelTankCatalogEntry, len(upgradeCfg.FuelTanks)),
+		CargoCatalog:    make([]CargoHoldCatalogEntry, len(upgradeCfg.CargoHolds)),
+		HeatCatalog:     make([]HeatShieldCatalogEntry, len(upgradeCfg.HeatShields)),
+		DrillCatalog:    make([]DrillCatalogEntry, len(upgradeCfg.Drills)),
+	}
+
+	for i, tier := range upgradeCfg.Engines {
+		shop.EngineCatalog[i] = EngineCatalogEntry{
+			Price:  tier.Price,
+			Engine: NewEngineFromConfig(i, tier.Name, tier.Stats),
+		}
+	}
+
+	for i, tier := range upgradeCfg.Hulls {
+		shop.HullCatalog[i] = HullCatalogEntry{
+			Price: tier.Price,
+			Hull:  NewHullFromConfig(i, tier.Name, tier.Stats),
+		}
+	}
+
+	for i, tier := range upgradeCfg.FuelTanks {
+		shop.FuelTankCatalog[i] = FuelTankCatalogEntry{
+			Price:    tier.Price,
+			FuelTank: NewFuelTankFromConfig(i, tier.Name, tier.Stats),
+		}
+	}
+
+	for i, tier := range upgradeCfg.CargoHolds {
+		shop.CargoCatalog[i] = CargoHoldCatalogEntry{
+			Price:     tier.Price,
+			CargoHold: NewCargoHoldFromConfig(i, tier.Name, tier.Stats),
+		}
+	}
+
+	for i, tier := range upgradeCfg.HeatShields {
+		shop.HeatCatalog[i] = HeatShieldCatalogEntry{
+			Price:      tier.Price,
+			HeatShield: NewHeatShieldFromConfig(i, tier.Name, tier.Stats),
+		}
+	}
+
+	for i, tier := range upgradeCfg.Drills {
+		shop.DrillCatalog[i] = DrillCatalogEntry{
+			Price: tier.Price,
+			Drill: NewDrillFromConfig(i, tier.Name, tier.Stats),
+		}
+	}
+
+	return shop
 }
 
 func (s *UpgradeShop) IsPlayerInRange(player *Player) bool {
