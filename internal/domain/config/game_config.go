@@ -3,9 +3,9 @@ package config
 import "fmt"
 
 type LevelConfig struct {
-	Number int
-	Name   string
-	// Boss placeholder for future implementation
+	Number   int
+	Name     string
+	BossRoom *BossRoomConfig // Optional boss room configuration
 }
 
 type GameConfig struct {
@@ -69,6 +69,16 @@ func (c *GameConfig) Validate() error {
 			return fmt.Errorf("duplicate hazard ID: %s", hazard.ID)
 		}
 		hazardIDs[hazard.ID] = true
+	}
+
+	// Validate boss room config if present
+	if c.Level.BossRoom != nil {
+		if c.Level.BossRoom.RoomHeight <= 0 {
+			return fmt.Errorf("boss room height must be positive")
+		}
+		if c.Level.BossRoom.FloorHeight < 1 {
+			return fmt.Errorf("boss room floor height must be at least 1 tile")
+		}
 	}
 
 	return nil

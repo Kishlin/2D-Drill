@@ -26,7 +26,7 @@ func main() {
 	slog.Info("Starting Drill Game")
 	slog.Info("Initializing Game")
 
-	gameCfg, err := levels.GetLevelConfig(-1)
+	gameCfg, err := levels.GetLevelConfig(-2)
 	if err != nil {
 		slog.Error("Failed to load level config", "error", err)
 		return
@@ -45,7 +45,7 @@ func main() {
 
 	renderer.SetTargetFPS(targetFPS)
 
-	gameWorld := world.NewWorldFromConfig(&gameCfg.World, gameCfg.Generation)
+	gameWorld := world.NewWorldFromConfigWithBoss(&gameCfg.World, gameCfg.Generation, gameCfg.Level.BossRoom)
 
 	game := engine.NewGame(gameWorld, gameCfg)
 

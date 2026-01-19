@@ -11,17 +11,43 @@ import (
 const ChunkSize = 16 // 16x16 tiles per chunk
 
 type ChunkGenerator struct {
-	seed        int64
-	groundTileY int
-	genCfg      config.GenerationConfig
+	seed             int64
+	groundTileY      int
+	genCfg           config.GenerationConfig
+	bossRoomConfig   *config.BossRoomConfig
+	bossRoomStartY   int // Starting tile Y of boss room (in pixels / TileSize)
+	floorStartY      int // Starting tile Y of floor area
+	floorEndY        int // Ending tile Y of floor area (world bottom)
 }
 
 func NewChunkGeneratorFromConfig(seed int64, groundLevel float32, genCfg config.GenerationConfig) *ChunkGenerator {
 	return &ChunkGenerator{
-		seed:        seed,
-		groundTileY: int(groundLevel / TileSize),
-		genCfg:      genCfg,
+		seed:           seed,
+		groundTileY:    int(groundLevel / TileSize),
+		genCfg:         genCfg,
+		bossRoomConfig: nil,
 	}
+}
+
+func NewChunkGeneratorFromConfigWithBoss(seed int64, groundLevel, worldHeight float32, genCfg config.GenerationConfig, bossRoomCfg *config.BossRoomConfig) *ChunkGenerator {
+	cg := &ChunkGenerator{
+		seed:           seed,
+		groundTileY:    int(groundLevel / TileSize),
+		genCfg:         genCfg,
+		bossRoomConfig: bossRoomCfg,
+	}
+
+	if bossRoomCfg != nil {
+		worldHeightTiles := int(worldHeight / TileSize)
+		floorHeightTiles := int(bossRoomCfg.FloorHeight)
+		roomHeightTiles := int(bossRoomCfg.RoomHeight / TileSize)
+
+		cg.floorEndY = worldHeightTiles
+		cg.floorStartY = cg.floorEndY - floorHeightTiles
+		cg.bossRoomStartY = cg.floorStartY - roomHeightTiles
+	}
+
+	return cg
 }
 
 // TileWeights holds spawn weights for all tile types at a given depth
@@ -45,11 +71,37 @@ func (cg *ChunkGenerator) GenerateTile(tileX, tileY int) *entities.Tile {
 		return entities.NewTile(entities.TileTypeDirt)
 	}
 
+	// Boss room (empty air for the room itself)
+	if cg.isBossRoomTile(tileY) {
+		return entities.NewTile(entities.TileTypeEmpty)
+	}
+
+	// Floor (solid, not drillable, not nukeable)
+	if cg.isFloorTile(tileY) {
+		return entities.NewTile(entities.TileTypeFloor)
+	}
+
 	// Underground: use depth-dependent weighted selection
 	rng := cg.seedRNG(tileX, tileY)
 	weights := cg.calculateAllTileWeights(tileY)
 	totalWeight := cg.sumAllWeights(weights)
 	return cg.selectTileByWeight(rng, weights, totalWeight)
+}
+
+// isBossRoomTile returns true if the tile is in the boss room area
+func (cg *ChunkGenerator) isBossRoomTile(tileY int) bool {
+	if cg.bossRoomConfig == nil {
+		return false
+	}
+	return tileY >= cg.bossRoomStartY && tileY < cg.floorStartY
+}
+
+// isFloorTile returns true if the tile is in the floor area
+func (cg *ChunkGenerator) isFloorTile(tileY int) bool {
+	if cg.bossRoomConfig == nil {
+		return false
+	}
+	return tileY >= cg.floorStartY && tileY < cg.floorEndY
 }
 
 // gaussianWeight calculates the weight of a tile type at a given depth using Gaussian distribution

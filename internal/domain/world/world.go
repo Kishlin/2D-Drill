@@ -20,12 +20,23 @@ type World struct {
 }
 
 func NewWorldFromConfig(worldCfg *config.WorldConfig, genCfg config.GenerationConfig) *World {
+	return NewWorldFromConfigWithBoss(worldCfg, genCfg, nil)
+}
+
+func NewWorldFromConfigWithBoss(worldCfg *config.WorldConfig, genCfg config.GenerationConfig, bossRoomCfg *config.BossRoomConfig) *World {
+	var generator *ChunkGenerator
+	if bossRoomCfg != nil {
+		generator = NewChunkGeneratorFromConfigWithBoss(worldCfg.Seed, worldCfg.GroundLevel, worldCfg.Height, genCfg, bossRoomCfg)
+	} else {
+		generator = NewChunkGeneratorFromConfig(worldCfg.Seed, worldCfg.GroundLevel, genCfg)
+	}
+
 	return &World{
 		Width:        worldCfg.Width,
 		Height:       worldCfg.Height,
 		GroundLevel:  worldCfg.GroundLevel,
 		tiles:        make(map[[2]int]*entities.Tile),
-		Generator:    NewChunkGeneratorFromConfig(worldCfg.Seed, worldCfg.GroundLevel, genCfg),
+		Generator:    generator,
 		loadedChunks: make(map[[2]int]bool),
 		seed:         worldCfg.Seed,
 		config:       worldCfg,
@@ -126,9 +137,10 @@ func (w *World) DrillTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
 }
 
 // NukeTileAtGrid removes ANY solid tile at grid coordinates (used by bombs)
+// Does NOT nuke floor tiles (they are indestructible)
 func (w *World) NukeTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
 	tile := w.tiles[[2]int{gridX, gridY}]
-	if tile != nil && tile.IsSolid() {
+	if tile != nil && tile.IsSolid() && tile.Type != entities.TileTypeFloor {
 		delete(w.tiles, [2]int{gridX, gridY})
 		return tile, true
 	}

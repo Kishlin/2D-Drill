@@ -1,6 +1,7 @@
 package systems
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
@@ -14,6 +15,7 @@ type ItemSystem struct {
 	spawnY        float32
 	bombRadius    int
 	bigBombRadius int
+	bossFightSystem *BossFightSystem
 }
 
 func NewItemSystemWithConfig(w *world.World, spawnX, spawnY float32, itemCfg config.ItemConfig) *ItemSystem {
@@ -23,7 +25,13 @@ func NewItemSystemWithConfig(w *world.World, spawnX, spawnY float32, itemCfg con
 		spawnY:        spawnY,
 		bombRadius:    itemCfg.Bomb.Radius,
 		bigBombRadius: itemCfg.BigBomb.Radius,
+		bossFightSystem: nil,
 	}
+}
+
+// SetBossFightSystem sets the boss fight system reference for bomb-boss collisions
+func (is *ItemSystem) SetBossFightSystem(bfs *BossFightSystem) {
+	is.bossFightSystem = bfs
 }
 
 // ProcessItemUsage checks for item inputs and applies effects
@@ -64,6 +72,31 @@ func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
 	// Calculate player center in grid coordinates
 	centerX := int((player.AABB.X + player.AABB.Width/2) / world.TileSize)
 	centerY := int((player.AABB.Y + player.AABB.Height/2) / world.TileSize)
+
+	// Check for bomb-boss collision
+	if is.bossFightSystem != nil {
+		damage := float32(0)
+		if radius == is.bombRadius {
+			damage = 10.0 // Bomb damage
+		} else {
+			damage = 25.0 // Big bomb damage
+		}
+
+		// Calculate bomb AABB (circular blast)
+		blastRadius := float32(radius) * world.TileSize
+		bombAABB := types.AABB{
+			X:      player.AABB.X + player.AABB.Width/2 - blastRadius,
+			Y:      player.AABB.Y + player.AABB.Height/2 - blastRadius,
+			Width:  blastRadius * 2,
+			Height: blastRadius * 2,
+		}
+
+		// Check for physical boss collision
+		physicalBoss, ok := is.bossFightSystem.GetBoss().(bosses.PhysicalBoss)
+		if ok && physicalBoss.GetAABB().Intersects(bombAABB) {
+			is.bossFightSystem.DamageBoss(damage)
+		}
+	}
 
 	// Destroy tiles in circular radius (ore is lost, not collected)
 	// Use NukeTileAtGrid to bypass drillability check, allowing bombs to destroy rocks
