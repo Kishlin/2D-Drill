@@ -16,23 +16,10 @@ type World struct {
 	Generator    *ChunkGenerator // Exported for systems that need generation config
 	loadedChunks map[[2]int]bool
 	seed         int64
-	config       *WorldConfig
+	config       *config.WorldConfig
 }
 
-func NewWorld(cfg *WorldConfig) *World {
-	return &World{
-		Width:        cfg.Width,
-		Height:       cfg.Height,
-		GroundLevel:  cfg.GroundLevel,
-		tiles:        make(map[[2]int]*entities.Tile),
-		Generator:    NewChunkGenerator(cfg.Seed, cfg.GroundLevel),
-		loadedChunks: make(map[[2]int]bool),
-		seed:         cfg.Seed,
-		config:       cfg,
-	}
-}
-
-func NewWorldFromConfig(worldCfg *WorldConfig, genCfg config.GenerationConfig) *World {
+func NewWorldFromConfig(worldCfg *config.WorldConfig, genCfg config.GenerationConfig) *World {
 	return &World{
 		Width:        worldCfg.Width,
 		Height:       worldCfg.Height,

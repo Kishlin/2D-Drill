@@ -20,19 +20,6 @@ type ItemShop struct {
 	Catalog [5]ItemCatalogEntry // Fixed array: Teleport, Repair, Refuel, Bomb, BigBomb
 }
 
-func NewItemShop(x, y float32) *ItemShop {
-	return &ItemShop{
-		AABB: types.NewAABB(x, y, ItemShopWidth, ItemShopHeight),
-		Catalog: [5]ItemCatalogEntry{
-			{ItemType: ItemTeleport, Price: 500}, // 0
-			{ItemType: ItemRepair, Price: 200},   // 1
-			{ItemType: ItemRefuel, Price: 100},   // 2
-			{ItemType: ItemBomb, Price: 300},     // 3
-			{ItemType: ItemBigBomb, Price: 800},  // 4
-		},
-	}
-}
-
 func NewItemShopFromConfig(x, y float32, itemCfg config.ItemConfig) *ItemShop {
 	return &ItemShop{
 		AABB: types.NewAABB(x, y, ItemShopWidth, ItemShopHeight),

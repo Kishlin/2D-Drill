@@ -31,32 +31,6 @@ type Player struct {
 	Drill         Drill          // Drill component (exported)
 }
 
-func NewPlayer(startX, startY float32) *Player {
-	engine := NewEngineBase()
-	hull := NewHullBase()
-	fuelTank := NewFuelTankBase()
-	cargoHold := NewCargoHoldBase()
-	heatShield := NewHeatShieldBase()
-	drill := NewDrillBase()
-
-	return &Player{
-		AABB:          types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
-		Velocity:      types.Zero(),
-		OnGround:      false,
-		OreInventory:  make(map[string]int),
-		ItemInventory: [5]int{5, 5, 5, 5, 5}, // Start with 5 of each item for testing
-		Fuel:          fuelTank.Capacity(),
-		HP:            hull.MaxHP(),
-		Engine:        engine,
-		Hull:          hull,
-		FuelTank:      fuelTank,
-		CargoHold:     cargoHold,
-		HeatShield:    heatShield,
-		Drill:         drill,
-		Money:         100000,
-	}
-}
-
 func NewPlayerFromConfig(startX, startY float32, playerCfg config.PlayerConfig, upgradeCfg config.UpgradeConfig) *Player {
 	// Get starting upgrade tiers
 	engineTier := upgradeCfg.Engines[playerCfg.StartingUpgrades.Engine]

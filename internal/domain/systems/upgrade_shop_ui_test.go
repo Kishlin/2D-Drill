@@ -3,19 +3,11 @@ package systems_test
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/systems"
 )
-
-func createTestUpgradeShopUISystem() (*systems.UpgradeShopUISystem, *entities.Player) {
-	// Create unified shop at position where player (at 0,0) will be in range
-	shop := entities.NewUpgradeShop(0, 0)
-	system := systems.NewUpgradeShopUISystem(shop)
-	player := entities.NewPlayer(0, 0)
-
-	return system, player
-}
 
 func TestUpgradeShopUISystem_OpenShop_WhenInRange(t *testing.T) {
 	system, player := createTestUpgradeShopUISystem()
@@ -256,4 +248,83 @@ func TestUpgradeShopUISystem_PurchaseHull_Success(t *testing.T) {
 	if player.Money != 50 { // Hull Mk1 costs $150
 		t.Errorf("Expected money to be 50 after purchase, got %d", player.Money)
 	}
+}
+
+// Test helpers
+
+func testUpgradeConfig() config.UpgradeConfig {
+	return config.UpgradeConfig{
+		Engines: []config.UpgradeTier[config.EngineStats]{
+			{Name: "Base", Price: 0, Stats: config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}},
+			{Name: "Mk1", Price: 100, Stats: config.EngineStats{MaxSpeed: 500, Acceleration: 2750, FlyAcceleration: 2750, MaxUpwardSpeed: -650}},
+			{Name: "Mk2", Price: 300, Stats: config.EngineStats{MaxSpeed: 550, Acceleration: 3000, FlyAcceleration: 3000, MaxUpwardSpeed: -700}},
+			{Name: "Mk3", Price: 750, Stats: config.EngineStats{MaxSpeed: 600, Acceleration: 3250, FlyAcceleration: 3250, MaxUpwardSpeed: -750}},
+			{Name: "Mk4", Price: 1500, Stats: config.EngineStats{MaxSpeed: 650, Acceleration: 3500, FlyAcceleration: 3500, MaxUpwardSpeed: -800}},
+			{Name: "Mk5", Price: 5000, Stats: config.EngineStats{MaxSpeed: 700, Acceleration: 4000, FlyAcceleration: 4000, MaxUpwardSpeed: -900}},
+		},
+		Hulls: []config.UpgradeTier[config.HullStats]{
+			{Name: "Base", Price: 0, Stats: config.HullStats{MaxHP: 10}},
+			{Name: "Mk1", Price: 150, Stats: config.HullStats{MaxHP: 15}},
+			{Name: "Mk2", Price: 400, Stats: config.HullStats{MaxHP: 20}},
+			{Name: "Mk3", Price: 1000, Stats: config.HullStats{MaxHP: 30}},
+			{Name: "Mk4", Price: 2500, Stats: config.HullStats{MaxHP: 45}},
+			{Name: "Mk5", Price: 8000, Stats: config.HullStats{MaxHP: 70}},
+		},
+		FuelTanks: []config.UpgradeTier[config.FuelTankStats]{
+			{Name: "Base", Price: 0, Stats: config.FuelTankStats{Capacity: 10}},
+			{Name: "Mk1", Price: 100, Stats: config.FuelTankStats{Capacity: 15}},
+			{Name: "Mk2", Price: 250, Stats: config.FuelTankStats{Capacity: 22}},
+			{Name: "Mk3", Price: 600, Stats: config.FuelTankStats{Capacity: 32}},
+			{Name: "Mk4", Price: 1500, Stats: config.FuelTankStats{Capacity: 45}},
+			{Name: "Mk5", Price: 4000, Stats: config.FuelTankStats{Capacity: 65}},
+		},
+		CargoHolds: []config.UpgradeTier[config.CargoHoldStats]{
+			{Name: "Base", Price: 0, Stats: config.CargoHoldStats{Capacity: 10}},
+			{Name: "Mk1", Price: 75, Stats: config.CargoHoldStats{Capacity: 15}},
+			{Name: "Mk2", Price: 200, Stats: config.CargoHoldStats{Capacity: 25}},
+			{Name: "Mk3", Price: 500, Stats: config.CargoHoldStats{Capacity: 40}},
+			{Name: "Mk4", Price: 1250, Stats: config.CargoHoldStats{Capacity: 60}},
+			{Name: "Mk5", Price: 3500, Stats: config.CargoHoldStats{Capacity: 100}},
+		},
+		HeatShields: []config.UpgradeTier[config.HeatShieldStats]{
+			{Name: "Base", Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50}},
+			{Name: "Mk1", Price: 200, Stats: config.HeatShieldStats{HeatResistance: 90}},
+			{Name: "Mk2", Price: 500, Stats: config.HeatShieldStats{HeatResistance: 140}},
+			{Name: "Mk3", Price: 1200, Stats: config.HeatShieldStats{HeatResistance: 200}},
+			{Name: "Mk4", Price: 3000, Stats: config.HeatShieldStats{HeatResistance: 270}},
+			{Name: "Mk5", Price: 10000, Stats: config.HeatShieldStats{HeatResistance: 350}},
+		},
+		Drills: []config.UpgradeTier[config.DrillStats]{
+			{Name: "Base", Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}},
+			{Name: "Mk1", Price: 125, Stats: config.DrillStats{DrillSpeed: 1.5}},
+			{Name: "Mk2", Price: 350, Stats: config.DrillStats{DrillSpeed: 2.2}},
+			{Name: "Mk3", Price: 875, Stats: config.DrillStats{DrillSpeed: 3.2}},
+			{Name: "Mk4", Price: 2000, Stats: config.DrillStats{DrillSpeed: 4.5}},
+			{Name: "Mk5", Price: 6500, Stats: config.DrillStats{DrillSpeed: 6.5}},
+		},
+	}
+}
+
+func testPlayerConfig() config.PlayerConfig {
+	return config.PlayerConfig{
+		StartingMoney:    0,
+		StartingItems:    [5]int{0, 0, 0, 0, 0},
+		StartingUpgrades: config.StartingUpgrades{},
+	}
+}
+
+func testUpgradeShopPlayer() *entities.Player {
+	return entities.NewPlayerFromConfig(0, 0, testPlayerConfig(), testUpgradeConfig())
+}
+
+func testUpgradeShop() *entities.UpgradeShop {
+	return entities.NewUpgradeShopFromConfig(0, 0, testUpgradeConfig())
+}
+
+func createTestUpgradeShopUISystem() (*systems.UpgradeShopUISystem, *entities.Player) {
+	shop := testUpgradeShop()
+	system := systems.NewUpgradeShopUISystem(shop)
+	player := testUpgradeShopPlayer()
+
+	return system, player
 }

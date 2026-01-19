@@ -3,9 +3,23 @@ package physics
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
+
+// Test helper - creates components from config for heat tests
+func testHeatPlayerComponents(heatResistance float32) (entities.Hull, entities.Engine, entities.HeatShield) {
+	hullStats := config.HullStats{MaxHP: 10}
+	engineStats := config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}
+	heatShieldStats := config.HeatShieldStats{HeatResistance: heatResistance}
+
+	hull := entities.NewHullFromConfig(0, "Base", hullStats)
+	engine := entities.NewEngineFromConfig(0, "Base", engineStats)
+	heatShield := entities.NewHeatShieldFromConfig(0, "Base", heatShieldStats)
+
+	return hull, engine, heatShield
+}
 
 // TemperatureTests
 
@@ -76,12 +90,13 @@ func TestCalculateTemperature_ThreeQuarters(t *testing.T) {
 // Heat Damage Tests
 
 func TestApplyHeatDamage_NoExcessHeat(t *testing.T) {
+	hull, engine, heatShield := testHeatPlayerComponents(50) // 50°C resistance
 	player := &entities.Player{
-		AABB:      types.NewAABB(0, 640, 64, 64), // At ground level (15°C)
-		HP:        10.0,
-		Hull:      entities.NewHullBase(),
-		Engine:    entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(), // 50°C resistance
+		AABB:       types.NewAABB(0, 640, 64, 64), // At ground level (15°C)
+		HP:         10.0,
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	// Temperature 15°C < resistance 50°C, no damage
@@ -95,12 +110,13 @@ func TestApplyHeatDamage_NoExcessHeat(t *testing.T) {
 func TestApplyHeatDamage_AtResistanceLimit(t *testing.T) {
 	// At 640 + 800 = 1440px, temp = 15 + (800/63360) * 335 ≈ 19.24°C
 	// Resistance 50°C > temp, no damage
+	hull, engine, heatShield := testHeatPlayerComponents(50)
 	player := &entities.Player{
 		AABB:       types.NewAABB(0, 1440, 64, 64),
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	ApplyHeatDamage(player, 0.016)
@@ -115,12 +131,13 @@ func TestApplyHeatDamage_SlightExcess(t *testing.T) {
 	// Base resistance = 50°C
 	// Excess = 0.35°C (minimal)
 	// damage = 0.5 * (0.35/10)^1.5 * dt
+	hull, engine, heatShield := testHeatPlayerComponents(50)
 	player := &entities.Player{
 		AABB:       types.NewAABB(0, 7290, 64, 64),
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	ApplyHeatDamage(player, 1.0) // 1 second
@@ -138,12 +155,13 @@ func TestApplyHeatDamage_SignificantExcess(t *testing.T) {
 	// Base resistance = 50°C
 	// Excess = 66.04°C
 	// damage/sec ≈ 0.5 * (66.04/10)^1.5 ≈ 0.5 * ~17 ≈ 8.5 HP/sec
+	hull, engine, heatShield := testHeatPlayerComponents(50)
 	player := &entities.Player{
 		AABB:       types.NewAABB(0, 20590, 64, 64),
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	ApplyHeatDamage(player, 1.0) // 1 second
@@ -159,12 +177,13 @@ func TestApplyHeatDamage_SignificantExcess(t *testing.T) {
 
 func TestApplyHeatDamage_ClampsAtZero(t *testing.T) {
 	// Very deep: temperature far exceeds resistance
+	hull, engine, heatShield := testHeatPlayerComponents(50) // 50°C resistance
 	player := &entities.Player{
 		AABB:       types.NewAABB(0, 64000, 64, 64), // Max depth (350°C)
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(), // 50°C resistance
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	// Apply 10 seconds of heat damage
@@ -178,12 +197,13 @@ func TestApplyHeatDamage_ClampsAtZero(t *testing.T) {
 func TestApplyHeatDamage_UpgradedShield(t *testing.T) {
 	// At depth with 140°C temp, Mk2 shield (140°C resistance) should take minimal/no damage
 	// Y = 640 + (140-15)/335 * 63360 = 640 + 23647 ≈ 24287
+	hull, engine, heatShield := testHeatPlayerComponents(140) // 140°C resistance (Mk2)
 	player := &entities.Player{
 		AABB:       types.NewAABB(0, 24287, 64, 64),
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldMk2(), // 140°C resistance
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	ApplyHeatDamage(player, 0.016) // One frame at 60 FPS
@@ -199,24 +219,26 @@ func TestApplyHeatDamage_ScalesWithDeltaTime(t *testing.T) {
 	// Same depth, test that damage scales with dt
 	depth := float32(20590.0) // ~116°C temp
 
+	hull1, engine1, heatShield1 := testHeatPlayerComponents(50)
 	player1 := &entities.Player{
 		AABB:       types.NewAABB(0, depth, 64, 64),
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull1,
+		Engine:     engine1,
+		HeatShield: heatShield1,
 	}
 
+	hull2, engine2, heatShield2 := testHeatPlayerComponents(50)
 	player2 := &entities.Player{
 		AABB:       types.NewAABB(0, depth, 64, 64),
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull2,
+		Engine:     engine2,
+		HeatShield: heatShield2,
 	}
 
-	ApplyHeatDamage(player1, 0.5)  // Half second
-	ApplyHeatDamage(player2, 1.0)  // Full second
+	ApplyHeatDamage(player1, 0.5) // Half second
+	ApplyHeatDamage(player2, 1.0) // Full second
 
 	// Damage should roughly double with 2x delta time
 	damage1 := 10.0 - player1.HP
@@ -228,12 +250,13 @@ func TestApplyHeatDamage_ScalesWithDeltaTime(t *testing.T) {
 }
 
 func TestApplyHeatDamage_AlreadyDead(t *testing.T) {
+	hull, engine, heatShield := testHeatPlayerComponents(50)
 	player := &entities.Player{
 		AABB:       types.NewAABB(0, 64000, 64, 64),
 		HP:         0.0, // Already dead
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	ApplyHeatDamage(player, 10.0)
@@ -246,12 +269,13 @@ func TestApplyHeatDamage_AlreadyDead(t *testing.T) {
 
 func TestApplyHeatDamage_PreservesPartialHealth(t *testing.T) {
 	// Player at 8 HP with excess heat
+	hull, engine, heatShield := testHeatPlayerComponents(50)
 	player := &entities.Player{
 		AABB:       types.NewAABB(0, 20590, 64, 64), // ~116°C
-		HP:         8.0, // Damaged
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		HP:         8.0,                             // Damaged
+		Hull:       hull,
+		Engine:     engine,
+		HeatShield: heatShield,
 	}
 
 	ApplyHeatDamage(player, 0.5)
@@ -267,20 +291,22 @@ func TestApplyHeatDamage_MoreDamageThanExposure(t *testing.T) {
 	// Shallow location: temp ≈ 75°C, excess = 25°C
 	// Deep location: temp ≈ 200°C, excess = 150°C
 
+	hull1, engine1, heatShield1 := testHeatPlayerComponents(50)
 	shallowPlayer := &entities.Player{
 		AABB:       types.NewAABB(0, float32(6650), 64, 64), // Shallow depth
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull1,
+		Engine:     engine1,
+		HeatShield: heatShield1,
 	}
 
+	hull2, engine2, heatShield2 := testHeatPlayerComponents(50)
 	deepPlayer := &entities.Player{
 		AABB:       types.NewAABB(0, float32(30000), 64, 64), // Deeper depth
 		HP:         10.0,
-		Hull:       entities.NewHullBase(),
-		Engine:     entities.NewEngineBase(),
-		HeatShield: entities.NewHeatShieldBase(),
+		Hull:       hull2,
+		Engine:     engine2,
+		HeatShield: heatShield2,
 	}
 
 	ApplyHeatDamage(shallowPlayer, 1.0)

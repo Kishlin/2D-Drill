@@ -3,18 +3,41 @@ package physics_test
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/physics"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
+// Test helper - creates minimal world for collision tests
+func testWorld() *world.World {
+	worldCfg := &config.WorldConfig{
+		Width:       1280,
+		Height:      720,
+		GroundLevel: 640,
+		Seed:        42,
+		PlayerSpawn: config.PlayerSpawn{X: 640, Y: 630},
+		BuildingLayout: config.BuildingLayout{
+			HospitalX: 0, FuelStationX: 0, MarketX: 0, UpgradeShopX: 0, ItemShopX: 0,
+		},
+	}
+	genCfg := config.GenerationConfig{
+		Empty:        config.TileDistribution{PeakDepth: 0, Sigma: 1000, MaxWeight: 20},
+		Dirt:         config.TileDistribution{PeakDepth: 0, Sigma: 500, MaxWeight: 100},
+		DirtHardness: 1.0,
+		Ores:         []config.OreConfig{{ID: "copper", Name: "Copper", Value: 25, Hardness: 1.2, Distribution: config.TileDistribution{PeakDepth: -75, Sigma: 120, MaxWeight: 8}, Color: [4]uint8{184, 115, 51, 255}}},
+		Hazards:      []config.HazardConfig{},
+	}
+	return world.NewWorldFromConfig(worldCfg, genCfg)
+}
+
 func TestGetOccupiedTileRange(t *testing.T) {
 	tests := []struct {
-		name                          string
-		aabb                          types.AABB
-		tileSize                      float32
-		expectedMinX, expectedMaxX    int
-		expectedMinY, expectedMaxY    int
+		name                       string
+		aabb                       types.AABB
+		tileSize                   float32
+		expectedMinX, expectedMaxX int
+		expectedMinY, expectedMaxY int
 	}{
 		{
 			name:         "Single tile",
@@ -54,7 +77,7 @@ func TestGetOccupiedTileRange(t *testing.T) {
 }
 
 func TestCheckCollisions_NoCollisions(t *testing.T) {
-	w := world.NewWorld(world.NewWorldConfigForTesting(1280, 720, 640, 42))
+	w := testWorld()
 	playerAABB := types.NewAABB(100, 100, 54, 54) // Above ground, in air
 
 	collisions := physics.CheckCollisions(playerAABB, w)
@@ -65,7 +88,7 @@ func TestCheckCollisions_NoCollisions(t *testing.T) {
 }
 
 func TestCheckCollisions_GroundCollision(t *testing.T) {
-	w := world.NewWorld(world.NewWorldConfigForTesting(1280, 720, 640, 42))
+	w := testWorld()
 	// Player overlapping ground tiles (ground at Y=640, tiles start at grid Y=10)
 	playerAABB := types.NewAABB(100, 620, 54, 54) // Bottom at 674
 
@@ -77,7 +100,7 @@ func TestCheckCollisions_GroundCollision(t *testing.T) {
 }
 
 func TestResolveCollisionsY_GroundLanding(t *testing.T) {
-	w := world.NewWorld(world.NewWorldConfigForTesting(1280, 720, 640, 42))
+	w := testWorld()
 
 	// Player falling onto ground (ground at 640)
 	aabb := types.NewAABB(100, 620, 54, 54)

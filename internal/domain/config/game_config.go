@@ -73,33 +73,3 @@ func (c *GameConfig) Validate() error {
 
 	return nil
 }
-
-func DefaultGameConfig() *GameConfig {
-	return &GameConfig{
-		World: WorldConfig{
-			Width:       3072,
-			Height:      51200,
-			GroundLevel: 640,
-			Seed:        42,
-			PlayerSpawn: PlayerSpawn{
-				X: 1536,
-				Y: 570,
-			},
-			BuildingLayout: BuildingLayout{
-				HospitalX:    480,
-				FuelStationX: 850,
-				MarketX:      1400,
-				UpgradeShopX: 1850,
-				ItemShopX:    2220,
-			},
-		},
-		Player:     DefaultPlayerConfig(),
-		Generation: DefaultGenerationConfig(),
-		Upgrades:   DefaultUpgradeConfig(),
-		Items:      DefaultItemConfig(),
-		Level: LevelConfig{
-			Number: 1,
-			Name:   "Level 1",
-		},
-	}
-}

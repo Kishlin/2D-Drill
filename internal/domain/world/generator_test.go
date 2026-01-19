@@ -8,8 +8,8 @@ import (
 )
 
 func TestGaussianWeight_AtPeak(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-	genCfg := gen.GetGenerationConfig()
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// Test each ore at its peak depth
 	for _, oreCfg := range genCfg.Ores {
@@ -26,8 +26,8 @@ func TestGaussianWeight_AtPeak(t *testing.T) {
 }
 
 func TestGaussianWeight_Symmetry(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-	genCfg := gen.GetGenerationConfig()
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// Test with gold ore
 	goldCfg := genCfg.GetOreByID("gold")
@@ -47,8 +47,8 @@ func TestGaussianWeight_Symmetry(t *testing.T) {
 }
 
 func TestGaussianWeight_FarFromPeak(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-	genCfg := gen.GetGenerationConfig()
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// Test with diamond ore (peaks deep)
 	diamondCfg := genCfg.GetOreByID("diamond")
@@ -65,8 +65,8 @@ func TestGaussianWeight_FarFromPeak(t *testing.T) {
 }
 
 func TestCalculateAllTileWeights_MultipleOres(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
-	genCfg := gen.GetGenerationConfig()
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// Get gold's peak depth
 	goldCfg := genCfg.GetOreByID("gold")
@@ -89,8 +89,9 @@ func TestCalculateAllTileWeights_MultipleOres(t *testing.T) {
 }
 
 func TestGenerateTile_Deterministic(t *testing.T) {
-	gen1 := NewChunkGenerator(12345, 640)
-	gen2 := NewChunkGenerator(12345, 640)
+	genCfg := testGeneratorConfig()
+	gen1 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
+	gen2 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
 
 	// Same seed + coords = same tile
 	for i := 0; i < 10; i++ {
@@ -109,7 +110,8 @@ func TestGenerateTile_Deterministic(t *testing.T) {
 }
 
 func TestGenerateTile_GroundLevel(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 	groundTileY := 10 // 640 / 64 = 10
 
 	// Test multiple X coordinates at ground level
@@ -123,7 +125,8 @@ func TestGenerateTile_GroundLevel(t *testing.T) {
 }
 
 func TestGenerateTile_NoOreAtGroundLevel(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 	groundTileY := 10
 
 	// Ground level should never generate ore
@@ -164,7 +167,8 @@ func TestHashCoordinates_Unique(t *testing.T) {
 // === Hazard Tile Tests ===
 
 func TestCalculateAllTileWeights_RockAtShallowDepth(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// At shallow depth (~tile 50, ~40% depth), rock should have minimal weight
 	weights := gen.calculateAllTileWeights(50)
@@ -175,7 +179,8 @@ func TestCalculateAllTileWeights_RockAtShallowDepth(t *testing.T) {
 }
 
 func TestCalculateAllTileWeights_HazardsAtDeepDepth(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// At very deep depth (~tile 800, ~80%+ depth), hazards should have significant weight
 	weights := gen.calculateAllTileWeights(800)
@@ -191,7 +196,8 @@ func TestCalculateAllTileWeights_HazardsAtDeepDepth(t *testing.T) {
 }
 
 func TestGenerateTile_NoHazardsAtSurface(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// Generate 100 tiles at shallow depth (near ground)
 	hazardCount := 0
@@ -209,7 +215,8 @@ func TestGenerateTile_NoHazardsAtSurface(t *testing.T) {
 }
 
 func TestGenerateTile_HazardsAtDeepDepth(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// Generate 100 tiles at very deep depth (80%+)
 	hazardCount := 0
@@ -227,7 +234,8 @@ func TestGenerateTile_HazardsAtDeepDepth(t *testing.T) {
 }
 
 func TestGenerateTile_RockAndLavaAreDistinct(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	rockCount := 0
 	lavaCount := 0
@@ -255,8 +263,9 @@ func TestGenerateTile_RockAndLavaAreDistinct(t *testing.T) {
 }
 
 func TestGenerateTile_HazardDeterministic(t *testing.T) {
-	gen1 := NewChunkGenerator(12345, 640)
-	gen2 := NewChunkGenerator(12345, 640)
+	genCfg := testGeneratorConfig()
+	gen1 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
+	gen2 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
 
 	// Same seed + coords = same hazard type
 	for i := 0; i < 10; i++ {
@@ -275,7 +284,7 @@ func TestGenerateTile_HazardDeterministic(t *testing.T) {
 }
 
 func TestNewChunkGeneratorFromConfig(t *testing.T) {
-	genCfg := config.DefaultGenerationConfig()
+	genCfg := testGeneratorConfig()
 	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	// Should be able to generate tiles
@@ -291,7 +300,8 @@ func TestNewChunkGeneratorFromConfig(t *testing.T) {
 }
 
 func TestSumAllWeights(t *testing.T) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := testGeneratorConfig()
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 	weights := gen.calculateAllTileWeights(50)
 
 	total := gen.sumAllWeights(weights)
@@ -307,5 +317,24 @@ func TestSumAllWeights(t *testing.T) {
 
 	if total != expected {
 		t.Errorf("sumAllWeights = %f, expected %f", total, expected)
+	}
+}
+
+// Test helpers
+
+func testGeneratorConfig() config.GenerationConfig {
+	return config.GenerationConfig{
+		Empty:        config.TileDistribution{PeakDepth: 0, Sigma: 1000, MaxWeight: 20},
+		Dirt:         config.TileDistribution{PeakDepth: 0, Sigma: 500, MaxWeight: 100},
+		DirtHardness: 1.0,
+		Ores: []config.OreConfig{
+			{ID: "copper", Name: "Copper", Value: 25, Hardness: 1.2, Distribution: config.TileDistribution{PeakDepth: -75, Sigma: 120, MaxWeight: 8}, Color: [4]uint8{184, 115, 51, 255}},
+			{ID: "gold", Name: "Gold", Value: 300, Hardness: 1.8, Distribution: config.TileDistribution{PeakDepth: 230, Sigma: 80, MaxWeight: 3}, Color: [4]uint8{255, 215, 0, 255}},
+			{ID: "diamond", Name: "Diamond", Value: 500, Hardness: 2.5, Distribution: config.TileDistribution{PeakDepth: 600, Sigma: 100, MaxWeight: 2}, Color: [4]uint8{185, 242, 255, 255}},
+		},
+		Hazards: []config.HazardConfig{
+			{ID: "rock", Name: "Rock", Drillable: false, Distribution: config.TileDistribution{PeakDepth: 650, Sigma: 200, MaxWeight: 15}, Color: [4]uint8{80, 80, 80, 255}},
+			{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillDamage: 100, Distribution: config.TileDistribution{PeakDepth: 750, Sigma: 150, MaxWeight: 12}, Color: [4]uint8{255, 100, 0, 255}},
+		},
 	}
 }

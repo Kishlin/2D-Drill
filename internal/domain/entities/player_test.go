@@ -6,8 +6,26 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/config"
 )
 
+// Test helper - creates player with base stats for tests
+func testPlayer() *Player {
+	playerCfg := config.PlayerConfig{
+		StartingMoney:    0,
+		StartingItems:    [5]int{0, 0, 0, 0, 0},
+		StartingUpgrades: config.StartingUpgrades{},
+	}
+	upgradeCfg := config.UpgradeConfig{
+		Engines:     []config.UpgradeTier[config.EngineStats]{{Price: 0, Stats: config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}}},
+		Hulls:       []config.UpgradeTier[config.HullStats]{{Price: 0, Stats: config.HullStats{MaxHP: 10}}},
+		FuelTanks:   []config.UpgradeTier[config.FuelTankStats]{{Price: 0, Stats: config.FuelTankStats{Capacity: 10}}},
+		CargoHolds:  []config.UpgradeTier[config.CargoHoldStats]{{Price: 0, Stats: config.CargoHoldStats{Capacity: 10}}},
+		HeatShields: []config.UpgradeTier[config.HeatShieldStats]{{Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50}}},
+		Drills:      []config.UpgradeTier[config.DrillStats]{{Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}}},
+	}
+	return NewPlayerFromConfig(0, 0, playerCfg, upgradeCfg)
+}
+
 func TestPlayer_AddOreByID_SingleType(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
 	success := player.AddOreByID("copper")
 
@@ -20,7 +38,7 @@ func TestPlayer_AddOreByID_SingleType(t *testing.T) {
 }
 
 func TestPlayer_AddOreByID_MultipleTypes(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
 	player.AddOreByID("copper")
 	player.AddOreByID("copper")
@@ -43,7 +61,7 @@ func TestPlayer_AddOreByID_MultipleTypes(t *testing.T) {
 }
 
 func TestPlayer_AddOreByID_Accumulates(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
 	for i := 0; i < 10; i++ {
 		player.AddOreByID("iron")
@@ -55,19 +73,19 @@ func TestPlayer_AddOreByID_Accumulates(t *testing.T) {
 }
 
 func TestPlayer_NewPlayer_StartsWithZeroOres(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
-	// Check default ore IDs from config
-	genCfg := config.DefaultGenerationConfig()
-	for _, oreCfg := range genCfg.Ores {
-		if player.OreInventory[oreCfg.ID] != 0 {
-			t.Errorf("New player should have 0 of ore %s, got %d", oreCfg.ID, player.OreInventory[oreCfg.ID])
+	// Check some ore types
+	oreIDs := []string{"copper", "iron", "gold", "diamond"}
+	for _, oreID := range oreIDs {
+		if player.OreInventory[oreID] != 0 {
+			t.Errorf("New player should have 0 of ore %s, got %d", oreID, player.OreInventory[oreID])
 		}
 	}
 }
 
 func TestPlayer_AddOreByID_BoundsCheck(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
 	// Should return false on empty ore ID
 	if player.AddOreByID("") {
@@ -81,7 +99,7 @@ func TestPlayer_AddOreByID_BoundsCheck(t *testing.T) {
 }
 
 func TestPlayer_AddOreByID_CargoCapacity(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 	// Player starts with Base CargoHold, capacity 10
 
 	// Fill cargo to capacity
@@ -108,7 +126,7 @@ func TestPlayer_AddOreByID_CargoCapacity(t *testing.T) {
 // DealDamage tests
 
 func TestPlayer_DealDamage_ReducesHP(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 	initialHP := player.HP
 
 	player.DealDamage(2.0)
@@ -119,7 +137,7 @@ func TestPlayer_DealDamage_ReducesHP(t *testing.T) {
 }
 
 func TestPlayer_DealDamage_SmallDamage(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 	// Player starts with 10 HP
 
 	player.DealDamage(1.5)
@@ -130,7 +148,7 @@ func TestPlayer_DealDamage_SmallDamage(t *testing.T) {
 }
 
 func TestPlayer_DealDamage_LethalDamage(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
 	player.DealDamage(10.0)
 
@@ -140,7 +158,7 @@ func TestPlayer_DealDamage_LethalDamage(t *testing.T) {
 }
 
 func TestPlayer_DealDamage_OverDamage(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
 	// Deal more damage than current HP
 	player.DealDamage(100.0)
@@ -152,7 +170,7 @@ func TestPlayer_DealDamage_OverDamage(t *testing.T) {
 }
 
 func TestPlayer_DealDamage_MultipleDamageInstances(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 	// Player starts with 10 HP
 
 	player.DealDamage(2.0)
@@ -165,7 +183,7 @@ func TestPlayer_DealDamage_MultipleDamageInstances(t *testing.T) {
 }
 
 func TestPlayer_DealDamage_AlreadyDead(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 
 	// Kill player
 	player.DealDamage(10.0)
@@ -180,7 +198,7 @@ func TestPlayer_DealDamage_AlreadyDead(t *testing.T) {
 }
 
 func TestPlayer_DealDamage_PartialDamage(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 	// Player starts with 10 HP
 
 	player.DealDamage(3.7)
@@ -192,7 +210,7 @@ func TestPlayer_DealDamage_PartialDamage(t *testing.T) {
 }
 
 func TestPlayer_DealDamage_ZeroDamage(t *testing.T) {
-	player := NewPlayer(0, 0)
+	player := testPlayer()
 	initialHP := player.HP
 
 	player.DealDamage(0.0)

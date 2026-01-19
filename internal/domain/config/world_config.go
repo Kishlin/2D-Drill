@@ -26,28 +26,6 @@ type WorldConfig struct {
 	BuildingLayout BuildingLayout
 }
 
-// NewWorldConfigForTesting creates a config suitable for tests with minimal building positions
-// This avoids needing to specify all building positions in test code
-func NewWorldConfigForTesting(width, height, groundLevel float32, seed int64) *WorldConfig {
-	return &WorldConfig{
-		Width:       width,
-		Height:      height,
-		GroundLevel: groundLevel,
-		Seed:        seed,
-		PlayerSpawn: PlayerSpawn{
-			X: width / 2,
-			Y: groundLevel - 10,
-		},
-		BuildingLayout: BuildingLayout{
-			MarketX:      width / 2,
-			FuelStationX: width / 2,
-			HospitalX:    width / 2,
-			UpgradeShopX: width / 2,
-			ItemShopX:    width / 2,
-		},
-	}
-}
-
 func (c *WorldConfig) Validate() error {
 	if c.Width <= 0 {
 		return fmt.Errorf("world width must be positive, got %f", c.Width)

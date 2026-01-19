@@ -16,14 +16,6 @@ type ChunkGenerator struct {
 	genCfg      config.GenerationConfig
 }
 
-func NewChunkGenerator(seed int64, groundLevel float32) *ChunkGenerator {
-	return &ChunkGenerator{
-		seed:        seed,
-		groundTileY: int(groundLevel / TileSize),
-		genCfg:      config.DefaultGenerationConfig(),
-	}
-}
-
 func NewChunkGeneratorFromConfig(seed int64, groundLevel float32, genCfg config.GenerationConfig) *ChunkGenerator {
 	return &ChunkGenerator{
 		seed:        seed,

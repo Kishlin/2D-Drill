@@ -46,11 +46,6 @@ type RaylibRenderer struct {
 	hazardColors map[string]rl.Color      // Cached hazard colors by ID
 }
 
-func NewRaylibRenderer(screenWidth, screenHeight int32) *RaylibRenderer {
-	genCfg := config.DefaultGenerationConfig()
-	return NewRaylibRendererWithConfig(screenWidth, screenHeight, &genCfg)
-}
-
 func NewRaylibRendererWithConfig(screenWidth, screenHeight int32, genCfg *config.GenerationConfig) *RaylibRenderer {
 	r := &RaylibRenderer{
 		camera: rl.Camera2D{

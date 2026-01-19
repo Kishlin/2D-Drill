@@ -10,6 +10,8 @@ import (
 // Returns an error if the level doesn't exist
 func GetLevelConfig(levelNum int) (*config.GameConfig, error) {
 	switch levelNum {
+	case -1:
+		return GetTestLevelConfig(), nil
 	case 1:
 		return GetLevel1Config(), nil
 	default:

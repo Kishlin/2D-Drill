@@ -3,19 +3,11 @@ package systems_test
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/systems"
 )
-
-func createTestItemShopUISystem() (*systems.ItemShopUISystem, *entities.Player) {
-	// Create unified item shop at position where player (at 0,0) will be in range
-	shop := entities.NewItemShop(0, 0)
-	system := systems.NewItemShopUISystem(shop)
-	player := entities.NewPlayer(0, 0)
-
-	return system, player
-}
 
 func TestItemShopUISystem_OpenShop_WhenInRange(t *testing.T) {
 	system, player := createTestItemShopUISystem()
@@ -252,4 +244,51 @@ func TestItemShopUISystem_PurchaseNavigateAndBuy(t *testing.T) {
 	if player.Money != 1000-300 {
 		t.Errorf("Expected money to be 700, got %d", player.Money)
 	}
+}
+
+// Test helpers
+
+func testItemConfig() config.ItemConfig {
+	return config.ItemConfig{
+		Teleport: config.ItemEntry{Price: 500, Radius: 0},
+		Repair:   config.ItemEntry{Price: 200, Radius: 0},
+		Refuel:   config.ItemEntry{Price: 100, Radius: 0},
+		Bomb:     config.ItemEntry{Price: 300, Radius: 1},
+		BigBomb:  config.ItemEntry{Price: 800, Radius: 2},
+	}
+}
+
+func testItemShopUpgradeConfig() config.UpgradeConfig {
+	return config.UpgradeConfig{
+		Engines:     []config.UpgradeTier[config.EngineStats]{{Name: "Base", Price: 0, Stats: config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}}},
+		Hulls:       []config.UpgradeTier[config.HullStats]{{Name: "Base", Price: 0, Stats: config.HullStats{MaxHP: 10}}},
+		FuelTanks:   []config.UpgradeTier[config.FuelTankStats]{{Name: "Base", Price: 0, Stats: config.FuelTankStats{Capacity: 10}}},
+		CargoHolds:  []config.UpgradeTier[config.CargoHoldStats]{{Name: "Base", Price: 0, Stats: config.CargoHoldStats{Capacity: 10}}},
+		HeatShields: []config.UpgradeTier[config.HeatShieldStats]{{Name: "Base", Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50}}},
+		Drills:      []config.UpgradeTier[config.DrillStats]{{Name: "Base", Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}}},
+	}
+}
+
+func testItemShopPlayerConfig() config.PlayerConfig {
+	return config.PlayerConfig{
+		StartingMoney:    0,
+		StartingItems:    [5]int{0, 0, 0, 0, 0},
+		StartingUpgrades: config.StartingUpgrades{},
+	}
+}
+
+func testItemShopPlayer() *entities.Player {
+	return entities.NewPlayerFromConfig(0, 0, testItemShopPlayerConfig(), testItemShopUpgradeConfig())
+}
+
+func testItemShop() *entities.ItemShop {
+	return entities.NewItemShopFromConfig(0, 0, testItemConfig())
+}
+
+func createTestItemShopUISystem() (*systems.ItemShopUISystem, *entities.Player) {
+	shop := testItemShop()
+	system := systems.NewItemShopUISystem(shop)
+	player := testItemShopPlayer()
+
+	return system, player
 }

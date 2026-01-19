@@ -3,16 +3,29 @@ package physics
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
+// Test helper - creates components from config for fall damage tests
+func testFallDamagePlayerComponents() (entities.Hull, entities.Engine) {
+	hullStats := config.HullStats{MaxHP: 10}
+	engineStats := config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}
+
+	hull := entities.NewHullFromConfig(0, "Base", hullStats)
+	engine := entities.NewEngineFromConfig(0, "Base", engineStats)
+
+	return hull, engine
+}
+
 func TestApplyFallDamage_BelowThreshold(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at 400 px/sec (below 500 threshold)
@@ -24,11 +37,12 @@ func TestApplyFallDamage_BelowThreshold(t *testing.T) {
 }
 
 func TestApplyFallDamage_AtThreshold(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at exactly 500 px/sec (threshold)
@@ -40,11 +54,12 @@ func TestApplyFallDamage_AtThreshold(t *testing.T) {
 }
 
 func TestApplyFallDamage_SlightlyAboveThreshold(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at 520 px/sec: damage = (520 - 500) / 20 = 1.0
@@ -56,11 +71,12 @@ func TestApplyFallDamage_SlightlyAboveThreshold(t *testing.T) {
 }
 
 func TestApplyFallDamage_ModerateFall(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at 600 px/sec: damage = (600 - 500) / 20 = 5.0
@@ -72,11 +88,12 @@ func TestApplyFallDamage_ModerateFall(t *testing.T) {
 }
 
 func TestApplyFallDamage_LethalFall(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at 700 px/sec: damage = (700 - 500) / 20 = 10.0 (lethal)
@@ -88,11 +105,12 @@ func TestApplyFallDamage_LethalFall(t *testing.T) {
 }
 
 func TestApplyFallDamage_ExtremeVelocity(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at 1500 px/sec: damage = (1500 - 500) / 20 = 50.0
@@ -105,11 +123,12 @@ func TestApplyFallDamage_ExtremeVelocity(t *testing.T) {
 }
 
 func TestApplyFallDamage_PreservesPartialHealth(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     8.0, // Damaged player
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at 600 px/sec: damage = (600 - 500) / 20 = 5.0
@@ -122,11 +141,12 @@ func TestApplyFallDamage_PreservesPartialHealth(t *testing.T) {
 }
 
 func TestApplyFallDamage_AlreadyDead(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     0.0, // Already dead
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Fall at 600 px/sec
@@ -139,11 +159,12 @@ func TestApplyFallDamage_AlreadyDead(t *testing.T) {
 }
 
 func TestApplyFallDamage_NegativeVelocity(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Negative velocity (moving upward) - should not apply damage
@@ -155,11 +176,12 @@ func TestApplyFallDamage_NegativeVelocity(t *testing.T) {
 }
 
 func TestApplyFallDamage_ZeroVelocity(t *testing.T) {
+	hull, engine := testFallDamagePlayerComponents()
 	player := &entities.Player{
 		AABB:   types.NewAABB(0, 0, 64, 64),
 		HP:     10.0,
-		Hull:   entities.NewHullBase(),
-		Engine: entities.NewEngineBase(),
+		Hull:   hull,
+		Engine: engine,
 	}
 
 	// Zero velocity - no damage

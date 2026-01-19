@@ -4,13 +4,14 @@ import (
 	"math"
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 )
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingLeft(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	if player.Fuel != fuelCapacity {
@@ -29,7 +30,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingLeft(t *testing.T) {
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingRight(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	inputState := input.InputState{Right: true}
@@ -43,7 +44,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingRight(t *testing.T) {
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingUp(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	inputState := input.InputState{Up: true}
@@ -57,7 +58,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingUp(t *testing.T) {
 
 func TestFuelSystem_ConsumesMovingRateWhenDrilling(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	// Drilling should use movement rate (active work)
@@ -72,7 +73,7 @@ func TestFuelSystem_ConsumesMovingRateWhenDrilling(t *testing.T) {
 
 func TestFuelSystem_ConsumesIdleRateWhenNoInput(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	// No input = idle state
@@ -87,7 +88,7 @@ func TestFuelSystem_ConsumesIdleRateWhenNoInput(t *testing.T) {
 
 func TestFuelSystem_ConsumesIdleRateWhenOnlySellingInput(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	// Sell input alone should use idle rate (not active movement)
@@ -102,7 +103,7 @@ func TestFuelSystem_ConsumesIdleRateWhenOnlySellingInput(t *testing.T) {
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingAndSelling(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	// Moving + selling = use movement rate (movement takes priority)
@@ -117,7 +118,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingAndSelling(t *testing.T) {
 
 func TestFuelSystem_FuelDoesNotGoBelowZero(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 
 	// Consume all fuel in one very large frame
 	inputState := input.InputState{Left: true}
@@ -137,7 +138,7 @@ func TestFuelSystem_FrameRateIndependence(t *testing.T) {
 	fs := NewFuelSystem()
 
 	// Test at 60 FPS
-	player60 := entities.NewPlayer(0, 0)
+	player60 := testFuelPlayer()
 	inputState := input.InputState{Up: true}
 	frameTime60 := float32(1.0 / 60.0)
 	for i := 0; i < 3600; i++ { // 60 frames/sec * 60 seconds
@@ -145,7 +146,7 @@ func TestFuelSystem_FrameRateIndependence(t *testing.T) {
 	}
 
 	// Test at 30 FPS
-	player30 := entities.NewPlayer(0, 0)
+	player30 := testFuelPlayer()
 	frameTime30 := float32(1.0 / 30.0)
 	for i := 0; i < 1800; i++ { // 30 frames/sec * 60 seconds
 		fs.ConsumeFuel(player30, inputState, frameTime30)
@@ -163,7 +164,7 @@ func TestFuelSystem_FullTankDurationMoving(t *testing.T) {
 	// 10 liters in 30 seconds = 0.333 L/s
 	// Starting with 10L, moving continuously should last 30 seconds
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	inputState := input.InputState{Up: true}
@@ -192,7 +193,7 @@ func TestFuelSystem_FullTankDurationIdle(t *testing.T) {
 	// 10 liters in 120 seconds = 0.08333 L/s
 	// Starting with 10L, idle should last 120 seconds
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	inputState := input.InputState{} // No input = idle
@@ -218,7 +219,7 @@ func TestFuelSystem_FullTankDurationIdle(t *testing.T) {
 
 func TestFuelSystem_MultipleConsumptionsAccumulate(t *testing.T) {
 	fs := NewFuelSystem()
-	player := entities.NewPlayer(0, 0)
+	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	// Consume fuel multiple times
@@ -236,4 +237,23 @@ func TestFuelSystem_MultipleConsumptionsAccumulate(t *testing.T) {
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
 		t.Errorf("expected %.4f after multiple consumptions, got %.4f", expectedFuel, player.Fuel)
 	}
+}
+
+// Test helpers
+
+func testFuelPlayer() *entities.Player {
+	playerCfg := config.PlayerConfig{
+		StartingMoney:    0,
+		StartingItems:    [5]int{0, 0, 0, 0, 0},
+		StartingUpgrades: config.StartingUpgrades{},
+	}
+	upgradeCfg := config.UpgradeConfig{
+		Engines:     []config.UpgradeTier[config.EngineStats]{{Name: "Base", Price: 0, Stats: config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}}},
+		Hulls:       []config.UpgradeTier[config.HullStats]{{Name: "Base", Price: 0, Stats: config.HullStats{MaxHP: 10}}},
+		FuelTanks:   []config.UpgradeTier[config.FuelTankStats]{{Name: "Base", Price: 0, Stats: config.FuelTankStats{Capacity: 10}}},
+		CargoHolds:  []config.UpgradeTier[config.CargoHoldStats]{{Name: "Base", Price: 0, Stats: config.CargoHoldStats{Capacity: 10}}},
+		HeatShields: []config.UpgradeTier[config.HeatShieldStats]{{Name: "Base", Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50}}},
+		Drills:      []config.UpgradeTier[config.DrillStats]{{Name: "Base", Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}}},
+	}
+	return entities.NewPlayerFromConfig(0, 0, playerCfg, upgradeCfg)
 }

@@ -24,19 +24,9 @@ func main() {
 	slog.SetDefault(logger)
 
 	slog.Info("Starting Drill Game")
-
-	renderer := rendering.NewRaylibRenderer(screenWidth, screenHeight)
-	inputAdapter := input.NewRaylibInputAdapter()
-
-	// Initialize window
-	renderer.InitWindow(screenWidth, screenHeight, "Drill Game")
-	defer renderer.CloseWindow()
-
-	renderer.SetTargetFPS(targetFPS)
-
 	slog.Info("Initializing Game")
 
-	gameCfg, err := levels.GetLevelConfig(1)
+	gameCfg, err := levels.GetLevelConfig(-1)
 	if err != nil {
 		slog.Error("Failed to load level config", "error", err)
 		return
@@ -46,6 +36,14 @@ func main() {
 		slog.Error("Invalid game configuration", "error", err)
 		return
 	}
+
+	renderer := rendering.NewRaylibRendererWithConfig(screenWidth, screenHeight, &gameCfg.Generation)
+	inputAdapter := input.NewRaylibInputAdapter()
+
+	renderer.InitWindow(screenWidth, screenHeight, "Drill Game")
+	defer renderer.CloseWindow()
+
+	renderer.SetTargetFPS(targetFPS)
 
 	gameWorld := world.NewWorldFromConfig(&gameCfg.World, gameCfg.Generation)
 

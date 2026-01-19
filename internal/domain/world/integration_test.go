@@ -3,12 +3,15 @@ package world
 import (
 	"testing"
 
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 )
 
+// Test helpers are in world_test.go (testWorldConfig, testGenConfig, testWorld)
+
 func TestIntegration_WorldGenerationDeterministic(t *testing.T) {
-	world1 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 12345))
-	world2 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 12345))
+	world1 := testWorld(7680, 64000, 640, 12345)
+	world2 := testWorld(7680, 64000, 640, 12345)
 
 	// Query 100 random tile coordinates
 	for i := 0; i < 100; i++ {
@@ -37,7 +40,7 @@ func TestIntegration_WorldGenerationDeterministic(t *testing.T) {
 }
 
 func TestIntegration_GroundLevelSolid(t *testing.T) {
-	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
+	world := testWorld(7680, 64000, 640, 42)
 
 	groundTileY := 10 // 640 / 64 = 10
 
@@ -57,7 +60,7 @@ func TestIntegration_GroundLevelSolid(t *testing.T) {
 }
 
 func TestIntegration_OreDistribution(t *testing.T) {
-	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
+	world := testWorld(7680, 64000, 640, 42)
 
 	// At depth 300 (gold's peak), count ore types
 	depth := 300
@@ -95,7 +98,7 @@ func TestIntegration_OreDistribution(t *testing.T) {
 }
 
 func TestIntegration_EmptyTileCollision(t *testing.T) {
-	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
+	world := testWorld(7680, 64000, 640, 42)
 
 	// Find an empty tile by scanning underground
 	foundEmpty := false
@@ -126,7 +129,7 @@ func TestIntegration_EmptyTileCollision(t *testing.T) {
 }
 
 func TestIntegration_DrillingOre(t *testing.T) {
-	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
+	world := testWorld(7680, 64000, 640, 42)
 
 	// Find an ore tile by scanning underground
 	foundOre := false
@@ -175,7 +178,7 @@ func TestIntegration_DrillingOre(t *testing.T) {
 }
 
 func TestIntegration_AboveGroundIsEmpty(t *testing.T) {
-	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
+	world := testWorld(7680, 64000, 640, 42)
 
 	groundTileY := 10
 
@@ -201,8 +204,8 @@ func TestIntegration_AboveGroundIsEmpty(t *testing.T) {
 }
 
 func TestIntegration_DifferentSeeds(t *testing.T) {
-	world1 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 111))
-	world2 := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 222))
+	world1 := testWorld(7680, 64000, 640, 111)
+	world2 := testWorld(7680, 64000, 640, 222)
 
 	// Different seeds should produce different worlds
 	differences := 0
@@ -237,7 +240,16 @@ func TestIntegration_DifferentSeeds(t *testing.T) {
 
 // Benchmark chunk generation performance
 func BenchmarkChunkGeneration(b *testing.B) {
-	gen := NewChunkGenerator(42, 640)
+	genCfg := config.GenerationConfig{
+		Empty:        config.TileDistribution{PeakDepth: 0, Sigma: 1000, MaxWeight: 20},
+		Dirt:         config.TileDistribution{PeakDepth: 0, Sigma: 500, MaxWeight: 100},
+		DirtHardness: 1.0,
+		Ores: []config.OreConfig{
+			{ID: "copper", Name: "Copper", Value: 25, Hardness: 1.2, Distribution: config.TileDistribution{PeakDepth: -75, Sigma: 120, MaxWeight: 8}, Color: [4]uint8{184, 115, 51, 255}},
+		},
+		Hazards: []config.HazardConfig{},
+	}
+	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -257,7 +269,7 @@ func BenchmarkChunkGeneration(b *testing.B) {
 
 // Benchmark tile lookup on cached chunk
 func BenchmarkGetTileAtGrid_CachedChunk(b *testing.B) {
-	world := NewWorld(NewWorldConfigForTesting(7680, 64000, 640, 42))
+	world := testWorld(7680, 64000, 640, 42)
 
 	// Preload chunk
 	world.EnsureChunkLoaded(5, 5)
