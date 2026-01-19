@@ -52,6 +52,24 @@ go run cmd/game/main.go
 LOGLEVEL=debug go run cmd/game/main.go
 ```
 
+### Test Level (Level -1)
+
+A special development level is available with an advanced player configuration for easier testing:
+
+```bash
+# Edit cmd/game/main.go to use test level
+# Change: levels.GetLevelConfig(1) → levels.GetLevelConfig(-1)
+```
+
+**Test Level Player Stats:**
+- Starting money: $100,000
+- Starting items: 3 Teleports, 5 Repairs, 5 Refuels, 10 Bombs, 20 Big Bombs
+- Engine: Max tier (Mk5)
+- Drill: Max tier (Mk5)
+- Hull/FuelTank/CargoHold/HeatShield: Mid tier (Mk3)
+
+This allows testing deep mining, bomb mechanics, and shop interactions without grinding through early game.
+
 ### Build Executable
 
 ```bash
@@ -304,33 +322,103 @@ dlv debug cmd/game/main.go
 
 ## Making Changes
 
+### Creating a New Level
+
+Levels are defined in `internal/domain/levels/` and return complete `GameConfig` structs.
+
+1. **Create a new level file** (e.g., `level2.go`):
+
+```go
+package levels
+
+import "github.com/Kishlin/drill-game/internal/domain/config"
+
+func GetLevel2Config() *config.GameConfig {
+    return &config.GameConfig{
+        World: config.WorldConfig{
+            Width:       3072,
+            Height:      64 * 800,
+            GroundLevel: 640.0,
+            Seed:        123,
+            PlayerSpawn: config.PlayerSpawn{X: 1536.0, Y: 570.0},
+            BuildingLayout: config.BuildingLayout{
+                HospitalX:    480.0,
+                FuelStationX: 850.0,
+                MarketX:      1400.0,
+                UpgradeShopX: 1850.0,
+                ItemShopX:    2220.0,
+            },
+        },
+        Player: config.PlayerConfig{
+            StartingMoney: 500,
+            StartingItems: [5]int{1, 0, 0, 0, 0}, // 1 Teleport
+            StartingUpgrades: config.StartingUpgrades{
+                Engine: 1, Hull: 1, // Start with Mk1
+            },
+        },
+        Generation: config.GenerationConfig{
+            // Define ores, hazards, distributions...
+        },
+        Upgrades: config.UpgradeConfig{
+            // Define upgrade tiers...
+        },
+        Items: config.ItemConfig{
+            // Define item prices...
+        },
+        Level: config.LevelConfig{Number: 2, Name: "Level 2"},
+    }
+}
+```
+
+2. **Register the level** in `registry.go`:
+
+```go
+func GetLevelConfig(levelNum int) (*config.GameConfig, error) {
+    switch levelNum {
+    case -1:
+        return GetTestLevelConfig(), nil
+    case 1:
+        return GetLevel1Config(), nil
+    case 2:
+        return GetLevel2Config(), nil  // Add new case
+    default:
+        return nil, fmt.Errorf("level %d not found", levelNum)
+    }
+}
+```
+
+3. **Use the level** in `main.go`:
+
+```go
+gameCfg, err := levels.GetLevelConfig(2)
+```
+
+**Tips for Level Design:**
+- Copy an existing level as a starting point
+- Each level is independent—define all values explicitly
+- Use different ore sets per level (level 1 might have copper/iron, level 2 might have uranium)
+- Adjust upgrade prices for difficulty scaling
+- Test with validation: `gameCfg.Validate()` catches common errors
+
+---
+
 ### Configuring the World
 
-World dimensions, building positions, player spawn, and seed are all configurable via `WorldConfig` struct. To modify the world layout:
+World dimensions, building positions, player spawn, and seed are all defined in level config files (`internal/domain/levels/levelN.go`).
 
-1. **Edit constants in `cmd/game/main.go`** (lines 13-37):
-   - `worldWidth`, `worldHeight` — World dimensions
-   - `groundLevel` — Y position of ground (must be aligned to 64px tile boundary)
-   - `playerSpawnX`, `playerSpawnY` — Player starting position
-   - `hospitalX`, `fuelStationX`, `marketX`, `upgradeShopX`, `itemShopX` — Building X positions
-   - `worldSeed` — Procedural generation seed
+**Key WorldConfig Fields:**
+- `Width`, `Height` — World dimensions in pixels
+- `GroundLevel` — Y position of ground (align to 64px tile boundary)
+- `PlayerSpawn.X`, `PlayerSpawn.Y` — Starting position
+- `BuildingLayout` — Hospital, FuelStation, Market, UpgradeShop, ItemShop X positions
+- `Seed` — Procedural generation seed
 
-2. **Configuration is validated automatically** in `main()`:
-   - Dimensions must be positive
-   - Player spawn must be within bounds
-   - Buildings must not be completely off-screen (partial off-screen is allowed)
+**Validation Rules (enforced by `WorldConfig.Validate()`):**
+- Dimensions must be positive
+- Player spawn must be within bounds
+- Buildings must not be completely off-screen (partial off-screen is allowed)
 
-3. **Example:** To center buildings differently:
-   ```go
-   const (
-       worldWidth = 3072.0
-       hospitalX = 100.0    // Adjust to reposition
-       fuelStationX = 450.0 // All building positions in pixels
-       // ... etc
-   )
-   ```
-
-**Design Tip:** Keep world width as a multiple of 64 (tile size) for clean alignment. Use `WorldConfig` validation to catch errors before game starts.
+**Design Tip:** Keep world width as a multiple of 64 (tile size) for clean alignment.
 
 ---
 

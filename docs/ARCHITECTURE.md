@@ -68,82 +68,71 @@ Drill Game uses **Hexagonal Architecture** (Ports & Adapters) to achieve a clean
 drill-game/
 ├── cmd/
 │   └── game/
-│       └── main.go                          # Application orchestration
+│       └── main.go                          # Application orchestration, loads level config
 │
 ├── internal/
 │   ├── adapters/                            # Framework Integration (Raylib)
 │   │   ├── input/
 │   │   │   └── raylib.go                    # RaylibInputAdapter
 │   │   └── rendering/
-│   │       └── raylib.go                    # RaylibRenderer
+│   │       └── raylib.go                    # RaylibRenderer (receives GenerationConfig for colors)
 │   │
 │   └── domain/                              # Pure Business Logic
+│       ├── config/                          # Configuration structs (NEW)
+│       │   ├── game_config.go               # GameConfig aggregate with Validate()
+│       │   ├── world_config.go              # WorldConfig (dimensions, spawn, buildings)
+│       │   ├── player_config.go             # PlayerConfig (starting money, items, upgrades)
+│       │   ├── generation_config.go         # GenerationConfig (ores, hazards, distributions)
+│       │   ├── upgrade_config.go            # UpgradeConfig (6 upgrade type tiers with prices/stats)
+│       │   ├── item_config.go               # ItemConfig (5 items with prices/effects)
+│       │   └── component_stats.go           # EngineStats, HullStats, etc. for generic tiers
+│       │
+│       ├── levels/                          # Level definitions (NEW)
+│       │   ├── level1.go                    # GetLevel1Config() — production level
+│       │   ├── level_dev.go                 # GetTestLevelConfig() — test level (-1)
+│       │   └── registry.go                  # GetLevelConfig(levelNum) dispatcher
+│       │
 │       ├── engine/
-│       │   └── game.go                      # Game orchestration (domain)
+│       │   └── game.go                      # Game orchestration (receives GameConfig)
 │       ├── systems/
 │       │   ├── physics.go                   # PhysicsSystem
-│       │   ├── drilling.go                  # DrillingSystem (ore collection)
-│       │   ├── market.go                    # MarketSystem (selling inventory)
+│       │   ├── drilling.go                  # DrillingSystem (reads hazard config for damage)
+│       │   ├── market.go                    # MarketSystem (reads ore values from config)
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
 │       │   ├── fuel_station.go              # FuelStationSystem (refueling)
 │       │   ├── hospital.go                  # HospitalSystem (healing HP)
 │       │   ├── upgrade_shop_ui.go           # UpgradeShopUISystem (modal upgrade UI)
 │       │   ├── item_shop_ui.go              # ItemShopUISystem (modal item shop UI)
-│       │   ├── item.go                      # ItemSystem (using consumable items)
-│       │   ├── drilling_test.go             # Drilling & ore collection tests
-│       │   ├── fuel_test.go                 # Fuel consumption tests
-│       │   ├── fuel_station_test.go         # Fuel station transaction tests
-│       │   ├── hospital_test.go             # Hospital healing transaction tests
-│       │   └── upgrade_shop_ui_test.go      # Upgrade shop UI modal interaction tests
+│       │   ├── item.go                      # ItemSystem (reads bomb radius from config)
+│       │   └── *_test.go                    # System tests
 │       ├── entities/
-│       │   ├── player.go                    # Player aggregate root (AABB, inventory, money, fuel, HP, components)
-│       │   ├── player_test.go               # Player inventory tests
-│       │   ├── engine.go                    # Engine component (tier, name, speed/acceleration stats)
-│       │   ├── hull.go                      # Hull component (tier, name, maxHP)
-│       │   ├── fuel_tank.go                 # FuelTank component (tier, name, capacity)
-│       │   ├── cargo_hold.go                # CargoHold component (tier, name, ore capacity)
-│       │   ├── heat_shield.go               # HeatShield component (tier, name, heat resistance)
-│       │   ├── drill.go                     # Drill component (tier, name, drill speed)
-│       │   ├── tile.go                      # Tile entity (Empty, Dirt, Ore, Rock, Lava)
-│       │   ├── hazard_type.go               # HazardType enum (Rock, Lava) & Gaussian parameters
-│       │   ├── market.go                     # Market entity (AABB-based interactable)
-│       │   ├── fuel_station.go              # FuelStation entity (AABB-based interactable)
-│       │   ├── hospital.go                  # Hospital entity (AABB-based interactable)
-│       │   ├── upgrade_shop.go              # UpgradeShop unified entity with all 6 catalogs
-│       │   ├── upgrade_type.go              # UpgradeType enum (Engine/Hull/FuelTank/CargoHold/HeatShield/Drill)
-│       │   ├── upgrade_shop_ui.go           # UpgradeShopUIState for modal UI (tabs, selection, navigation)
-│       │   ├── item.go                      # ItemType enum (Teleport/Repair/Refuel/Bomb/BigBomb)
-│       │   ├── item_shop.go                 # Unified ItemShop entity with 5-item catalog
-│       │   ├── item_shop_ui.go              # ItemShopUIState for item shop modal UI (selection, navigation)
-│       │   └── ore_type.go                  # Ore types & values, Gaussian parameters
+│       │   ├── player.go                    # Player aggregate root; NewPlayerFromConfig()
+│       │   ├── engine.go                    # Engine component; NewEngineFromStats()
+│       │   ├── hull.go                      # Hull component; NewHullFromStats()
+│       │   ├── fuel_tank.go                 # FuelTank component; NewFuelTankFromStats()
+│       │   ├── cargo_hold.go                # CargoHold component; NewCargoHoldFromStats()
+│       │   ├── heat_shield.go               # HeatShield component; NewHeatShieldFromStats()
+│       │   ├── drill.go                     # Drill component; NewDrillFromStats()
+│       │   ├── tile.go                      # Tile entity (stores OreID/HazardID strings)
+│       │   ├── upgrade_shop.go              # UpgradeShop; NewUpgradeShopFromConfig()
+│       │   ├── item_shop.go                 # ItemShop; NewItemShopFromConfig()
+│       │   └── ...                          # Other entities
 │       ├── physics/
-│       │   ├── constants.go                 # Physics parameters
-│       │   ├── movement.go                  # Movement functions
-│       │   ├── gravity.go                   # Gravity + velocity integration
-│       │   ├── collision.go                 # AABB collision detection/resolution
-│       │   ├── damage.go                    # Fall damage calculations
-│       │   ├── heat.go                      # Temperature calculation & heat damage
-│       │   ├── movement_test.go             # Movement tests
-│       │   ├── gravity_test.go              # Gravity tests
-│       │   └── collision_test.go            # AABB collision tests
+│       │   ├── constants.go                 # Physics parameters (gravity, damping)
+│       │   └── ...                          # Physics functions
 │       ├── types/
-│       │   ├── vec2.go                      # Custom Vec2 (no Raylib types)
-│       │   ├── aabb.go                      # AABB collision primitive
-│       │   └── aabb_test.go                 # AABB unit tests
+│       │   └── ...                          # Vec2, AABB
 │       ├── input/
-│       │   ├── input_state.go               # InputState struct (framework-agnostic)
-│       │   └── input_state_test.go          # InputState helper method tests
+│       │   └── input_state.go               # InputState struct (framework-agnostic)
 │       └── world/
-│           ├── world.go                     # World: chunk loading, sparse tile map
-│           ├── generator.go                 # Procedural tile generation
-│           ├── hash.go                      # Deterministic seeding (FNV-1a)
-│           ├── generator_test.go            # Generator unit tests
-│           ├── world_test.go                # Chunk loading tests
-│           └── integration_test.go          # End-to-end world generation tests
+│           ├── world.go                     # World: NewWorldFromConfig()
+│           ├── generator.go                 # Generator: NewChunkGeneratorFromConfig()
+│           └── ...                          # World tests
 │
 ├── docs/
 │   ├── ARCHITECTURE.md                      # This file
-│   └── GAME_DESIGN.md                       # Game mechanics
+│   ├── GAME_DESIGN.md                       # Game mechanics
+│   └── DEVELOPMENT.md                       # Development workflows
 ├── go.mod
 ├── go.sum
 └── README.md
@@ -1803,9 +1792,155 @@ ps.constrainPlayerToWorldBounds(player)
 
 ---
 
+## Configuration System
+
+The game uses a **data-driven configuration architecture** where all game parameters flow from config structs. This enables per-level customization without code changes.
+
+### Config Package Structure
+
+```
+internal/domain/config/
+├── game_config.go       # GameConfig aggregate with Validate()
+├── world_config.go      # WorldConfig (dimensions, spawn, buildings)
+├── player_config.go     # PlayerConfig (starting money, items, upgrades)
+├── generation_config.go # GenerationConfig (ores, hazards, distributions)
+├── upgrade_config.go    # UpgradeConfig (6 upgrade type tiers)
+├── item_config.go       # ItemConfig (5 items with prices/effects)
+└── component_stats.go   # EngineStats, HullStats, etc.
+```
+
+### GameConfig Aggregate
+
+```go
+type GameConfig struct {
+    World      WorldConfig      // Dimensions, spawn, building positions
+    Player     PlayerConfig     // Starting money, items, upgrade tiers
+    Generation GenerationConfig // Ore/hazard distributions, colors, values
+    Upgrades   UpgradeConfig    // 6 upgrade types with price/stats per tier
+    Items      ItemConfig       // 5 items with prices and effects
+    Level      LevelConfig      // Level number and name (boss placeholder)
+}
+
+func (c *GameConfig) Validate() error {
+    // Validates world config
+    // Checks starting tiers don't exceed available tiers
+    // Ensures at least one ore exists
+    // Validates ore/hazard ID uniqueness
+}
+```
+
+### Key Config Structs
+
+**GenerationConfig** — Defines all tile types with Gaussian distributions:
+
+```go
+type GenerationConfig struct {
+    Empty        TileDistribution  // Air pocket distribution
+    Dirt         TileDistribution  // Dirt distribution
+    DirtHardness float32           // Drilling time multiplier for dirt
+    Ores         []OreConfig       // Dynamic list of ores (varies per level)
+    Hazards      []HazardConfig    // Dynamic list of hazards
+}
+
+type OreConfig struct {
+    ID           string           // Unique identifier (e.g., "copper", "uranium")
+    Name         string           // Display name
+    Value        int              // Sell price at market
+    Hardness     float32          // Drilling time multiplier
+    Distribution TileDistribution // Gaussian spawn parameters
+    Color        [4]uint8         // RGBA for rendering
+}
+
+type HazardConfig struct {
+    ID            string           // Unique identifier (e.g., "rock", "lava")
+    Name          string           // Display name
+    Drillable     bool             // false = impenetrable (rock)
+    FixedDuration float32          // If drillable: fixed drill time (0 = depth formula)
+    OnDrillDamage float32          // Damage dealt when drilling completes
+    Distribution  TileDistribution // Gaussian spawn parameters
+    Color         [4]uint8         // RGBA for rendering
+}
+```
+
+**UpgradeConfig** — Generic upgrade tiers with prices and stats:
+
+```go
+type UpgradeTier[T any] struct {
+    Name  string  // Tier name (e.g., "Base", "Mk1")
+    Price int     // Purchase price (0 for base tier)
+    Stats T       // Type-specific stats (EngineStats, HullStats, etc.)
+}
+
+type UpgradeConfig struct {
+    Engines     []UpgradeTier[EngineStats]
+    Hulls       []UpgradeTier[HullStats]
+    FuelTanks   []UpgradeTier[FuelTankStats]
+    CargoHolds  []UpgradeTier[CargoHoldStats]
+    HeatShields []UpgradeTier[HeatShieldStats]
+    Drills      []UpgradeTier[DrillStats]
+}
+```
+
+### Levels System
+
+Levels are defined in `internal/domain/levels/` as functions returning complete `GameConfig`:
+
+```go
+// levels/registry.go
+func GetLevelConfig(levelNum int) (*config.GameConfig, error) {
+    switch levelNum {
+    case -1:
+        return GetTestLevelConfig(), nil  // Development testing
+    case 1:
+        return GetLevel1Config(), nil     // Production level
+    default:
+        return nil, fmt.Errorf("level %d not found", levelNum)
+    }
+}
+
+// levels/level1.go
+func GetLevel1Config() *config.GameConfig {
+    return &config.GameConfig{
+        World: config.WorldConfig{...},
+        Player: config.PlayerConfig{...},
+        Generation: config.GenerationConfig{...},
+        Upgrades: config.UpgradeConfig{...},
+        Items: config.ItemConfig{...},
+        Level: config.LevelConfig{Number: 1, Name: "Level 1"},
+    }
+}
+```
+
+**Test Level (-1):** Special level for development with advanced player stats (max upgrades, lots of money/items).
+
+### Config Flow Through Application
+
+```
+main.go                    → levels.GetLevelConfig(levelNum)
+                          ↓
+GameConfig                → gameCfg.Validate()
+                          ↓
+world.NewWorldFromConfig  → receives WorldConfig, GenerationConfig
+                          ↓
+engine.NewGame            → receives GameConfig, creates systems with sub-configs
+                          ↓
+entities.NewPlayerFromConfig → receives PlayerConfig, UpgradeConfig
+                          ↓
+renderer.NewWithConfig    → receives GenerationConfig (for ore/hazard colors)
+```
+
+**Design Benefits:**
+- **Level Isolation**: Each level defines all parameters independently
+- **Validation**: Config validates at startup, not runtime
+- **Testability**: Tests can create custom configs without level files
+- **Extensibility**: Add new ores, hazards, or upgrades via config alone
+- **Future Levels**: New levels only require adding a `levelN.go` file
+
+---
+
 ## World Configuration
 
-All world parameters are centralized in `WorldConfig` struct (`internal/domain/world/config.go`):
+All world parameters are centralized in `WorldConfig` struct (`internal/domain/config/world_config.go`):
 
 ```go
 type WorldConfig struct {

@@ -1,6 +1,8 @@
 # Game Design
 
 > For implementation details, physics constants, and configuration values, see [ARCHITECTURE.md](ARCHITECTURE.md).
+>
+> **Note:** All game values (ore prices, upgrade costs, drill speeds, hazard damage, etc.) are defined in level configuration files (`internal/domain/levels/`). Values shown in this document reflect Level 1 defaults and may vary per level.
 
 ## Core Concept
 
@@ -200,14 +202,22 @@ Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Takin
 
 ### Ore Types & Distribution
 
-Six ore types are distributed using Gaussian curves, creating depth-based progression. Copper appears near the surface, while Diamond is found at mid-to-deep depths but remains extremely rare. Each ore type has specific value and rarity.
+Ore types are defined per level in `GenerationConfig.Ores`. Each ore has an ID, display name, value, hardness, Gaussian distribution parameters, and color. Level 1 includes six ore types distributed using Gaussian curves, creating depth-based progression.
+
+**Level 1 Ores:**
+- **Copper** ($25) — Near surface, very common
+- **Iron** ($75) — Shallow depth, common
+- **Gold** ($300) — Mid-shallow, uncommon
+- **Mythril** ($1500) — Mid-depth, rare
+- **Platinum** ($10000) — Deep, very rare
+- **Diamond** ($30000) — Mid-deep, extremely rare
 
 **Game Design:**
 - Early game: Copper and Iron provide quick income and skill practice (shallower, tighter distributions)
 - Mid game: Gold and Mythril increase risk/reward as you venture deeper
 - Late game: Platinum and Diamond are high-value targets requiring deeper exploration
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for ore types table, values, distribution parameters, and depth preferences.
+**Customization:** Different levels can define entirely different ore sets (e.g., Level 2 might have Uranium instead of Copper). See [ARCHITECTURE.md](ARCHITECTURE.md#configuration-system) for config structure.
 
 ## Environmental Hazards
 
@@ -290,14 +300,15 @@ Hazard tiles are impenetrable and drillable obstacles that appear at deeper dept
 
 ### Overview
 
-Six upgrade types are available, each with 6 tiers (Base + Mk1 through Mk5). All upgrades are purchased from a single **Unified Upgrade Shop** with a modal UI. Press **E** while overlapping the shop to open the modal. Use **Z/X** to cycle between upgrade categories (tabs), **arrows/WASD** to navigate the 2×3 grid showing Base + Mk1-Mk5, and **E** to purchase. Press **Q** or **Escape** to close the shop.
+Six upgrade types are available, each defined in `UpgradeConfig` with configurable tiers (prices and stats). Level 1 provides 6 tiers per type (Base + Mk1 through Mk5). All upgrades are purchased from a single **Unified Upgrade Shop** with a modal UI. Press **E** while overlapping the shop to open the modal. Use **Z/X** to cycle between upgrade categories (tabs), **arrows/WASD** to navigate the grid, and **E** to purchase. Press **Q** or **Escape** to close the shop.
 
 **Key Features:**
 - **No Sequential Requirement**: Buy any tier directly if you have the money (skip tiers if affordable)
 - **Modal UI**: Opens a screen overlay that pauses all other gameplay
-- **Grid Display**: 2×3 grid shows all tiers for comparison before purchasing
+- **Grid Display**: Shows all tiers for comparison before purchasing
 - **Visual Feedback**: Light cells = affordable, dark cells = too expensive
 - **Tab Cycling**: Easy navigation between all 6 upgrade types
+- **Config-Driven**: Prices and stats defined in level config, enabling per-level balancing
 
 ### Engine Upgrades
 
@@ -425,7 +436,7 @@ Six separate upgrade shops are located on the surface (right of the ore market),
 
 ### Overview
 
-Consumable items provide tactical advantages during deep mining expeditions. Each item type is purchased at a dedicated shop and used via a single key press. Items are one-time use and must be repurchased. Players start with 5 of each item type for testing (removed in future shop implementations).
+Consumable items provide tactical advantages during deep mining expeditions. Item prices and effects (bomb radius) are defined in `ItemConfig`. Items are purchased from the unified Item Shop and used via single key presses. Items are one-time use and must be repurchased.
 
 ### Item Types & Effects
 
