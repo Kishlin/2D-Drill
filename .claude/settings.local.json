@@ -4,7 +4,15 @@
       "Bash(go test:*)",
       "Bash(go build:*)",
       "Bash(go clean:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(tree:*)",
+      "Bash(head:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(go fmt:*)",
+      "Bash(gofmt:*)",
+      "Bash(go list:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)"
     ]
   }
 }
