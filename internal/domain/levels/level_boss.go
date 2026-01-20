@@ -12,12 +12,12 @@ func GetBossTestLevelConfig() *config.GameConfig {
 	// Create minimal world: ~10 tiles to dig + boss room + floor
 	// Each tile is 64 pixels, so:
 	// - Surface to boss room: ~10 tiles = 640 pixels
-	// - Boss room: ~720 pixels
+	// - Boss room: 680 pixels (fits screen better)
 	// - Floor: 6 tiles = 384 pixels (sufficient margin to prevent seeing below)
-	// Total: ~1744 pixels
+	// Total: ~1704 pixels
 	cfg.World = config.WorldConfig{
 		Width:       1280,
-		Height:      1744,
+		Height:      1704,
 		GroundLevel: 128,
 		Seed:        42,
 		PlayerSpawn: config.PlayerSpawn{X: 100, Y: 58},
@@ -75,7 +75,7 @@ func GetBossTestLevelConfig() *config.GameConfig {
 		BossRoom: &config.BossRoomConfig{
 			BossType:    "test_boss",
 			FloorType:   config.FloorConcrete,
-			RoomHeight:  720.0,
+			RoomHeight:  680.0,
 			FloorHeight: 6.0,
 		},
 	}

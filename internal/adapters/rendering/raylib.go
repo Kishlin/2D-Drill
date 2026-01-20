@@ -5,6 +5,7 @@ import (
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 
+	bossrenderers "github.com/Kishlin/drill-game/internal/adapters/rendering/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/engine"
@@ -35,10 +36,8 @@ var (
 	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)   // Orange
 	BombShopColor       = rl.NewColor(255, 20, 147, 255)  // Deep Pink
 	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)   // Crimson
-	BossColor           = rl.NewColor(255, 0, 0, 255)     // Red
-	BossBorderColor     = rl.NewColor(139, 0, 0, 255)     // Dark Red
-	FloorConcreteColor  = rl.NewColor(100, 100, 100, 255) // Dark Gray
-	FloorLavaColor      = rl.NewColor(255, 100, 0, 255)   // Orange
+	FloorConcreteColor = rl.NewColor(100, 100, 100, 255) // Dark Gray
+	FloorLavaColor     = rl.NewColor(255, 100, 0, 255)   // Orange
 )
 
 type RaylibRenderer struct {
@@ -806,30 +805,13 @@ func (r *RaylibRenderer) renderBoss(boss bosses.Boss) {
 		return
 	}
 
-	physicalBoss, ok := boss.(bosses.PhysicalBoss)
-	if !ok {
-		return // Skip non-physical bosses
+	// Try boss-specific renderers first
+	if bossrenderers.RenderBoss(boss) {
+		return
 	}
 
-	aabb := physicalBoss.GetAABB()
-
-	// Draw boss as colored rectangle
-	rl.DrawRectangle(
-		int32(aabb.X),
-		int32(aabb.Y),
-		int32(aabb.Width),
-		int32(aabb.Height),
-		BossColor,
-	)
-
-	// Draw boss outline
-	rl.DrawRectangleLines(
-		int32(aabb.X),
-		int32(aabb.Y),
-		int32(aabb.Width),
-		int32(aabb.Height),
-		BossBorderColor,
-	)
+	// Fallback to generic rendering
+	bossrenderers.RenderGeneric(boss)
 }
 
 func (r *RaylibRenderer) renderBossHPBar(boss bosses.Boss) {

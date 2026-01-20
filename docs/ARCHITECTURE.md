@@ -75,14 +75,25 @@ drill-game/
 │   │   ├── input/
 │   │   │   └── raylib.go                    # RaylibInputAdapter
 │   │   └── rendering/
-│   │       └── raylib.go                    # RaylibRenderer (receives GenerationConfig for colors)
+│   │       ├── raylib.go                    # RaylibRenderer (receives GenerationConfig for colors)
+│   │       └── bosses/                      # Boss-specific renderers
+│   │           ├── renderer.go              # BossRenderer interface + registry
+│   │           └── test_boss.go             # TestBoss rendering (states, AOE, vibration)
 │   │
 │   └── domain/                              # Pure Business Logic
 │       ├── bosses/                          # Boss System
-│       │   ├── boss.go                      # Boss interface + PhysicalBoss interface
+│       │   ├── boss.go                      # Boss, PhysicalBoss interfaces + AOEInfo
 │       │   ├── projectile.go                # Projectile entity for boss attacks
+│       │   ├── phase.go                     # PhaseManager for HP-threshold phases
+│       │   ├── attacks/                     # Reusable attack patterns
+│       │   │   ├── attack.go                # Attack interface
+│       │   │   ├── projectile_attack.go     # Fires projectiles at player
+│       │   │   └── aoe_attack.go            # Ground slam with telegraph
+│       │   ├── movement/                    # Reusable movement behaviors
+│       │   │   ├── movement.go              # MovementBehavior interface
+│       │   │   └── grounded.go              # Left-right patrol on floor
 │       │   └── test_boss/
-│       │       └── boss.go                  # TestBoss implementation (100 HP, physical)
+│       │       └── boss.go                  # TestBoss (state machine, phases, attacks)
 │       │
 │       ├── config/                          # Configuration structs
 │       │   ├── game_config.go               # GameConfig aggregate with Validate()
@@ -2070,11 +2081,33 @@ Two hazard types use Gaussian distributions to create depth-based challenges:
 
 ### Overview
 
-The boss system provides extensible end-of-level encounters. Bosses are implemented as a separate package with common interfaces, enabling different boss types with varying mechanics.
+The boss system provides extensible end-of-level encounters. Bosses are implemented as a separate package with common interfaces, enabling different boss types with varying mechanics. Each boss type has its own AI logic (domain) and rendering (adapter), avoiding generic interfaces polluted with boss-specific methods.
 
 ### Architecture
 
-**Interfaces (Domain Logic):**
+**Package Structure:**
+
+```
+internal/domain/bosses/
+├── boss.go              # Core interfaces (Boss, PhysicalBoss) + shared types (AOEInfo)
+├── projectile.go        # Projectile entity with AABB collision
+├── phase.go             # PhaseManager for HP-threshold phases
+├── attacks/             # Reusable attack patterns
+│   ├── attack.go        # Attack interface
+│   ├── projectile_attack.go  # Fires projectiles at player
+│   └── aoe_attack.go    # Ground slam with telegraph
+├── movement/            # Reusable movement behaviors
+│   ├── movement.go      # MovementBehavior interface
+│   └── grounded.go      # Left-right patrol on floor
+└── test_boss/           # TestBoss implementation
+    └── boss.go          # State machine, phases, attacks
+
+internal/adapters/rendering/bosses/
+├── renderer.go          # BossRenderer interface + registry
+└── test_boss.go         # TestBoss-specific rendering
+```
+
+**Core Interfaces (Domain Logic):**
 
 ```go
 // Boss defines the interface all bosses must implement
@@ -2094,16 +2127,71 @@ type PhysicalBoss interface {
     Boss
     GetAABB() types.AABB
     TakeDamage(damage float32)
+    IsVulnerable() bool           // When can boss take damage?
+    GetVulnerableTimer() float32  // For UI feedback
+    GetContactDamage() float32    // Damage per second on player contact (0 = passable)
+}
+
+// AOEInfo for rendering AOE effects (used by boss-specific renderers)
+type AOEInfo struct {
+    Position    types.Vec2
+    Radius      float32
+    IsTelegraph bool    // Warning phase
+    IsDamaging  bool    // Damage phase
+    StateTimer  float32
 }
 ```
 
-**Components:**
+**Key Components:**
 
 - **Boss Entities** — Separate packages per boss type (e.g., `bosses/test_boss/`)
 - **Projectile Entity** — Reusable projectile with AABB collision detection
-- **BossFightSystem** — Orchestrates boss encounters, tracks active state, handles projectile collisions
-- **GameState** — Enum tracking Playing/Victory/Defeat states
-- **BossRoomConfig** — Configuration for boss type, floor type, dimensions
+- **PhaseManager** — HP-threshold based phase transitions with configurable behaviors
+- **Attack System** — `ProjectileAttack`, `AOEAttack` with cooldowns and patterns
+- **Movement System** — `Grounded` patrol behavior with boundary reversal
+- **BossFightSystem** — Orchestrates encounters, handles projectile/contact damage
+- **BossRenderer** — Per-boss rendering in adapter layer (no generic animation interfaces)
+
+### State Machine (TestBoss Example)
+
+```
+StatePatrol (moving + shooting)
+    │
+    ├─ AOE cooldown expires
+    v
+StateWindup (stopped, vibrating warning, 1 second)
+    │
+    v
+StateSlam (AOE damage zone, 0.3 seconds)
+    │
+    ├─ More slams to do? → StateWindup (0.4s pause)
+    v
+StateVulnerable (immobile, can be bombed)
+    │
+    ├─ Timer expires OR bomb hit
+    v
+StatePatrol (cooldown reset)
+```
+
+### Phase System
+
+`PhaseManager` tracks HP-based phase transitions:
+
+```go
+type PhaseConfig struct {
+    HPThreshold        float32  // Phase ends when HP% drops below this
+    MovementSpeed      float32
+    ProjectileCooldown float32
+    AOECooldown        float32  // 0 = disabled
+    AlwaysVulnerable   bool
+    VulnerableDuration float32
+}
+```
+
+**TestBoss Phases:**
+- **Phase 1 (100-66% HP)**: Slow patrol, projectiles every 3s, always vulnerable
+- **Phase 2 (66-33% HP)**: Faster patrol, projectiles every 2s, slam every 6s, 3s vulnerability
+- **Phase 3 (33-0% HP)**: Fast patrol, projectiles every 1s, slam every 4s, 2s vulnerability, 50% double slam
 
 ### World Generation Integration
 
@@ -2123,12 +2211,20 @@ The world generator receives `BossRoomConfig` and tracks:
 When a bomb is used:
 1. ItemSystem creates a circular AABB for the blast radius
 2. Checks if blast AABB intersects boss's AABB
-3. If hit, calls `BossFightSystem.DamageBoss(damage)`
-4. Boss HP decreases, defeated state tracked
+3. Checks `boss.IsVulnerable()` before applying damage
+4. If vulnerable and hit, calls `boss.TakeDamage(damage)`
+5. Damage closes vulnerability window (one hit per window)
 
 **Damage Values:**
 - Regular bomb: 10 HP
 - Big bomb: 25 HP
+
+### Contact Damage
+
+`BossFightSystem.handleContactDamage()`:
+1. Checks `physicalBoss.GetContactDamage()`
+2. If > 0 and player intersects boss AABB
+3. Applies `damage * dt` to player (damage per second)
 
 ### Game State Transitions
 
@@ -2152,36 +2248,59 @@ GameStateDefeat (terminal)
 **Adding a New Boss Type:**
 
 1. Create `internal/domain/bosses/my_boss/boss.go`
-2. Implement `Boss` or `PhysicalBoss` interface
+   - Implement `Boss` or `PhysicalBoss` interface
+   - Use `attacks/` and `movement/` packages or create custom logic
+   - Define states, phases, and behaviors specific to this boss
+
+2. Create `internal/adapters/rendering/bosses/my_boss.go`
+   - Implement `BossRenderer` interface
+   - Type-assert to `*my_boss.MyBoss` for state access
+   - Register in `init()`: `Register(&MyBossRenderer{})`
+
 3. Add case in `engine/game.go` `createBossByType()`:
    ```go
    case "my_boss":
        return my_boss.New(roomStartY, worldWidth), nil
    ```
+
 4. Configure in level config:
    ```go
    BossRoom: &config.BossRoomConfig{
        BossType: "my_boss",
        FloorType: config.FloorConcrete,
-       RoomHeight: 720.0,
+       RoomHeight: 680.0,
        FloorHeight: 6.0,
    }
    ```
 
-**Example: Bullet-Hell Boss** (non-physical):
-- No AABB, can't be hit by bombs
-- Spawns projectiles during Update()
-- HP depletes over time or through other mechanics
-- BossFightSystem handles projectile-player collision detection
+**Key Design Principle:** Boss-specific behavior (state machines, animations, attack patterns) stays in boss-specific files. No generic `IsSlamming()` interfaces—renderers type-assert to concrete types.
 
 ### Rendering Integration
 
-**Adapter Layer** (`internal/adapters/rendering/raylib.go`):
-- `renderBoss()` — Draws boss AABB as colored rectangle
+**Adapter Layer** (`internal/adapters/rendering/bosses/`):
+
+```go
+// Renderer interface for boss-specific rendering
+type Renderer interface {
+    CanRender(boss bosses.Boss) bool
+    Render(boss bosses.Boss)
+}
+
+// Registry dispatches to appropriate renderer
+func RenderBoss(boss bosses.Boss) bool
+func RenderGeneric(boss bosses.Boss)  // Fallback
+```
+
+**TestBossRenderer** type-asserts to access:
+- `GetState()` — Current animation state
+- `GetStateTimer()` — Time remaining in state
+- `GetAOEInfo()` — AOE position/radius/phase
+
+**Main Renderer** (`raylib.go`):
+- `renderBoss()` — Dispatches to `bossrenderers.RenderBoss()` or fallback
 - `renderBossHPBar()` — HP bar at screen top with health gradient
 - `renderProjectiles()` — Active projectiles in world space
 - `renderGameStateOverlay()` — Victory/defeat screens
-- Floor tiles styled based on `FloorType` (concrete gray, lava orange)
 
 Boss rendering is purely visual; all game logic lives in domain layer.
 

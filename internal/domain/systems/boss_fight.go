@@ -67,6 +67,8 @@ func (s *BossFightSystem) Update(player *entities.Player, dt float32) entities.G
 
 	s.handleProjectileCollisions(player)
 
+	s.handleContactDamage(player, dt)
+
 	s.handleFloorDamage(player)
 
 	if s.boss.IsDefeated() {
@@ -115,12 +117,22 @@ func (s *BossFightSystem) handleProjectileCollisions(player *entities.Player) {
 			proj.Deactivate()
 		}
 	}
+}
 
-	// Update projectiles
-	for _, proj := range projectiles {
-		if proj.Active {
-			proj.Update(0.016) // Approximate dt if not passed
-		}
+func (s *BossFightSystem) handleContactDamage(player *entities.Player, dt float32) {
+	physicalBoss, ok := s.boss.(bosses.PhysicalBoss)
+	if !ok {
+		return
+	}
+
+	contactDamage := physicalBoss.GetContactDamage()
+	if contactDamage <= 0 {
+		return
+	}
+
+	// Check if player intersects boss
+	if player.AABB.Intersects(physicalBoss.GetAABB()) {
+		player.DealDamage(contactDamage * dt)
 	}
 }
 

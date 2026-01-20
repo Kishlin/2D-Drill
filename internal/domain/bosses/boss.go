@@ -41,4 +41,25 @@ type PhysicalBoss interface {
 
 	// TakeDamage applies damage to the boss
 	TakeDamage(damage float32)
+
+	// IsVulnerable returns true if the boss can currently take damage
+	IsVulnerable() bool
+
+	// GetVulnerableTimer returns remaining vulnerability duration (for UI)
+	GetVulnerableTimer() float32
+
+	// GetContactDamage returns damage dealt per second on player contact
+	// Returns 0 if boss doesn't deal contact damage
+	GetContactDamage() float32
 }
+
+// AOEInfo contains information about an active AOE effect for rendering
+// Used by boss-specific renderers that type-assert to concrete boss types
+type AOEInfo struct {
+	Position    types.Vec2
+	Radius      float32
+	IsTelegraph bool // Warning phase
+	IsDamaging  bool // Damage phase
+	StateTimer  float32
+}
+

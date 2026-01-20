@@ -33,7 +33,10 @@ go test ./...                # Run all tests
 - **Hazard Tiles** — Rock (impenetrable, blocks drilling/movement) and Lava (drillable but deals damage) tiles spawn at deep depths using Gaussian distributions. Hazards dominate terrain at 80%+ depths, creating natural progression gates. Bombs can destroy rocks via `NukeTileAtGrid()` which bypasses drillability checks. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#hazard-tiles) for mechanics.
 - **Depth-Dependent Generation** — All tile types (empty, dirt, ore, hazards) use weighted random selection with weights that vary by depth. Surface (0%) generates mostly dirt/empty; deep (80%+) hazards dominate. Enables natural progression without hard level walls.
 - **Unified Item Shop** — Single `ItemShop` entity consolidates all 5 consumable items (Teleport, Repair, Refuel, Bomb, Big Bomb) with a modal UI (similar to upgrade shop). Items stored in `ItemInventory [5]int` and used via T, R, F, B, G keys (discrete input, `IsKeyPressed()`). Bombs and Big Bombs use `NukeTileAtGrid()` to destroy all solid tiles including impenetrable rocks. Purchased via modal at item shop with E key. Grid navigation (arrows/WASD) selects items; E to purchase; Q/Escape to close. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#items) for mechanics.
-- **Boss Fight System** — End-of-level boss encounters with configurable boss types and floor mechanics. Boss rooms are generated as empty spaces below the mining area, with solid, indestructible floor tiles. Bosses implement the `Boss` interface; bomb-vulnerable bosses implement `PhysicalBoss` for AABB collision detection. Game state tracks Playing/Victory/Defeat. Boss HP bar renders at screen top when boss is active. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#boss-fights) for full mechanics.
+- **Boss Fight System** — End-of-level boss encounters with configurable boss types and floor mechanics. Boss rooms are generated as empty spaces below the mining area, with solid, indestructible floor tiles. Bosses implement the `Boss` interface; bomb-vulnerable bosses implement `PhysicalBoss` for AABB collision detection (includes `IsVulnerable()`, `GetContactDamage()`). Game state tracks Playing/Victory/Defeat. Boss HP bar renders at screen top when boss is active. See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md#boss-fights) for full mechanics.
+- **Boss State Machine** — Bosses use state machines for animation and behavior. TestBoss has states: `StatePatrol` (moving/shooting), `StateWindup` (vibrating warning), `StateSlam` (AOE damage), `StateVulnerable` (can be bombed). State transitions drive visual feedback and vulnerability windows.
+- **Boss Phase System** — `PhaseManager` tracks HP-threshold based phases. Each phase can configure movement speed, attack cooldowns, vulnerability rules. TestBoss has 3 phases: Phase 1 (always vulnerable), Phase 2 (vulnerable after slam), Phase 3 (shorter windows, double slams).
+- **Boss Rendering Architecture** — Each boss type has its own renderer in `internal/adapters/rendering/bosses/`. Renderers type-assert to concrete boss types for state access. No generic animation interfaces polluting domain—boss-specific logic stays in boss-specific files.
 
 ## Key Files
 
@@ -59,12 +62,16 @@ go test ./...                # Run all tests
 - `internal/domain/world/` — Chunk-based procedural world; generator reads `GenerationConfig` for ore/hazard distributions
 
 ### Boss System
-- `internal/domain/bosses/boss.go` — `Boss` interface (all bosses) and `PhysicalBoss` interface (bomb-vulnerable bosses)
+- `internal/domain/bosses/boss.go` — Core interfaces (`Boss`, `PhysicalBoss`) and shared types (`AOEInfo`)
 - `internal/domain/bosses/projectile.go` — Projectile entity for boss attacks with AABB collision detection
-- `internal/domain/bosses/test_boss/boss.go` — TestBoss implementation (100 HP, 200x200px, bomb-vulnerable)
+- `internal/domain/bosses/phase.go` — `PhaseManager` for HP-threshold based phase transitions
+- `internal/domain/bosses/attacks/` — Attack system (reusable): `Attack` interface, `ProjectileAttack`, `AOEAttack`
+- `internal/domain/bosses/movement/` — Movement system (reusable): `MovementBehavior` interface, `Grounded` patrol
+- `internal/domain/bosses/test_boss/boss.go` — TestBoss implementation with state machine, phases, movement, attacks
 - `internal/domain/config/boss_room_config.go` — `BossRoomConfig` struct with boss type, floor type, room height, floor height
 - `internal/domain/entities/game_state.go` — `GameState` enum: Playing, Victory, Defeat
 - `internal/domain/levels/level_boss.go` — Boss test level (-2) configuration for development and testing
+- `internal/adapters/rendering/bosses/` — Boss-specific renderers (each boss has its own rendering logic)
 
 ## Documentation
 

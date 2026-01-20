@@ -521,7 +521,7 @@ Boss encounters are end-of-level challenges that occur at the bottom of the mine
 
 Each boss room has three layers:
 1. **Mining Area** — Normal terrain with ores and hazards (top section)
-2. **Boss Room** — Empty space where the boss waits (middle section, ~720 pixels)
+2. **Boss Room** — Empty space where the boss waits (middle section, ~680 pixels)
 3. **Floor** — Solid concrete or lava tiles (bottom section, indestructible)
 
 The camera clamps at the world bottom to prevent viewing or nuking below the floor.
@@ -530,20 +530,66 @@ The camera clamps at the world bottom to prevent viewing or nuking below the flo
 
 **Activation & Deactivation:**
 - Boss activates when player enters the boss room (crosses threshold)
-- Boss deactivates when player leaves the room
+- Boss deactivates when player leaves the room (projectiles cleared)
 - HP is preserved if player exits and re-enters
 
+**Vulnerability System:**
+- Bosses have `IsVulnerable()` method determining when damage is accepted
+- Phase 1: Always vulnerable (easy mode)
+- Phases 2-3: Only vulnerable during specific windows (after slam attacks)
+- One bomb hit per vulnerability window (prevents spam)
+
+**Contact Damage:**
+- Physical bosses can deal contact damage (configurable per boss)
+- TestBoss deals 20 HP/sec on player contact
+- Some future bosses may have 0 contact damage (passable)
+
 **Interaction:**
-- Bombs deal damage to bomb-vulnerable bosses (10 HP per bomb, 25 HP per big bomb)
+- Bombs deal damage to vulnerable bosses (10 HP per bomb, 25 HP per big bomb)
+- Damage only applies during vulnerability windows
 - Boss dies when HP reaches 0
 - Victory screen appears on boss defeat
 - Current game state (Playing/Victory/Defeat) is tracked and rendered
 
-**TestBoss** (current implementation):
-- 100 HP, 200×200 pixel sprite
-- Located at center of boss room
-- Takes damage from bombs and big bombs
-- Simple physical boss for testing and development
+### TestBoss Behavior
+
+**Stats:**
+- 100 HP, 100×100 pixel sprite
+- 80 px/s base movement speed (increases per phase)
+- 20 HP/sec contact damage
+
+**State Machine:**
+1. **Patrol** — Moving left-right, shooting projectiles at player
+2. **Windup** — Stopped, vibrating (1 second warning)
+3. **Slam** — AOE damage zone (0.3 seconds, 150px radius, 15 damage)
+4. **Vulnerable** — Immobile, can be damaged by bombs
+
+**Attacks:**
+- **Projectile Volley**: 3 projectiles aimed at player (200 px/s, 5 damage each)
+- **Ground Slam**: AOE attack with telegraph warning, creates vulnerability window
+
+**Phase System:**
+
+| Phase | HP Range | Movement | Projectiles | Slam | Vulnerability |
+|-------|----------|----------|-------------|------|---------------|
+| 1 | 100-66% | 80 px/s | Every 3s | None | Always |
+| 2 | 66-33% | 100 px/s | Every 2s | Every 6s | 3s after slam |
+| 3 | 33-0% | 120 px/s | Every 1s | Every 4s | 2s after slam |
+
+**Phase 3 Special**: 50% chance of double slam (slam → 0.4s pause → slam → vulnerable)
+
+### Visual Feedback
+
+**Boss States:**
+- **Patrol (Vulnerable)**: Pink flashing
+- **Patrol (Invulnerable)**: Gray tint
+- **Windup**: Orange flashing + horizontal vibration
+- **Slam**: Bright red + AOE damage circle
+- **Vulnerable**: Pink flashing
+
+**AOE Effects:**
+- **Telegraph**: Pulsing yellow circle (warning)
+- **Damage**: Solid orange-red circle
 
 ### Floor Types
 
@@ -564,10 +610,11 @@ Boss rooms can have different floor mechanics configured per level:
 ### Design Notes
 
 - Boss fights serve as level conclusion points
-- Bomb weapons become tactical in boss encounters
+- Bomb weapons become tactical in boss encounters (timing vulnerability windows)
 - Extensible via `Boss` interface (non-physical bosses possible, e.g., bullet-hell)
 - Floor types allow varied boss mechanics (safe vs hazardous arenas)
 - Game state tracking enables future pause/menu features
+- Each boss has its own rendering logic (no generic animation interfaces)
 
 ## Progression Curve
 
