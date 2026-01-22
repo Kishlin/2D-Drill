@@ -25,7 +25,7 @@ func main() {
 	slog.Info("Starting Drill Game")
 	slog.Info("Initializing Game")
 
-	gameCfg, err := levels.GetLevelConfig(-2)
+	gameCfg, err := levels.GetLevelConfig(-1)
 	if err != nil {
 		slog.Error("Failed to load level config", "error", err)
 		return

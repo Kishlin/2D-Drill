@@ -9,7 +9,7 @@ type InputState struct {
 	Drill bool // Down for drilling
 
 	// Discrete inputs (single press actions)
-	Sell        bool // E key for selling at market / interact / purchase
+	Interact    bool // E key for interacting with buildings / purchase
 	UseTeleport bool // T key for teleport item
 	UseRepair   bool // R key for repair item
 	UseRefuel   bool // F key for refuel item
@@ -32,7 +32,7 @@ func NewInputState() InputState {
 		Right:       false,
 		Up:          false,
 		Drill:       false,
-		Sell:        false,
+		Interact:    false,
 		UseTeleport: false,
 		UseRepair:   false,
 		UseRefuel:   false,

@@ -95,6 +95,10 @@ drill-game/
 │       │   └── test_boss/
 │       │       └── boss.go                  # TestBoss (state machine, phases, attacks)
 │       │
+│       ├── components/                      # Component types for entity composition
+│       │   ├── position.go                  # Position component (AABB wrapper)
+│       │   └── interactable.go              # InteractableType enum
+│       │
 │       ├── config/                          # Configuration structs
 │       │   ├── game_config.go               # GameConfig aggregate with Validate()
 │       │   ├── world_config.go              # WorldConfig (dimensions, spawn, buildings)
@@ -105,28 +109,45 @@ drill-game/
 │       │   ├── boss_room_config.go          # BossRoomConfig (boss type, floor type, dimensions)
 │       │   └── component_stats.go           # EngineStats, HullStats, etc. for generic tiers
 │       │
+│       ├── effects/                         # Effect system for player state mutations
+│       │   ├── effect.go                    # Effect interface
+│       │   ├── money.go                     # TakeMoney, AddMoney effects
+│       │   ├── stats.go                     # SetFuel, SetHP effects
+│       │   ├── upgrades.go                  # SetEngine, SetHull, etc. effects
+│       │   ├── inventory.go                 # ClearOreInventory, AddItem effects
+│       │   ├── processor.go                 # Processor applies effects to player
+│       │   └── *_test.go                    # Effect tests (37 tests)
+│       │
 │       ├── levels/                          # Level definitions
 │       │   ├── level1.go                    # GetLevel1Config() — production level
 │       │   ├── level_dev.go                 # GetTestLevelConfig() — test level (-1)
 │       │   ├── level_boss.go                # GetBossTestLevelConfig() — boss test level (-2)
 │       │   └── registry.go                  # GetLevelConfig(levelNum) dispatcher
 │       │
+│       ├── ui/                              # UI layer for building interactions
+│       │   ├── ui.go                        # UI interface, Result type
+│       │   ├── manager.go                   # Manager handles UI registration and processing
+│       │   ├── state.go                     # UpgradeShopState, ItemShopState
+│       │   ├── upgrade_shop.go              # Modal UpgradeShopUI
+│       │   ├── item_shop.go                 # Modal ItemShopUI
+│       │   ├── market.go                    # Instant MarketUI
+│       │   ├── hospital.go                  # Instant HospitalUI
+│       │   └── fuel_station.go              # Instant FuelStationUI
+│       │
 │       ├── engine/
 │       │   └── game.go                      # Game orchestration (receives GameConfig)
 │       ├── systems/
 │       │   ├── physics.go                   # PhysicsSystem
 │       │   ├── drilling.go                  # DrillingSystem (reads hazard config for damage)
-│       │   ├── market.go                    # MarketSystem (reads ore values from config)
+│       │   ├── interaction.go               # DetectInteraction() function
 │       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
-│       │   ├── fuel_station.go              # FuelStationSystem (refueling)
-│       │   ├── hospital.go                  # HospitalSystem (healing HP)
-│       │   ├── upgrade_shop_ui.go           # UpgradeShopUISystem (modal upgrade UI)
-│       │   ├── item_shop_ui.go              # ItemShopUISystem (modal item shop UI)
 │       │   ├── item.go                      # ItemSystem (reads bomb radius, handles bomb-boss collisions)
 │       │   ├── boss_fight.go                # BossFightSystem (boss activation, projectiles, floor damage)
 │       │   └── *_test.go                    # System tests
 │       ├── entities/
 │       │   ├── player.go                    # Player aggregate root; NewPlayerFromConfig()
+│       │   ├── building.go                  # Generic Building with Position + Interactable components
+│       │   ├── catalog.go                   # UpgradeCatalog, ItemCatalog (prices + instances)
 │       │   ├── engine.go                    # Engine component; NewEngineFromStats()
 │       │   ├── hull.go                      # Hull component; NewHullFromStats()
 │       │   ├── fuel_tank.go                 # FuelTank component; NewFuelTankFromStats()
@@ -135,8 +156,6 @@ drill-game/
 │       │   ├── drill.go                     # Drill component; NewDrillFromStats()
 │       │   ├── tile.go                      # Tile entity (includes TileTypeFloor for indestructible floors)
 │       │   ├── game_state.go                # GameState enum (Playing, Victory, Defeat)
-│       │   ├── upgrade_shop.go              # UpgradeShop; NewUpgradeShopFromConfig()
-│       │   ├── item_shop.go                 # ItemShop; NewItemShopFromConfig()
 │       │   └── ...                          # Other entities
 │       ├── physics/
 │       │   ├── constants.go                 # Physics parameters (gravity, damping)
@@ -178,11 +197,13 @@ main.go Loop:
 │ 2. Update Domain Logic                  │
 │    game.Update(dt, inputState)          │
 │    • Load chunks around player (3×3)    │
-│    • [MODAL PAUSE] Shop UI (if open)    │
-│    •   Tab cycling (Z/X)                │
-│    •   Grid navigation (arrows/WASD)    │
-│    •   Purchase (E key)                 │
-│    •   Close (Q/Escape) → return        │
+│    • [UI MANAGER] Process active UI     │
+│    •   If modal UI open: pause gameplay │
+│    •   Apply effects from UI result     │
+│    •   Close UI if ShouldClose=true     │
+│    • Detect building interactions       │
+│    •   Open UI via Manager              │
+│    •   Process immediately (modal/inst) │
 │    • Apply physics & fall damage        │
 │    • Consume fuel (active or idle)      │
 │    • Drill downward or horizontal       │
@@ -192,20 +213,17 @@ main.go Loop:
 │    •   Collect ore if available         │
 │    •   → return (skip interactions)     │
 │    • Item usage (T/R/F/B/G keys)        │
-│    • Market selling (E key + overlap)   │
-│    • Fuel station refueling (E key)     │
-│    • Hospital healing (E key)           │
-│    • Item shop purchases (E key)        │
+│    • Boss fight system update           │
 └────────────┬────────────────────────────┘
              │
              ▼
 ┌─────────────────────────────────────────┐
 │ 3. Render via Adapter                   │
 │    renderer.Render(game)                │
-│    • Extracts Player, World, Shops      │
+│    • Extracts Player, World, Buildings  │
 │    • Renders tiles with ore colors      │
 │    • Draws all entities                 │
-│    • Renders upgrade shop modal if open │
+│    • Renders modal UI if active         │
 │    • Displays debug info (money, etc)   │
 │    • Camera follows player              │
 └─────────────────────────────────────────┘
@@ -244,17 +262,16 @@ Orchestrates domain systems without any framework knowledge:
 
 ```go
 type Game struct {
-    world               *world.World
-    player              *entities.Player
-    physicsSystem       *systems.PhysicsSystem
-    drillingSystem      *systems.DrillingSystem
-    marketSystem        *systems.MarketSystem
-    fuelSystem          *systems.FuelSystem
-    fuelStationSystem   *systems.FuelStationSystem
-    hospitalSystem      *systems.HospitalSystem
-    upgradeShopUISystem *systems.UpgradeShopUISystem
-    itemSystem          *systems.ItemSystem
-    itemShopUISystem    *systems.ItemShopUISystem
+    world           *world.World
+    player          *entities.Player
+    buildings       []*entities.Building
+    uiManager       *ui.Manager
+    effectProcessor *effects.Processor
+    physicsSystem   *systems.PhysicsSystem
+    drillingSystem  *systems.DrillingSystem
+    fuelSystem      *systems.FuelSystem
+    itemSystem      *systems.ItemSystem
+    bossFightSystem *systems.BossFightSystem
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
@@ -265,16 +282,27 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     playerY := g.player.AABB.Y + g.player.AABB.Height/2
     g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-    // 1. Modal pause: Upgrade shop UI (complete game pause if open)
-    g.upgradeShopUISystem.ProcessShopInteraction(g.player, inputState)
-    if g.upgradeShopUISystem.GetUIState().Open {
-        return nil  // Pause all gameplay
+    // 1. Process active UI (modal pause if open)
+    if g.uiManager.HasActiveUI() {
+        result := g.uiManager.Process(g.player, inputState)
+        g.effectProcessor.Apply(g.player, result.Effects)
+        if !g.uiManager.HasActiveUI() {
+            g.player.InShop = false
+        } else {
+            return nil  // Modal UI open - pause gameplay
+        }
     }
 
-    // 2. Modal pause: Item shop UI (complete game pause if open)
-    g.itemShopUISystem.ProcessItemShopInteraction(g.player, inputState)
-    if g.itemShopUISystem.GetUIState().Open {
-        return nil  // Pause all gameplay
+    // 2. Detect building interactions (E key + overlap)
+    if interactionType := systems.DetectInteraction(g.player, g.buildings, inputState); interactionType != nil {
+        g.uiManager.OpenUI(*interactionType)
+        result := g.uiManager.Process(g.player, inputState)
+        g.effectProcessor.Apply(g.player, result.Effects)
+        if g.uiManager.HasActiveUI() {
+            g.player.InShop = true
+            return nil  // Modal UI opened - pause gameplay
+        }
+        // Instant UI processed and closed, continue with gameplay
     }
 
     // 3. Physics - handles landing/fall damage, heat damage, prevents movement during drilling
@@ -294,26 +322,19 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     // 6. Item usage (consumable items)
     g.itemSystem.ProcessItemUsage(g.player, inputState)
 
-    // 7. Market selling
-    g.marketSystem.ProcessSelling(g.player, inputState)
-
-    // 8. Fuel station refueling
-    g.fuelStationSystem.ProcessRefueling(g.player, inputState)
-
-    // 9. Hospital healing
-    g.hospitalSystem.ProcessHealing(g.player, inputState)
+    // 7. Boss fight system
+    if g.bossFightSystem != nil {
+        g.gameState = g.bossFightSystem.Update(g.player, dt)
+    }
 
     return nil
 }
 
 // Adapters pull data from getters
-func (g *Game) GetWorld() *world.World {
-    return g.world
-}
-
-func (g *Game) GetPlayer() *entities.Player {
-    return g.player
-}
+func (g *Game) GetWorld() *world.World { return g.world }
+func (g *Game) GetPlayer() *entities.Player { return g.player }
+func (g *Game) GetBuildings() []*entities.Building { return g.buildings }
+func (g *Game) GetUIManager() *ui.Manager { return g.uiManager }
 ```
 
 **Why this design:**
@@ -686,7 +707,7 @@ func (fs *FuelSystem) ConsumeFuel(
 **Consumption Rates:**
 - **Active Input** (Left, Right, Up, Drill): 10L in 30 seconds = 0.333 L/s
 - **Idle** (no movement/drilling): 10L in 120 seconds = 0.0833 L/s
-- **Sell Input** (E key): Uses idle rate (not active activity)
+- **Interact Input** (E key): Uses idle rate (not active activity)
 
 **Why this design:**
 - Called after physics to ensure movement is fully resolved
@@ -696,224 +717,144 @@ func (fs *FuelSystem) ConsumeFuel(
 - Direct field mutation for simplicity (no getters/setters)
 - Pure logic - could be replaced without affecting game structure
 
-#### Fuel Station System (`domain/systems/fuel_station.go`)
+#### Effects System (`domain/effects/`)
 
-Manages refueling transactions at the fuel station:
+All player state mutations go through the effects system, decoupling UI from state changes:
 
 ```go
-type FuelStationSystem struct {
-    fuelStation *entities.FuelStation
+// effect.go - Effect interface
+type Effect interface {
+    Apply(player *entities.Player)
 }
 
-func (fss *FuelStationSystem) ProcessRefueling(
-    player *entities.Player,
-    inputState input.InputState,
-) {
-    if !inputState.Sell {
-        return
+// money.go - Money effects
+type TakeMoney struct { Amount int }
+func (e TakeMoney) Apply(player *entities.Player) { player.Money -= e.Amount }
+
+type AddMoney struct { Amount int }
+func (e AddMoney) Apply(player *entities.Player) { player.Money += e.Amount }
+
+// stats.go - Stat effects
+type SetFuel struct { Amount float32 }
+func (e SetFuel) Apply(player *entities.Player) { player.Fuel = e.Amount }
+
+type SetHP struct { Amount float32 }
+func (e SetHP) Apply(player *entities.Player) { player.HP = e.Amount }
+
+// upgrades.go - Upgrade effects (SetEngine, SetHull, SetFuelTank, SetCargoHold, SetHeatShield, SetDrill)
+type SetEngine struct { Engine entities.Engine }
+func (e SetEngine) Apply(player *entities.Player) { player.Engine = e.Engine }
+
+// inventory.go - Inventory effects
+type ClearOreInventory struct{}
+func (e ClearOreInventory) Apply(player *entities.Player) { player.OreInventory = make(map[string]int) }
+
+type AddItem struct { ItemType entities.ItemType }
+func (e AddItem) Apply(player *entities.Player) { player.ItemInventory[e.ItemType]++ }
+
+// processor.go - Applies effects to player
+type Processor struct{}
+func (p *Processor) Apply(player *entities.Player, effects []Effect) {
+    for _, effect := range effects {
+        effect.Apply(player)
     }
-
-    if !fss.fuelStation.IsPlayerInRange(player) {
-        return
-    }
-
-    // Calculate liters needed to fill tank
-    litersNeeded := entities.FuelCapacity - player.Fuel
-    
-    // Calculate cost (1 money per liter, rounded up)
-    cost := int(math.Ceil(float64(litersNeeded)))
-
-    // Check if player has enough money
-    if player.Money < cost {
-        return // Cannot afford refueling
-    }
-
-    // Deduct money and refuel
-    player.Money -= cost
-    player.Fuel = entities.FuelCapacity
 }
 ```
 
-**Transaction Rules:**
-- **Cost**: $1 per liter needed (rounded up using `math.Ceil`)
-- **Examples**:
-  - Full tank (0L needed) = $0 (no transaction)
-  - Empty tank (10L needed) = $10
-  - 6.8L current (3.2L needed) = $4 (ceil of 3.2)
-  - 9.9L current (0.1L needed) = $1 (ceil of 0.1)
-- **Rejection**: Transaction rejected if player has insufficient money
-- **Instant Fill**: Fuel immediately set to `FuelCapacity` (10L) on success
+**Effect Types:**
+- **Money**: `TakeMoney`, `AddMoney` — direct money mutations
+- **Stats**: `SetFuel`, `SetHP` — set resource values
+- **Upgrades**: `SetEngine`, `SetHull`, `SetFuelTank`, `SetCargoHold`, `SetHeatShield`, `SetDrill`
+- **Inventory**: `ClearOreInventory`, `AddItem`
 
 **Why this design:**
-- Mirrors MarketSystem pattern (AABB + interaction key)
-- Uses same E key as market (no spatial conflict due to separation)
-- Called before physics (consistent with market processing)
-- Simple rounding up ensures player always pays at least $1 if not full
-- Direct field mutation for clarity
-- Fully testable without framework (6 comprehensive unit tests)
+- Decouples UI from player mutations (UI returns effects, processor applies them)
+- Testable: effects can be unit tested independently (37 tests)
+- Composable: complex operations are sequences of simple effects
+- Auditable: easy to log or track all state changes
 
-#### Hospital System (`domain/systems/hospital.go`)
+#### UI System (`domain/ui/`)
 
-Manages healing transactions at the hospital:
+Unified UI layer handling both modal (shops) and instant (market/hospital/fuel) interactions:
 
 ```go
-type HospitalSystem struct {
-    hospital *entities.Hospital
+// ui.go - Core types
+type Result struct {
+    ShouldClose bool
+    Effects     []effects.Effect
 }
 
-func (hs *HospitalSystem) ProcessHealing(
+func NoChange() Result { return Result{} }
+func Close() Result { return Result{ShouldClose: true} }
+func WithEffects(effs ...effects.Effect) Result { return Result{Effects: effs} }
+func CloseWithEffects(effs ...effects.Effect) Result { return Result{ShouldClose: true, Effects: effs} }
+
+type UI interface {
+    Process(player *entities.Player, inputState input.InputState) Result
+    GetRenderState() interface{}
+}
+
+// manager.go - UI Manager
+type Manager struct {
+    uis        map[components.InteractableType]UI
+    activeUI   UI
+    activeType components.InteractableType
+}
+
+func (m *Manager) Register(t components.InteractableType, ui UI)
+func (m *Manager) OpenUI(t components.InteractableType) bool
+func (m *Manager) Process(player *entities.Player, inputState input.InputState) Result
+func (m *Manager) HasActiveUI() bool
+func (m *Manager) GetActiveUI() UI
+```
+
+**Modal UIs (UpgradeShopUI, ItemShopUI):**
+- Return `NoChange()` to stay open
+- Return `WithEffects(...)` on purchase (stay open)
+- Return `Close()` on Q/Escape
+- Have render state for display
+
+**Instant UIs (MarketUI, HospitalUI, FuelStationUI):**
+- Return `CloseWithEffects(...)` immediately
+- Close on first process (no modal)
+- No render state needed
+
+**Why this design:**
+- Unified interface for all building interactions
+- Effects-based return decouples UI from state changes
+- Manager handles opening/closing and routing
+- Modal vs instant behavior determined by UI implementation
+
+#### Interaction System (`domain/systems/interaction.go`)
+
+Simple function to detect player-building overlap with E key:
+
+```go
+func DetectInteraction(
     player *entities.Player,
+    buildings []*entities.Building,
     inputState input.InputState,
-) {
-    if !inputState.Sell {
-        return
+) *components.InteractableType {
+    if !inputState.Interact {
+        return nil
     }
 
-    if !hs.hospital.IsPlayerInRange(player) {
-        return
+    playerPos := components.Position{AABB: player.AABB}
+    for _, b := range buildings {
+        if b.Position.Intersects(playerPos) {
+            interactableType := b.Interactable.Type
+            return &interactableType
+        }
     }
-
-    // Calculate HP needed to reach max HP
-    hpNeeded := entities.MaxHP - player.HP
-
-    // Early exit: Already at max HP (no healing needed)
-    if hpNeeded <= 0 {
-        return
-    }
-
-    // Calculate cost: $2 per HP, rounded up
-    cost := int(math.Ceil(float64(hpNeeded) * 2.0))
-
-    // Early exit: Insufficient money
-    if player.Money < cost {
-        return // Cannot afford healing
-    }
-
-    // Execute transaction: Deduct money and restore HP to max
-    player.Money -= cost
-    player.HP = entities.MaxHP
+    return nil
 }
 ```
 
-**Transaction Rules:**
-- **Cost**: $2 per HP needed (rounded up using `math.Ceil`)
-- **Examples**:
-  - Max HP (0 HP needed) = $0 (no transaction)
-  - Zero HP (10 HP needed) = $20
-  - 7.2 HP (2.8 HP needed) = $6 (ceil of 5.6)
-  - 9.9 HP (0.1 HP needed) = $1 (ceil of 0.2)
-- **Rejection**: Transaction rejected if player has insufficient money
-- **Instant Heal**: HP immediately set to `MaxHP` (10.0) on success
-
 **Why this design:**
-- Mirrors FuelStationSystem pattern (AABB + interaction key)
-- Uses same E key as market and fuel station (no spatial conflict due to separation)
-- Called before physics (consistent with market/fuel station processing)
-- Simple rounding up ensures player always pays at least $1 if not at max HP
-- Direct field mutation for clarity
-- Fully testable without framework (7 comprehensive unit tests)
-
-#### Upgrade Shop UI System (`domain/systems/upgrade_shop_ui.go`)
-
-Manages the unified upgrade shop modal UI with tab cycling, grid navigation, and purchase logic:
-
-```go
-type UpgradeShopUISystem struct {
-    shop    *entities.UpgradeShop
-    uiState *entities.UpgradeShopUIState
-}
-
-func (s *UpgradeShopUISystem) ProcessShopInteraction(
-    player *entities.Player,
-    inputState input.InputState,
-) {
-    if s.uiState.Open {
-        s.processOpenShop(player, inputState)
-    } else {
-        s.processClosedShop(player, inputState)
-    }
-}
-
-func (s *UpgradeShopUISystem) processClosedShop(player *entities.Player, inputState input.InputState) {
-    // Open shop when player presses E (Sell) and is in range
-    if inputState.Sell && s.shop.IsPlayerInRange(player) {
-        s.openShop(player)
-    }
-}
-
-func (s *UpgradeShopUISystem) processOpenShop(player *entities.Player, inputState input.InputState) {
-    // Tab navigation (Z/X)
-    if inputState.PrevTab {
-        s.uiState.PrevTab()  // Wraps to last tab
-    }
-    if inputState.NextTab {
-        s.uiState.NextTab()  // Wraps to first tab
-    }
-
-    // Grid navigation (arrows/WASD for 2x3 grid)
-    if inputState.NavLeft {
-        s.uiState.NavigateLeft()
-    }
-    if inputState.NavRight {
-        s.uiState.NavigateRight()
-    }
-    if inputState.NavUp {
-        s.uiState.NavigateUp()
-    }
-    if inputState.NavDown {
-        s.uiState.NavigateDown()
-    }
-
-    // Purchase with E key
-    if inputState.Sell {
-        s.tryPurchase(player)
-    }
-
-    // Close with Q or Escape
-    if inputState.CloseShop {
-        s.closeShop(player)
-    }
-}
-
-func (s *UpgradeShopUISystem) tryPurchase(player *entities.Player) {
-    selectedTier := s.uiState.SelectedTier
-    currentTier := entities.GetPlayerCurrentTier(player, s.uiState.ActiveTab)
-
-    // Cannot purchase already-owned tiers
-    if selectedTier <= currentTier {
-        return
-    }
-
-    // Check affordability
-    price := s.shop.GetUpgradePrice(s.uiState.ActiveTab, selectedTier)
-    if !player.CanAfford(price) {
-        return
-    }
-
-    // Apply upgrade
-    s.applyUpgrade(player, s.uiState.ActiveTab, selectedTier, price)
-}
-```
-
-**Modal UI Features:**
-- **Tab Cycling**: Z (previous) and X (next) with wrapping at both ends
-- **Grid Navigation**: 2x3 grid showing Base + Mk1-Mk5. Arrows/WASD to navigate with wrapping
-- **Flexible Purchasing**: Buy any unowned tier directly (can skip tiers with sufficient funds)
-- **Visual Feedback**: Light cells for affordable upgrades, dark for too expensive
-- **Modal Pause**: Opens with E (Sell) when in range, closes with Q/Escape, pauses all gameplay
-
-**Upgrade Rules:**
-- **No Sequential Requirement**: Players can skip tiers if they have the money
-- **Permanent**: Upgrades cannot be undone
-- **No Auto-Restore**: Hull/Tank upgrades don't restore HP/Fuel to new max
-
-**Why this design:**
-- Single shop consolidates all 6 upgrade types (cleaner than 6 separate entities)
-- Modal UI pauses gameplay (similar to inventory screens in other games)
-- Tab navigation + grid UI provides efficient browsing
-- Unified catalog system (DDD: shop knows what it sells)
-- Player is aggregate root (mutations go through Player methods)
-- Fully testable without framework (11 comprehensive unit tests in upgrade_shop_ui_test.go)
+- Simple function, not a struct (no state needed)
+- Takes buildings as parameter (lightweight)
+- Checks input internally (single responsibility)
+- Returns optional type (nil if no interaction)
 
 #### Item System (`domain/systems/item.go`)
 
@@ -996,82 +937,6 @@ func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
 - Effects applied immediately (no cost, no confirmation)
 - Teleport resets velocity (safe movement after arrival)
 - Bombs destroy ore (not collected) — purely terrain-clearing tool
-
-#### Item Shop UI System (`domain/systems/item_shop_ui.go`)
-
-Manages the unified item shop modal UI with grid navigation and purchase logic (similar to upgrade shop but without tabs since there's only one page):
-
-```go
-type ItemShopUISystem struct {
-    shop    *entities.ItemShop
-    uiState *entities.ItemShopUIState
-}
-
-func (s *ItemShopUISystem) ProcessItemShopInteraction(
-    player *entities.Player,
-    inputState input.InputState,
-) {
-    if s.uiState.Open {
-        s.processOpenShop(player, inputState)
-    } else {
-        s.processClosedShop(player, inputState)
-    }
-}
-
-func (s *ItemShopUISystem) processClosedShop(player *entities.Player, inputState input.InputState) {
-    // Open shop when player presses E (Sell) and is in range
-    if inputState.Sell && s.shop.IsPlayerInRange(player) {
-        s.uiState.OpenShop()
-    }
-}
-
-func (s *ItemShopUISystem) processOpenShop(player *entities.Player, inputState input.InputState) {
-    // Grid navigation (arrows/WASD for 2x3 grid, skips empty cell at position 5)
-    if inputState.NavLeft {
-        s.uiState.NavigateLeft()
-    }
-    if inputState.NavRight {
-        s.uiState.NavigateRight()
-    }
-    if inputState.NavUp {
-        s.uiState.NavigateUp()
-    }
-    if inputState.NavDown {
-        s.uiState.NavigateDown()
-    }
-
-    // Purchase with E key
-    if inputState.Sell {
-        s.tryPurchase(player)
-    }
-
-    // Close with Q or Escape
-    if inputState.CloseShop {
-        s.uiState.CloseShop()
-    }
-}
-```
-
-**Modal UI Features:**
-- **Grid Navigation**: 2x3 grid (6 cells, last one empty). Arrows/WASD to navigate with wrapping; automatically skips empty cell
-- **No Tabs**: All 5 items fit on single screen (unlike 6-tab upgrade shop)
-- **Purchase**: E key purchases selected item
-- **Visual Feedback**: Item name, price, quantity owned displayed
-- **Modal Pause**: Opens with E (Sell) when in range, closes with Q/Escape, pauses all gameplay
-
-**Item Shop Rules:**
-- **Grid Layout**: Teleport, Repair, Refuel on top row; Bomb, BigBomb on bottom row with empty cell
-- **Single Location**: Unified shop to the right of upgrade shop (320px wide, same size as all other buildings)
-- **No Sequential Requirement**: Buy any item regardless of prior purchases
-- **Permanent Purchase**: Item stays in inventory permanently
-
-**Why this design:**
-- Single shop consolidates all 5 item types (cleaner than 5 separate shops)
-- Modal UI pauses gameplay (consistent with upgrade shop pattern)
-- No tabs needed (all items fit on one screen)
-- Grid navigation skips empty cell automatically
-- Unified modal pattern makes UI familiar to players
-- Fully testable without framework (9 comprehensive unit tests)
 
 #### World Methods
 
@@ -1286,12 +1151,21 @@ type InputState struct {
     Drill bool  // S or Arrow Down - drill downward
 
     // Discrete inputs (one-shot, only true on frame key is first pressed)
-    Sell        bool  // E - sell inventory at market, refuel, heal, upgrade
+    Interact    bool  // E - interact with buildings (market, shops, hospital, fuel station)
     UseTeleport bool  // T - use teleport item
     UseRepair   bool  // R - use repair item
     UseRefuel   bool  // F - use refuel item
     UseBomb     bool  // B - use bomb item
     UseBigBomb  bool  // G - use big bomb item
+
+    // Shop navigation inputs
+    CloseShop bool  // Q or Escape - close modal UI
+    PrevTab   bool  // Z - previous tab in upgrade shop
+    NextTab   bool  // X - next tab in upgrade shop
+    NavLeft   bool  // Arrow Left - navigate grid
+    NavRight  bool  // Arrow Right - navigate grid
+    NavUp     bool  // Arrow Up - navigate grid
+    NavDown   bool  // Arrow Down - navigate grid
 }
 
 // HasMovementInput returns true if player is actively moving or drilling
@@ -1312,7 +1186,7 @@ func (is InputState) HasVerticalInput() bool {
 
 **Continuous vs. Discrete:**
 - **Continuous inputs** (Left, Right, Up, Drill): Detected via `IsKeyDown()` — true every frame while key is held
-- **Discrete inputs** (Sell, item keys): Detected via `IsKeyPressed()` — true only on frame key first transitions to pressed
+- **Discrete inputs** (Interact, item keys, shop navigation): Detected via `IsKeyPressed()` — true only on frame key first transitions to pressed
 - Prevents repeated item use when holding a key down
 
 **Why this design:**
@@ -1321,7 +1195,7 @@ func (is InputState) HasVerticalInput() bool {
 - Easy to swap input sources (file playback, network, AI)
 - Domain logic decoupled from input mechanism
 - Helper methods (`HasMovementInput()`) avoid repeating conditionals
-- `Sell` and item keys are separate from movement (don't count as active input for fuel consumption)
+- `Interact` and item keys are separate from movement (don't count as active input for fuel consumption)
 
 #### World (`domain/world/world.go`)
 
@@ -2566,7 +2440,7 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 
 **Consumption Behavior:**
 - Holding movement keys (Left/Right/Up) or drilling (Down/S) = active mode
-- Pressing Sell (E) does NOT trigger active consumption
+- Pressing Interact (E) does NOT trigger active consumption
 - No movement for 1+ frame = idle consumption applies
 
 ### Controls & Input Mapping

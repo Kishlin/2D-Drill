@@ -7,12 +7,13 @@ import (
 
 	bossrenderers "github.com/Kishlin/drill-game/internal/adapters/rendering/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
+	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/physics"
-	"github.com/Kishlin/drill-game/internal/domain/types"
+	"github.com/Kishlin/drill-game/internal/domain/ui"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
@@ -36,8 +37,8 @@ var (
 	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)   // Orange
 	BombShopColor       = rl.NewColor(255, 20, 147, 255)  // Deep Pink
 	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)   // Crimson
-	FloorConcreteColor = rl.NewColor(100, 100, 100, 255) // Dark Gray
-	FloorLavaColor     = rl.NewColor(255, 100, 0, 255)   // Orange
+	FloorConcreteColor  = rl.NewColor(100, 100, 100, 255) // Dark Gray
+	FloorLavaColor      = rl.NewColor(255, 100, 0, 255)   // Orange
 )
 
 type RaylibRenderer struct {
@@ -128,11 +129,12 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 
 	r.renderWorld(game.GetWorld())
 	r.renderTiles(game.GetWorld())
-	r.renderMarket(game.GetMarket())
-	r.renderFuelStation(game.GetFuelStation())
-	r.renderHospital(game.GetHospital())
-	r.renderUpgradeShop(game.GetUpgradeShop().AABB, EngineShopColor, rl.DarkBlue)
-	r.renderUpgradeShop(game.GetItemShop().AABB, TeleportShopColor, rl.Purple)
+
+	// Render buildings
+	for _, building := range game.GetBuildings() {
+		r.renderBuilding(building)
+	}
+
 	r.renderPlayer(game.GetPlayer())
 
 	// Boss rendering
@@ -154,12 +156,12 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	// Game state overlay (victory/defeat screens)
 	r.renderGameStateOverlay(game)
 
-	// Render shop modals if open
-	if game.GetUpgradeShopUIState().Open {
-		r.renderUpgradeShopModal(game)
-	}
-	if game.GetItemShopUIState().Open {
-		r.renderItemShopModal(game)
+	// Render active UI if it has render state (modal UIs only)
+	if game.GetUIManager().HasActiveUI() {
+		activeUI := game.GetUIManager().GetActiveUI()
+		if state := activeUI.GetRenderState(); state != nil {
+			r.renderUI(game.GetUIManager().GetActiveType(), state, game)
+		}
 	}
 
 	rl.EndDrawing()
@@ -193,59 +195,36 @@ func (r *RaylibRenderer) renderPlayer(player *entities.Player) {
 	rl.DrawRectangleV(rlPos, rlSize, PlayerColor)
 }
 
-func (r *RaylibRenderer) renderMarket(market *entities.Market) {
-	aabb := market.AABB
+func (r *RaylibRenderer) renderBuilding(building *entities.Building) {
+	aabb := building.Position.AABB
 	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
 	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
 
-	rl.DrawRectangleV(rlPos, rlSize, MarketColor)
-
-	rl.DrawRectangleLinesEx(
-		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
-		2.0,
-		rl.DarkGreen,
-	)
-}
-
-func (r *RaylibRenderer) renderFuelStation(fuelStation *entities.FuelStation) {
-	aabb := fuelStation.AABB
-	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
-	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
-
-	rl.DrawRectangleV(rlPos, rlSize, FuelStationColor)
-
-	rl.DrawRectangleLinesEx(
-		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
-		2.0,
-		rl.Orange,
-	)
-}
-
-func (r *RaylibRenderer) renderHospital(hospital *entities.Hospital) {
-	aabb := hospital.AABB
-	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
-	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
-
-	rl.DrawRectangleV(rlPos, rlSize, HospitalColor)
-
-	rl.DrawRectangleLinesEx(
-		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
-		2.0,
-		rl.White,
-	)
-}
-
-func (r *RaylibRenderer) renderUpgradeShop(aabb types.AABB, fillColor, borderColor rl.Color) {
-	rlPos := rl.Vector2{X: aabb.X, Y: aabb.Y}
-	rlSize := rl.Vector2{X: aabb.Width, Y: aabb.Height}
+	fillColor, borderColor := r.getBuildingColors(building.Interactable.Type)
 
 	rl.DrawRectangleV(rlPos, rlSize, fillColor)
-
 	rl.DrawRectangleLinesEx(
 		rl.Rectangle{X: aabb.X, Y: aabb.Y, Width: aabb.Width, Height: aabb.Height},
 		2.0,
 		borderColor,
 	)
+}
+
+func (r *RaylibRenderer) getBuildingColors(interactableType components.InteractableType) (rl.Color, rl.Color) {
+	switch interactableType {
+	case components.InteractableMarket:
+		return MarketColor, rl.DarkGreen
+	case components.InteractableFuelStation:
+		return FuelStationColor, rl.Orange
+	case components.InteractableHospital:
+		return HospitalColor, rl.White
+	case components.InteractableUpgradeShop:
+		return EngineShopColor, rl.DarkBlue
+	case components.InteractableItemShop:
+		return TeleportShopColor, rl.Purple
+	default:
+		return rl.Gray, rl.DarkGray
+	}
 }
 
 func (r *RaylibRenderer) renderWorld(w *world.World) {
@@ -392,12 +371,23 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	rl.DrawText(itemText, posX, posY, fontSize, textColor)
 }
 
-// renderUpgradeShopModal draws the upgrade shop modal UI
-func (r *RaylibRenderer) renderUpgradeShopModal(game *engine.Game) {
-	uiState := game.GetUpgradeShopUIState()
-	shop := game.GetUpgradeShop()
-	player := game.GetPlayer()
+func (r *RaylibRenderer) renderUI(uiType components.InteractableType, state interface{}, game *engine.Game) {
+	switch uiType {
+	case components.InteractableUpgradeShop:
+		if s, ok := state.(*ui.UpgradeShopState); ok {
+			upgradeUI := game.GetUIManager().GetActiveUI().(*ui.UpgradeShopUI)
+			r.renderUpgradeShopModal(s, upgradeUI.GetCatalog(), game.GetPlayer())
+		}
+	case components.InteractableItemShop:
+		if s, ok := state.(*ui.ItemShopState); ok {
+			itemUI := game.GetUIManager().GetActiveUI().(*ui.ItemShopUI)
+			r.renderItemShopModal(s, itemUI.GetCatalog(), game.GetPlayer())
+		}
+	}
+}
 
+// renderUpgradeShopModal draws the upgrade shop modal UI
+func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, catalog *entities.UpgradeCatalog, player *entities.Player) {
 	// Modal dimensions
 	modalWidth := float32(900)
 	modalHeight := float32(550)
@@ -490,7 +480,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(game *engine.Game) {
 		if isOwned {
 			bgColor = rl.NewColor(40, 60, 40, 255) // Green tint for owned
 		} else {
-			price := shop.GetUpgradePrice(uiState.ActiveTab, tier)
+			price := catalog.GetUpgradePrice(uiState.ActiveTab, tier)
 			if player.CanAfford(price) {
 				bgColor = rl.NewColor(60, 60, 80, 255) // Light for affordable
 			} else {
@@ -535,7 +525,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(game *engine.Game) {
 			statusColor = rl.NewColor(100, 150, 100, 255)
 		} else {
 			// Always show price for non-owned upgrades
-			price := shop.GetUpgradePrice(uiState.ActiveTab, tier)
+			price := catalog.GetUpgradePrice(uiState.ActiveTab, tier)
 			statusText = fmt.Sprintf("$%d", price)
 			if player.CanAfford(price) {
 				statusColor = rl.Yellow
@@ -563,15 +553,15 @@ func (r *RaylibRenderer) renderUpgradeShopModal(game *engine.Game) {
 	)
 
 	// Selected upgrade details
-	selectedName := shop.GetUpgradeName(uiState.ActiveTab, uiState.SelectedTier)
+	selectedName := catalog.GetUpgradeName(uiState.ActiveTab, uiState.SelectedTier)
 	rl.DrawText(selectedName, int32(detailsX)+10, int32(detailsY)+10, 24, rl.White)
 
 	// Stats based on upgrade type
 	statsY := int32(detailsY) + 45
-	r.renderUpgradeStats(shop, uiState.ActiveTab, uiState.SelectedTier, int32(detailsX)+10, statsY)
+	r.renderUpgradeStats(catalog, uiState.ActiveTab, uiState.SelectedTier, int32(detailsX)+10, statsY)
 
 	// Price
-	selectedPrice := shop.GetUpgradePrice(uiState.ActiveTab, uiState.SelectedTier)
+	selectedPrice := catalog.GetUpgradePrice(uiState.ActiveTab, uiState.SelectedTier)
 	priceText := fmt.Sprintf("Price: $%d", selectedPrice)
 	if uiState.SelectedTier <= currentTier {
 		priceText = "Already owned"
@@ -581,7 +571,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(game *engine.Game) {
 	// Player info
 	playerInfoY := detailsY + 220
 	rl.DrawText(fmt.Sprintf("Your Money: $%d", player.Money), int32(detailsX)+10, int32(playerInfoY), 18, rl.White)
-	rl.DrawText(fmt.Sprintf("Current: %s", shop.GetUpgradeName(uiState.ActiveTab, currentTier)), int32(detailsX)+10, int32(playerInfoY)+25, 18, rl.LightGray)
+	rl.DrawText(fmt.Sprintf("Current: %s", catalog.GetUpgradeName(uiState.ActiveTab, currentTier)), int32(detailsX)+10, int32(playerInfoY)+25, 18, rl.LightGray)
 
 	// Controls hint at bottom
 	controlsY := modalY + modalHeight - 40
@@ -591,47 +581,43 @@ func (r *RaylibRenderer) renderUpgradeShopModal(game *engine.Game) {
 }
 
 // renderUpgradeStats renders the stats for a specific upgrade
-func (r *RaylibRenderer) renderUpgradeStats(shop *entities.UpgradeShop, upgradeType entities.UpgradeType, tier int, x, y int32) {
+func (r *RaylibRenderer) renderUpgradeStats(catalog *entities.UpgradeCatalog, upgradeType entities.UpgradeType, tier int, x, y int32) {
 	lineHeight := int32(22)
 	fontSize := int32(16)
 
 	switch upgradeType {
 	case entities.UpgradeEngine:
-		if entry := shop.GetEngineCatalogEntry(tier); entry != nil {
+		if entry := catalog.GetEngineCatalogEntry(tier); entry != nil {
 			rl.DrawText(fmt.Sprintf("Max Speed: %.0f px/s", entry.Engine.MaxSpeed()), x, y, fontSize, rl.LightGray)
 			rl.DrawText(fmt.Sprintf("Acceleration: %.0f px/s²", entry.Engine.Acceleration()), x, y+lineHeight, fontSize, rl.LightGray)
 			rl.DrawText(fmt.Sprintf("Fly Accel: %.0f px/s²", entry.Engine.FlyAcceleration()), x, y+lineHeight*2, fontSize, rl.LightGray)
 			rl.DrawText(fmt.Sprintf("Max Upward: %.0f px/s", -entry.Engine.MaxUpwardSpeed()), x, y+lineHeight*3, fontSize, rl.LightGray)
 		}
 	case entities.UpgradeHull:
-		if entry := shop.GetHullCatalogEntry(tier); entry != nil {
+		if entry := catalog.GetHullCatalogEntry(tier); entry != nil {
 			rl.DrawText(fmt.Sprintf("Max HP: %.0f", entry.Hull.MaxHP()), x, y, fontSize, rl.LightGray)
 		}
 	case entities.UpgradeFuelTank:
-		if entry := shop.GetFuelTankCatalogEntry(tier); entry != nil {
+		if entry := catalog.GetFuelTankCatalogEntry(tier); entry != nil {
 			rl.DrawText(fmt.Sprintf("Capacity: %.0f L", entry.FuelTank.Capacity()), x, y, fontSize, rl.LightGray)
 		}
 	case entities.UpgradeCargoHold:
-		if entry := shop.GetCargoCatalogEntry(tier); entry != nil {
+		if entry := catalog.GetCargoHoldCatalogEntry(tier); entry != nil {
 			rl.DrawText(fmt.Sprintf("Capacity: %d ore", entry.CargoHold.Capacity()), x, y, fontSize, rl.LightGray)
 		}
 	case entities.UpgradeHeatShield:
-		if entry := shop.GetHeatCatalogEntry(tier); entry != nil {
+		if entry := catalog.GetHeatShieldCatalogEntry(tier); entry != nil {
 			rl.DrawText(fmt.Sprintf("Heat Resistance: %.0f°C", entry.HeatShield.HeatResistance()), x, y, fontSize, rl.LightGray)
 		}
 	case entities.UpgradeDrill:
-		if entry := shop.GetDrillCatalogEntry(tier); entry != nil {
+		if entry := catalog.GetDrillCatalogEntry(tier); entry != nil {
 			rl.DrawText(fmt.Sprintf("Drill Speed: %.1fx", entry.Drill.DrillSpeed()), x, y, fontSize, rl.LightGray)
 		}
 	}
 }
 
 // renderItemShopModal draws the item shop modal UI
-func (r *RaylibRenderer) renderItemShopModal(game *engine.Game) {
-	uiState := game.GetItemShopUIState()
-	shop := game.GetItemShop()
-	player := game.GetPlayer()
-
+func (r *RaylibRenderer) renderItemShopModal(uiState *ui.ItemShopState, catalog *entities.ItemCatalog, player *entities.Player) {
 	// Modal dimensions
 	modalWidth := float32(750)
 	modalHeight := float32(500)
@@ -680,7 +666,7 @@ func (r *RaylibRenderer) renderItemShopModal(game *engine.Game) {
 		isSelected := uiState.SelectedIndex == index
 
 		// Get item info
-		catalogEntry := shop.GetItem(index)
+		catalogEntry := catalog.GetItem(index)
 		if catalogEntry == nil {
 			continue
 		}
@@ -753,7 +739,7 @@ func (r *RaylibRenderer) renderItemShopModal(game *engine.Game) {
 	)
 
 	// Selected item details
-	selectedEntry := shop.GetItem(uiState.SelectedIndex)
+	selectedEntry := catalog.GetItem(uiState.SelectedIndex)
 	if selectedEntry != nil {
 		selectedName := itemNames[uiState.SelectedIndex]
 		rl.DrawText(selectedName, int32(detailsX)+10, int32(detailsY)+10, 24, rl.White)

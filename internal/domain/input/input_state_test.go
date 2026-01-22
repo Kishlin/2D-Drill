@@ -32,10 +32,10 @@ func TestInputState_HasMovementInput_DrillInput(t *testing.T) {
 	}
 }
 
-func TestInputState_HasMovementInput_SellInputOnly(t *testing.T) {
-	inputState := InputState{Sell: true}
+func TestInputState_HasMovementInput_InteractInputOnly(t *testing.T) {
+	inputState := InputState{Interact: true}
 	if inputState.HasMovementInput() {
-		t.Error("expected HasMovementInput() to return false for Sell input only")
+		t.Error("expected HasMovementInput() to return false for Interact input only")
 	}
 }
 
@@ -53,8 +53,8 @@ func TestInputState_HasMovementInput_MultipleMovementInputs(t *testing.T) {
 	}
 }
 
-func TestInputState_HasMovementInput_MovementWithSell(t *testing.T) {
-	inputState := InputState{Right: true, Sell: true}
+func TestInputState_HasMovementInput_MovementWithInteract(t *testing.T) {
+	inputState := InputState{Right: true, Interact: true}
 	if !inputState.HasMovementInput() {
 		t.Error("expected HasMovementInput() to return true when movement + sell input")
 	}
@@ -66,28 +66,28 @@ func TestInputState_HasMovementInput_AllInputs(t *testing.T) {
 		Right: true,
 		Up:    true,
 		Drill: true,
-		Sell:  true,
+		Interact:  true,
 	}
 	if !inputState.HasMovementInput() {
 		t.Error("expected HasMovementInput() to return true with all inputs pressed")
 	}
 }
 
-func TestInputState_HasMovementInput_DrillWithSell(t *testing.T) {
-	inputState := InputState{Drill: true, Sell: true}
+func TestInputState_HasMovementInput_DrillWithInteract(t *testing.T) {
+	inputState := InputState{Drill: true, Interact: true}
 	if !inputState.HasMovementInput() {
-		t.Error("expected HasMovementInput() to return true for Drill + Sell")
+		t.Error("expected HasMovementInput() to return true for Drill + Interact")
 	}
 }
 
-func TestInputState_HasMovementInput_SellWithNoMovementInputs(t *testing.T) {
-	// Verify that Sell alone is NOT considered active
-	inputState := InputState{Sell: true}
+func TestInputState_HasMovementInput_InteractWithNoMovementInputs(t *testing.T) {
+	// Verify that Interact alone is NOT considered active
+	inputState := InputState{Interact: true}
 	expected := false
 	actual := inputState.HasMovementInput()
 
 	if actual != expected {
-		t.Errorf("Sell-only input: expected HasMovementInput()=%v, got %v", expected, actual)
+		t.Errorf("Interact-only input: expected HasMovementInput()=%v, got %v", expected, actual)
 	}
 }
 

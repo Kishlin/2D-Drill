@@ -22,7 +22,7 @@ func (a *RaylibInputAdapter) ReadInput() input.InputState {
 		Drill: rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS),
 
 		// Discrete inputs (single press actions)
-		Sell:        rl.IsKeyPressed(rl.KeyE),
+		Interact:    rl.IsKeyPressed(rl.KeyE),
 		UseTeleport: rl.IsKeyPressed(rl.KeyT),
 		UseRepair:   rl.IsKeyPressed(rl.KeyR),
 		UseRefuel:   rl.IsKeyPressed(rl.KeyF),

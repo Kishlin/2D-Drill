@@ -5,29 +5,32 @@ import (
 
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/test_boss"
+	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/config"
+	"github.com/Kishlin/drill-game/internal/domain/effects"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/systems"
+	"github.com/Kishlin/drill-game/internal/domain/ui"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
 type Game struct {
-	world               *world.World
-	player              *entities.Player
-	physicsSystem       *systems.PhysicsSystem
-	drillingSystem      *systems.DrillingSystem
-	marketSystem        *systems.MarketSystem
-	fuelSystem          *systems.FuelSystem
-	fuelStationSystem   *systems.FuelStationSystem
-	hospitalSystem      *systems.HospitalSystem
-	upgradeShopUISystem *systems.UpgradeShopUISystem
-	itemSystem          *systems.ItemSystem
-	itemShopUISystem    *systems.ItemShopUISystem
-	boss                bosses.Boss
-	bossFightSystem     *systems.BossFightSystem
-	gameState           entities.GameState
-	config              *config.GameConfig
+	world           *world.World
+	player          *entities.Player
+	buildings       []*entities.Building
+	upgradeCatalog  *entities.UpgradeCatalog
+	itemCatalog     *entities.ItemCatalog
+	physicsSystem   *systems.PhysicsSystem
+	drillingSystem  *systems.DrillingSystem
+	fuelSystem      *systems.FuelSystem
+	itemSystem      *systems.ItemSystem
+	uiManager       *ui.Manager
+	effectProcessor *effects.Processor
+	boss            bosses.Boss
+	bossFightSystem *systems.BossFightSystem
+	gameState       entities.GameState
+	config          *config.GameConfig
 }
 
 func NewGame(gameCfg *config.GameConfig) *Game {
@@ -41,30 +44,22 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 	spawnY := worldCfg.PlayerSpawn.Y
 
 	// Calculate building Y positions (always ground level - building height)
-	marketY := w.GetGroundLevel() - entities.MarketHeight
-	fuelStationY := w.GetGroundLevel() - entities.FuelStationHeight
-	hospitalY := w.GetGroundLevel() - entities.HospitalHeight
-	upgradeShopY := w.GetGroundLevel() - entities.UpgradeShopHeight
-	itemShopY := w.GetGroundLevel() - entities.ItemShopHeight
+	buildingY := w.GetGroundLevel() - entities.BuildingHeight
 
-	// Create buildings at configured positions
-	market := entities.NewMarket(worldCfg.BuildingLayout.MarketX, marketY)
-	fuelStation := entities.NewFuelStation(worldCfg.BuildingLayout.FuelStationX, fuelStationY)
-	hospital := entities.NewHospital(worldCfg.BuildingLayout.HospitalX, hospitalY)
+	// Create buildings
+	buildings := []*entities.Building{
+		entities.NewMarketBuilding(worldCfg.BuildingLayout.MarketX, buildingY),
+		entities.NewFuelStationBuilding(worldCfg.BuildingLayout.FuelStationX, buildingY),
+		entities.NewHospitalBuilding(worldCfg.BuildingLayout.HospitalX, buildingY),
+		entities.NewUpgradeShopBuilding(worldCfg.BuildingLayout.UpgradeShopX, buildingY),
+		entities.NewItemShopBuilding(worldCfg.BuildingLayout.ItemShopX, buildingY),
+	}
 
-	// Create shops from config (allows per-level pricing and tiers)
-	upgradeShop := entities.NewUpgradeShopFromConfig(
-		worldCfg.BuildingLayout.UpgradeShopX,
-		upgradeShopY,
-		gameCfg.Upgrades,
-	)
-	itemShop := entities.NewItemShopFromConfig(
-		worldCfg.BuildingLayout.ItemShopX,
-		itemShopY,
-		gameCfg.Items,
-	)
+	// Create catalogs
+	upgradeCatalog := entities.NewUpgradeCatalogFromConfig(gameCfg.Upgrades)
+	itemCatalog := entities.NewItemCatalogFromConfig(gameCfg.Items)
 
-	// Create player from config (allows per-level starting upgrades, money, items)
+	// Create player from config
 	player := entities.NewPlayerFromConfig(
 		spawnX,
 		spawnY,
@@ -72,8 +67,13 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		gameCfg.Upgrades,
 	)
 
-	// Create market system with ore configs for value lookup
-	marketSystem := systems.NewMarketSystemWithConfig(market, gameCfg.Generation.Ores)
+	// Create UI manager and register UIs
+	uiManager := ui.NewManager()
+	uiManager.Register(components.InteractableMarket, ui.NewMarketUI(gameCfg.Generation.Ores))
+	uiManager.Register(components.InteractableFuelStation, ui.NewFuelStationUI())
+	uiManager.Register(components.InteractableHospital, ui.NewHospitalUI())
+	uiManager.Register(components.InteractableUpgradeShop, ui.NewUpgradeShopUI(upgradeCatalog))
+	uiManager.Register(components.InteractableItemShop, ui.NewItemShopUI(itemCatalog))
 
 	// Create item system
 	itemSystem := systems.NewItemSystemWithConfig(w, spawnX, spawnY, gameCfg.Items)
@@ -95,21 +95,21 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 	}
 
 	return &Game{
-		world:               w,
-		player:              player,
-		physicsSystem:       systems.NewPhysicsSystem(w),
-		drillingSystem:      systems.NewDrillingSystem(w),
-		marketSystem:        marketSystem,
-		fuelSystem:          systems.NewFuelSystem(),
-		fuelStationSystem:   systems.NewFuelStationSystem(fuelStation),
-		hospitalSystem:      systems.NewHospitalSystem(hospital),
-		upgradeShopUISystem: systems.NewUpgradeShopUISystem(upgradeShop),
-		itemSystem:          itemSystem,
-		itemShopUISystem:    systems.NewItemShopUISystem(itemShop),
-		boss:                boss,
-		bossFightSystem:     bossFightSystem,
-		gameState:           entities.GameStatePlaying,
-		config:              gameCfg,
+		world:           w,
+		player:          player,
+		buildings:       buildings,
+		upgradeCatalog:  upgradeCatalog,
+		itemCatalog:     itemCatalog,
+		physicsSystem:   systems.NewPhysicsSystem(w),
+		drillingSystem:  systems.NewDrillingSystem(w),
+		fuelSystem:      systems.NewFuelSystem(),
+		itemSystem:      itemSystem,
+		uiManager:       uiManager,
+		effectProcessor: effects.NewProcessor(),
+		boss:            boss,
+		bossFightSystem: bossFightSystem,
+		gameState:       entities.GameStatePlaying,
+		config:          gameCfg,
 	}
 }
 
@@ -119,16 +119,36 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	playerY := g.player.AABB.Y + g.player.AABB.Height/2
 	g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-	// 1. Modal pause: if upgrade shop is open, pause all gameplay
-	g.upgradeShopUISystem.ProcessShopInteraction(g.player, inputState)
-	if g.upgradeShopUISystem.GetUIState().Open {
-		return nil
+	// 1. If a UI is active, process it
+	if g.uiManager.HasActiveUI() {
+		result := g.uiManager.Process(g.player, inputState)
+		g.effectProcessor.Apply(g.player, result.Effects)
+
+		// If UI closed, resume gameplay
+		if !g.uiManager.HasActiveUI() {
+			g.player.InShop = false
+		} else {
+			return nil // Still open (modal) - pause gameplay
+		}
 	}
 
-	// 2. Modal pause: if item shop is open, pause all gameplay
-	g.itemShopUISystem.ProcessItemShopInteraction(g.player, inputState)
-	if g.itemShopUISystem.GetUIState().Open {
-		return nil
+	// 2. Check for new interactions
+	if interactionType := systems.DetectInteraction(g.player, g.buildings, inputState); interactionType != nil {
+		// Reset UI state for modal UIs before opening
+		g.resetUIState(*interactionType)
+
+		if g.uiManager.OpenUI(*interactionType) {
+			// Process immediately (handles both instant and modal first frame)
+			result := g.uiManager.Process(g.player, inputState)
+			g.effectProcessor.Apply(g.player, result.Effects)
+
+			// If still open after first process, it's modal - pause
+			if g.uiManager.HasActiveUI() {
+				g.player.InShop = true
+				return nil
+			}
+			// Otherwise it was instant, continue with gameplay
+		}
 	}
 
 	// 3. Physics - handles landing/fall damage before drilling, heat damage, prevents movement during drilling
@@ -148,21 +168,30 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 6. Handle item usage
 	g.itemSystem.ProcessItemUsage(g.player, inputState)
 
-	// 7. Handle market selling
-	g.marketSystem.ProcessSelling(g.player, inputState)
-
-	// 8. Handle fuel station refueling
-	g.fuelStationSystem.ProcessRefueling(g.player, inputState)
-
-	// 9. Handle hospital healing
-	g.hospitalSystem.ProcessHealing(g.player, inputState)
-
-	// 10. Update boss fight system (if active)
+	// 7. Update boss fight system (if active)
 	if g.bossFightSystem != nil {
 		g.gameState = g.bossFightSystem.Update(g.player, dt)
 	}
 
 	return nil
+}
+
+func (g *Game) resetUIState(interactionType components.InteractableType) {
+	registeredUI := g.uiManager.GetRegisteredUI(interactionType)
+	if registeredUI == nil {
+		return
+	}
+
+	switch interactionType {
+	case components.InteractableUpgradeShop:
+		if upgradeUI, ok := registeredUI.(*ui.UpgradeShopUI); ok {
+			upgradeUI.ResetState()
+		}
+	case components.InteractableItemShop:
+		if itemUI, ok := registeredUI.(*ui.ItemShopUI); ok {
+			itemUI.ResetState()
+		}
+	}
 }
 
 func (g *Game) GetWorld() *world.World {
@@ -173,32 +202,20 @@ func (g *Game) GetPlayer() *entities.Player {
 	return g.player
 }
 
-func (g *Game) GetMarket() *entities.Market {
-	return g.marketSystem.GetMarket()
+func (g *Game) GetBuildings() []*entities.Building {
+	return g.buildings
 }
 
-func (g *Game) GetFuelStation() *entities.FuelStation {
-	return g.fuelStationSystem.GetFuelStation()
+func (g *Game) GetUpgradeCatalog() *entities.UpgradeCatalog {
+	return g.upgradeCatalog
 }
 
-func (g *Game) GetHospital() *entities.Hospital {
-	return g.hospitalSystem.GetHospital()
+func (g *Game) GetItemCatalog() *entities.ItemCatalog {
+	return g.itemCatalog
 }
 
-func (g *Game) GetUpgradeShop() *entities.UpgradeShop {
-	return g.upgradeShopUISystem.GetShop()
-}
-
-func (g *Game) GetUpgradeShopUIState() *entities.UpgradeShopUIState {
-	return g.upgradeShopUISystem.GetUIState()
-}
-
-func (g *Game) GetItemShop() *entities.ItemShop {
-	return g.itemShopUISystem.GetShop()
-}
-
-func (g *Game) GetItemShopUIState() *entities.ItemShopUIState {
-	return g.itemShopUISystem.GetUIState()
+func (g *Game) GetUIManager() *ui.Manager {
+	return g.uiManager
 }
 
 func (g *Game) GetConfig() *config.GameConfig {

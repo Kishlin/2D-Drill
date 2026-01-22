@@ -86,13 +86,13 @@ func TestFuelSystem_ConsumesIdleRateWhenNoInput(t *testing.T) {
 	}
 }
 
-func TestFuelSystem_ConsumesIdleRateWhenOnlySellingInput(t *testing.T) {
+func TestFuelSystem_ConsumesIdleRateWhenOnlyInteractingInput(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
-	// Sell input alone should use idle rate (not active movement)
-	inputState := input.InputState{Sell: true}
+	// Interact input alone should use idle rate (not active movement)
+	inputState := input.InputState{Interact: true}
 	fs.ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionIdle
@@ -101,13 +101,13 @@ func TestFuelSystem_ConsumesIdleRateWhenOnlySellingInput(t *testing.T) {
 	}
 }
 
-func TestFuelSystem_ConsumesMovingRateWhenMovingAndSelling(t *testing.T) {
+func TestFuelSystem_ConsumesMovingRateWhenMovingAndInteracting(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelTank.Capacity()
 
 	// Moving + selling = use movement rate (movement takes priority)
-	inputState := input.InputState{Up: true, Sell: true}
+	inputState := input.InputState{Up: true, Interact: true}
 	fs.ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionMoving

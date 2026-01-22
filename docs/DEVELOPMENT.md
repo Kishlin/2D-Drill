@@ -129,7 +129,13 @@ go tool cover -html=coverage.out
 **Systems** (`internal/domain/systems/`):
 - `drilling_test.go` — Drilling mechanics and ore collection
 - `fuel_test.go` — Fuel consumption (active vs idle rates)
-- `fuel_station_test.go` — Refueling transactions, cost calculation, edge cases
+
+**Effects** (`internal/domain/effects/`):
+- `money_test.go` — TakeMoney, AddMoney effects
+- `stats_test.go` — SetFuel, SetHP effects
+- `upgrades_test.go` — SetEngine, SetHull, etc. effects
+- `inventory_test.go` — ClearOreInventory, AddItem effects
+- `processor_test.go` — Processor applying effects to player
 
 ### Writing New Tests
 
