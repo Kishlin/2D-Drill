@@ -1,6 +1,11 @@
 # Game Design
 
-> For implementation details, physics constants, and configuration values, see [ARCHITECTURE.md](ARCHITECTURE.md).
+> **Related Documentation:**
+> - [ARCHITECTURE.md](ARCHITECTURE.md) — High-level architecture overview
+> - [SYSTEMS.md](SYSTEMS.md) — Game systems implementation details
+> - [PHYSICS.md](PHYSICS.md) — Physics constants and damage formulas
+> - [WORLD.md](WORLD.md) — World generation and tile distributions
+> - [CONFIGURATION.md](CONFIGURATION.md) — Config structs and reference tables
 >
 > **Note:** All game values (ore prices, upgrade costs, drill speeds, hazard damage, etc.) are defined in level configuration files (`internal/domain/levels/`). Values shown in this document reflect Level 1 defaults and may vary per level.
 
@@ -153,7 +158,7 @@ Fuel is a limited resource that creates time pressure for each expedition. Base 
 - Game over or limitations when fuel reaches zero
 - Fuel efficiency upgrades
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed fuel system implementation and configuration.
+See [SYSTEMS.md](SYSTEMS.md#fuel-system-systemsfuelgo) for implementation details.
 
 ### Damage & Health System
 
@@ -217,7 +222,7 @@ Ore types are defined per level in `GenerationConfig.Ores`. Each ore has an ID, 
 - Mid game: Gold and Mythril increase risk/reward as you venture deeper
 - Late game: Platinum and Diamond are high-value targets requiring deeper exploration
 
-**Customization:** Different levels can define entirely different ore sets (e.g., Level 2 might have Uranium instead of Copper). See [ARCHITECTURE.md](ARCHITECTURE.md#configuration-system) for config structure.
+**Customization:** Different levels can define entirely different ore sets (e.g., Level 2 might have Uranium instead of Copper). See [CONFIGURATION.md](CONFIGURATION.md) for config structure.
 
 ## Environmental Hazards
 

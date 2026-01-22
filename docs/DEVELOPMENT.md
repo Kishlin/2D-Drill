@@ -698,7 +698,12 @@ go test -cpuprofile=cpu.prof ./...   # CPU profile
 ## Resources
 
 - [CLAUDE.md](../CLAUDE.md) - Quick reference for AI assistants
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture details
+- [ARCHITECTURE.md](ARCHITECTURE.md) - High-level architecture overview
+- [SYSTEMS.md](SYSTEMS.md) - Game systems implementation
+- [PHYSICS.md](PHYSICS.md) - Physics and collision details
+- [WORLD.md](WORLD.md) - World generation
+- [BOSS.md](BOSS.md) - Boss system
+- [CONFIGURATION.md](CONFIGURATION.md) - Config structs and reference tables
 - [GAME_DESIGN.md](GAME_DESIGN.md) - Game mechanics and progression
 - [Go Effective Guide](https://go.dev/doc/effective_go)
 - [Raylib Documentation](https://www.raylib.com/)

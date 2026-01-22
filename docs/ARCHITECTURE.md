@@ -2,16 +2,26 @@
 
 ## Overview
 
-Drill Game uses **Hexagonal Architecture** (Ports & Adapters) to achieve a clean separation between pure domain logic and framework-specific integration. This ensures the game logic is:
+Drill Game uses **Hexagonal Architecture** (Ports & Adapters) to achieve a clean separation between pure domain logic and framework-specific integration.
 
+**Benefits:**
 - **Testable**: Physics and game logic can be tested without initializing Raylib
 - **Portable**: Domain code has zero framework dependencies
 - **Maintainable**: Clear responsibilities and data flow
 - **Extensible**: Easy to add new features, entities, or rendering backends
 
+**Related Documentation:**
+- [SYSTEMS.md](SYSTEMS.md) — Game systems (drilling, physics, fuel, effects, UI, items)
+- [PHYSICS.md](PHYSICS.md) — Collision detection, damage formulas, camera
+- [WORLD.md](WORLD.md) — World generation, tiles, ore/hazard distributions
+- [BOSS.md](BOSS.md) — Boss system, state machines, phases
+- [CONFIGURATION.md](CONFIGURATION.md) — Config structs, levels, reference tables
+- [GAME_DESIGN.md](GAME_DESIGN.md) — Game mechanics and progression
+- [DEVELOPMENT.md](DEVELOPMENT.md) — Development workflows and testing
+
 ---
 
-## Architecture Pattern: Hexagonal Architecture
+## The Three Layers
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -33,32 +43,82 @@ Drill Game uses **Hexagonal Architecture** (Ports & Adapters) to achieve a clean
                     │ • Game (engine/) │
                     │ • Player (entities/)
                     │ • Physics (systems/)
-                    │ • Types (types/)
-                    │ • Input State (input/)
                     │ • World (world/)
-                    │
+                    │ • Effects (effects/)
+                    │ • UI (ui/)
                     └──────────────────┘
 ```
 
-### The Three Layers
+### 1. Application Layer (`cmd/game/main.go`)
 
-1. **Application Layer** (`cmd/game/main.go`)
-   - Orchestrates the entire game
-   - Reads input from adapters
-   - Updates domain logic
-   - Delegates rendering to adapters
-   - Manages window lifecycle
+Orchestrates the entire game:
+- Creates adapters and game instance
+- Runs the main loop: Input → Update → Render
+- Manages window lifecycle
 
-2. **Adapter Layer** (`internal/adapters/`)
-   - **Input Adapter**: Translates Raylib keyboard input to domain `InputState`
-   - **Rendering Adapter**: Takes domain entities and renders them with Raylib
-   - All Raylib integration lives here
-   - No business logic
+```go
+func main() {
+    renderer := rendering.NewRaylibRenderer()
+    inputAdapter := input.NewRaylibInputAdapter()
 
-3. **Domain Layer** (`internal/domain/`)
-   - Pure game logic, zero framework dependencies
-   - Can be tested without Raylib initialization
-   - Fully portable (could swap Raylib for SDL, canvas, etc.)
+    renderer.InitWindow(screenWidth, screenHeight, "Drill Game")
+    defer renderer.CloseWindow()
+
+    game := engine.NewGame(gameCfg)
+
+    for renderer.WindowShouldClose() == false {
+        dt := renderer.GetFrameTime()
+        inputState := inputAdapter.ReadInput()
+        game.Update(dt, inputState)
+        renderer.Render(game)
+    }
+}
+```
+
+### 2. Adapter Layer (`internal/adapters/`)
+
+Framework integration with zero business logic:
+
+**Input Adapter** — Translates Raylib input to domain `InputState`:
+```go
+func (a *RaylibInputAdapter) ReadInput() input.InputState {
+    return input.InputState{
+        Left:  rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA),
+        Right: rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD),
+        // ...
+    }
+}
+```
+
+**Rendering Adapter** — Takes domain entities and renders with Raylib:
+```go
+func (r *RaylibRenderer) Render(game *engine.Game) {
+    rl.BeginDrawing()
+    r.renderWorld(game.GetWorld())
+    r.renderPlayer(game.GetPlayer())
+    rl.EndDrawing()
+}
+```
+
+### 3. Domain Layer (`internal/domain/`)
+
+Pure game logic with zero framework dependencies:
+
+| Package | Purpose |
+|---------|---------|
+| `engine/` | Game orchestration |
+| `entities/` | Player, Building, Tile, components |
+| `systems/` | Physics, Drilling, Fuel, Items, Boss fights |
+| `effects/` | Player state mutations |
+| `ui/` | Shop interfaces |
+| `world/` | Chunk-based procedural world |
+| `physics/` | Movement, collision, damage |
+| `types/` | Vec2, AABB |
+| `input/` | InputState struct |
+| `config/` | Configuration structs |
+| `levels/` | Level definitions |
+| `bosses/` | Boss implementations |
+| `components/` | Position, Interactable |
 
 ---
 
@@ -66,116 +126,31 @@ Drill Game uses **Hexagonal Architecture** (Ports & Adapters) to achieve a clean
 
 ```
 drill-game/
-├── cmd/
-│   └── game/
-│       └── main.go                          # Application orchestration, loads level config
+├── cmd/game/main.go              # Application orchestration
 │
 ├── internal/
-│   ├── adapters/                            # Framework Integration (Raylib)
-│   │   ├── input/
-│   │   │   └── raylib.go                    # RaylibInputAdapter
+│   ├── adapters/                 # Framework Integration (Raylib)
+│   │   ├── input/raylib.go       # RaylibInputAdapter
 │   │   └── rendering/
-│   │       ├── raylib.go                    # RaylibRenderer (receives GenerationConfig for colors)
-│   │       └── bosses/                      # Boss-specific renderers
-│   │           ├── renderer.go              # BossRenderer interface + registry
-│   │           └── test_boss.go             # TestBoss rendering (states, AOE, vibration)
+│   │       ├── raylib.go         # RaylibRenderer
+│   │       └── bosses/           # Boss-specific renderers
 │   │
-│   └── domain/                              # Pure Business Logic
-│       ├── bosses/                          # Boss System
-│       │   ├── boss.go                      # Boss, PhysicalBoss interfaces + AOEInfo
-│       │   ├── projectile.go                # Projectile entity for boss attacks
-│       │   ├── phase.go                     # PhaseManager for HP-threshold phases
-│       │   ├── attacks/                     # Reusable attack patterns
-│       │   │   ├── attack.go                # Attack interface
-│       │   │   ├── projectile_attack.go     # Fires projectiles at player
-│       │   │   └── aoe_attack.go            # Ground slam with telegraph
-│       │   ├── movement/                    # Reusable movement behaviors
-│       │   │   ├── movement.go              # MovementBehavior interface
-│       │   │   └── grounded.go              # Left-right patrol on floor
-│       │   └── test_boss/
-│       │       └── boss.go                  # TestBoss (state machine, phases, attacks)
-│       │
-│       ├── components/                      # Component types for entity composition
-│       │   ├── position.go                  # Position component (AABB wrapper)
-│       │   └── interactable.go              # InteractableType enum
-│       │
-│       ├── config/                          # Configuration structs
-│       │   ├── game_config.go               # GameConfig aggregate with Validate()
-│       │   ├── world_config.go              # WorldConfig (dimensions, spawn, buildings)
-│       │   ├── player_config.go             # PlayerConfig (starting money, items, upgrades)
-│       │   ├── generation_config.go         # GenerationConfig (ores, hazards, distributions)
-│       │   ├── upgrade_config.go            # UpgradeConfig (6 upgrade type tiers with prices/stats)
-│       │   ├── item_config.go               # ItemConfig (5 items with prices/effects)
-│       │   ├── boss_room_config.go          # BossRoomConfig (boss type, floor type, dimensions)
-│       │   └── component_stats.go           # EngineStats, HullStats, etc. for generic tiers
-│       │
-│       ├── effects/                         # Effect system for player state mutations
-│       │   ├── effect.go                    # Effect interface
-│       │   ├── money.go                     # TakeMoney, AddMoney effects
-│       │   ├── stats.go                     # SetFuel, SetHP effects
-│       │   ├── upgrades.go                  # SetEngine, SetHull, etc. effects
-│       │   ├── inventory.go                 # ClearOreInventory, AddItem effects
-│       │   ├── processor.go                 # Processor applies effects to player
-│       │   └── *_test.go                    # Effect tests (37 tests)
-│       │
-│       ├── levels/                          # Level definitions
-│       │   ├── level1.go                    # GetLevel1Config() — production level
-│       │   ├── level_dev.go                 # GetTestLevelConfig() — test level (-1)
-│       │   ├── level_boss.go                # GetBossTestLevelConfig() — boss test level (-2)
-│       │   └── registry.go                  # GetLevelConfig(levelNum) dispatcher
-│       │
-│       ├── ui/                              # UI layer for building interactions
-│       │   ├── ui.go                        # UI interface, Result type
-│       │   ├── manager.go                   # Manager handles UI registration and processing
-│       │   ├── state.go                     # UpgradeShopState, ItemShopState
-│       │   ├── upgrade_shop.go              # Modal UpgradeShopUI
-│       │   ├── item_shop.go                 # Modal ItemShopUI
-│       │   ├── market.go                    # Instant MarketUI
-│       │   ├── hospital.go                  # Instant HospitalUI
-│       │   └── fuel_station.go              # Instant FuelStationUI
-│       │
-│       ├── engine/
-│       │   └── game.go                      # Game orchestration (receives GameConfig)
-│       ├── systems/
-│       │   ├── physics.go                   # PhysicsSystem
-│       │   ├── drilling.go                  # DrillingSystem (reads hazard config for damage)
-│       │   ├── interaction.go               # DetectInteraction() function
-│       │   ├── fuel.go                      # FuelSystem (consumption based on activity)
-│       │   ├── item.go                      # ItemSystem (reads bomb radius, handles bomb-boss collisions)
-│       │   ├── boss_fight.go                # BossFightSystem (boss activation, projectiles, floor damage)
-│       │   └── *_test.go                    # System tests
-│       ├── entities/
-│       │   ├── player.go                    # Player aggregate root; NewPlayerFromConfig()
-│       │   ├── building.go                  # Generic Building with Position + Interactable components
-│       │   ├── catalog.go                   # UpgradeCatalog, ItemCatalog (prices + instances)
-│       │   ├── engine.go                    # Engine component; NewEngineFromStats()
-│       │   ├── hull.go                      # Hull component; NewHullFromStats()
-│       │   ├── fuel_tank.go                 # FuelTank component; NewFuelTankFromStats()
-│       │   ├── cargo_hold.go                # CargoHold component; NewCargoHoldFromStats()
-│       │   ├── heat_shield.go               # HeatShield component; NewHeatShieldFromStats()
-│       │   ├── drill.go                     # Drill component; NewDrillFromStats()
-│       │   ├── tile.go                      # Tile entity (includes TileTypeFloor for indestructible floors)
-│       │   ├── game_state.go                # GameState enum (Playing, Victory, Defeat)
-│       │   └── ...                          # Other entities
-│       ├── physics/
-│       │   ├── constants.go                 # Physics parameters (gravity, damping)
-│       │   └── ...                          # Physics functions
-│       ├── types/
-│       │   └── ...                          # Vec2, AABB
-│       ├── input/
-│       │   └── input_state.go               # InputState struct (framework-agnostic)
-│       └── world/
-│           ├── world.go                     # World: NewWorldFromConfig()
-│           ├── generator.go                 # Generator: NewChunkGeneratorFromConfig()
-│           └── ...                          # World tests
+│   └── domain/                   # Pure Business Logic (NO RAYLIB)
+│       ├── engine/game.go        # Game loop orchestration
+│       ├── entities/             # Player, Building, Tile, components
+│       ├── systems/              # Physics, Drilling, Fuel, Items, Boss
+│       ├── effects/              # Effect interface and implementations
+│       ├── ui/                   # UI interface, Manager, shops
+│       ├── world/                # World, chunk generator
+│       ├── physics/              # Movement, collision, damage
+│       ├── types/                # Vec2, AABB
+│       ├── input/                # InputState
+│       ├── config/               # Configuration structs
+│       ├── levels/               # Level definitions
+│       ├── bosses/               # Boss implementations
+│       └── components/           # Position, Interactable
 │
-├── docs/
-│   ├── ARCHITECTURE.md                      # This file
-│   ├── GAME_DESIGN.md                       # Game mechanics
-│   └── DEVELOPMENT.md                       # Development workflows
-├── go.mod
-├── go.sum
-└── README.md
+└── docs/                         # Documentation
 ```
 
 ---
@@ -185,2291 +160,137 @@ drill-game/
 ### Single Frame Update
 
 ```
-main.go Loop:
-┌─────────────────────────────────────────┐
-│ 1. Read Input from Adapter              │
-│    inputState := inputAdapter.ReadInput()
-│    (Converts Raylib keys → InputState)  │
-└────────────┬────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────┐
-│ 2. Update Domain Logic                  │
-│    game.Update(dt, inputState)          │
-│    • Load chunks around player (3×3)    │
-│    • [UI MANAGER] Process active UI     │
-│    •   If modal UI open: pause gameplay │
-│    •   Apply effects from UI result     │
-│    •   Close UI if ShouldClose=true     │
-│    • Detect building interactions       │
-│    •   Open UI via Manager              │
-│    •   Process immediately (modal/inst) │
-│    • Apply physics & fall damage        │
-│    • Consume fuel (active or idle)      │
-│    • Drill downward or horizontal       │
-│    • [ANIMATION PAUSE] If drilling:     │
-│    •   Animate player to tile           │
-│    •   Remove tile on completion        │
-│    •   Collect ore if available         │
-│    •   → return (skip interactions)     │
-│    • Item usage (T/R/F/B/G keys)        │
-│    • Boss fight system update           │
-└────────────┬────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────────┐
-│ 3. Render via Adapter                   │
-│    renderer.Render(game)                │
-│    • Extracts Player, World, Buildings  │
-│    • Renders tiles with ore colors      │
-│    • Draws all entities                 │
-│    • Renders modal UI if active         │
-│    • Displays debug info (money, etc)   │
-│    • Camera follows player              │
-└─────────────────────────────────────────┘
+1. Read Input from Adapter
+   inputState := inputAdapter.ReadInput()
+   (Converts Raylib keys → InputState)
+        │
+        ▼
+2. Update Domain Logic
+   game.Update(dt, inputState)
+   • Load chunks around player
+   • Process active UI (modal pause)
+   • Detect building interactions
+   • Apply physics & damage
+   • Consume fuel
+   • Process drilling animation
+   • Handle item usage
+   • Update boss fight
+        │
+        ▼
+3. Render via Adapter
+   renderer.Render(game)
+   • Extract Player, World, Buildings
+   • Render visible tiles
+   • Draw entities
+   • Render UI overlays
+   • Camera follows player
 ```
-
-### Code Example
-
-```go
-// main.go - Application layer orchestration
-for renderer.WindowShouldClose() == false {
-    dt := renderer.GetFrameTime()
-
-    // 1. Read input (adapter responsibility)
-    inputState := inputAdapter.ReadInput()
-
-    // 2. Update game (domain logic - pure, testable)
-    err := game.Update(dt, inputState)
-    if err != nil {
-        return err
-    }
-
-    // 3. Render (adapter responsibility)
-    renderer.Render(game)
-}
-```
-
----
-
-## Core Concepts
-
-### Domain Layer (Pure Game Logic)
-
-#### Game (`domain/engine/game.go`)
-
-Orchestrates domain systems without any framework knowledge:
-
-```go
-type Game struct {
-    world           *world.World
-    player          *entities.Player
-    buildings       []*entities.Building
-    uiManager       *ui.Manager
-    effectProcessor *effects.Processor
-    physicsSystem   *systems.PhysicsSystem
-    drillingSystem  *systems.DrillingSystem
-    fuelSystem      *systems.FuelSystem
-    itemSystem      *systems.ItemSystem
-    bossFightSystem *systems.BossFightSystem
-}
-
-func (g *Game) Update(dt float32, inputState input.InputState) error {
-    // Pure domain logic - zero Raylib
-
-    // 0. Update chunks around player (proactive loading)
-    playerX := g.player.AABB.X + g.player.AABB.Width/2
-    playerY := g.player.AABB.Y + g.player.AABB.Height/2
-    g.world.UpdateChunksAroundPlayer(playerX, playerY)
-
-    // 1. Process active UI (modal pause if open)
-    if g.uiManager.HasActiveUI() {
-        result := g.uiManager.Process(g.player, inputState)
-        g.effectProcessor.Apply(g.player, result.Effects)
-        if !g.uiManager.HasActiveUI() {
-            g.player.InShop = false
-        } else {
-            return nil  // Modal UI open - pause gameplay
-        }
-    }
-
-    // 2. Detect building interactions (E key + overlap)
-    if interactionType := systems.DetectInteraction(g.player, g.buildings, inputState); interactionType != nil {
-        g.uiManager.OpenUI(*interactionType)
-        result := g.uiManager.Process(g.player, inputState)
-        g.effectProcessor.Apply(g.player, result.Effects)
-        if g.uiManager.HasActiveUI() {
-            g.player.InShop = true
-            return nil  // Modal UI opened - pause gameplay
-        }
-        // Instant UI processed and closed, continue with gameplay
-    }
-
-    // 3. Physics - handles landing/fall damage, heat damage, prevents movement during drilling
-    g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
-
-    // 4. Fuel consumption (runs even during drilling animation for resource pressure)
-    g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
-
-    // 5. Drilling animation (vertical + horizontal with variable duration based on depth/ore)
-    g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
-
-    // Animation pause: Skip interactions if drilling
-    if g.player.IsDrilling {
-        return nil
-    }
-
-    // 6. Item usage (consumable items)
-    g.itemSystem.ProcessItemUsage(g.player, inputState)
-
-    // 7. Boss fight system
-    if g.bossFightSystem != nil {
-        g.gameState = g.bossFightSystem.Update(g.player, dt)
-    }
-
-    return nil
-}
-
-// Adapters pull data from getters
-func (g *Game) GetWorld() *world.World { return g.world }
-func (g *Game) GetPlayer() *entities.Player { return g.player }
-func (g *Game) GetBuildings() []*entities.Building { return g.buildings }
-func (g *Game) GetUIManager() *ui.Manager { return g.uiManager }
-```
-
-**Why this design:**
-- Game doesn't import Raylib (fully testable)
-- Game accepts InputState (not Raylib keys)
-- Game provides getters for adapters to read state
-- All rendering responsibility is external
-
-#### Drilling System (`domain/systems/drilling.go`)
-
-Handles both vertical and horizontal drilling with variable animation duration based on tile hardness and depth. The duration formula is:
-
-```
-duration = baseTime × hardness × depthFactor / drillSpeed
-```
-
-Where:
-- `baseTime`: 1.0 second constant
-- `hardness`: per-tile-type value from `DirtHardness` (1.0), `OreHardness` map (1.2-3.0), or `HazardHardness` map (0.3 for lava)
-- `depthFactor`: scales 1.0 at surface → 24.0 at max depth
-- `drillSpeed`: from drill upgrades (1.0 → 6.0)
-
-Lava tiles are a special case: they use a fixed duration of 0.3s (from `HazardHardness[HazardLava]`) regardless of depth, since damage is already a penalty.
-
-Drill upgrades apply a depth-scaled divisor: at surface only 10% of the upgrade applies, at max depth 100% applies. This ensures upgrades feel impactful at depth without trivializing surface drilling. When a drill is initiated, the player interpolates toward the tile center while the tile is progressively revealed. The tile is only removed when the animation completes.
-
-**Core Concepts:**
-
-```go
-type DrillingSystem struct {
-    world     *world.World
-    animation DrillingAnimation
-}
-
-// Animation state tracks active drills
-type DrillingAnimation struct {
-    Active      bool
-    Direction   DrillDirection // Down, Left, or Right
-    StartX      float32        // Player position when animation started
-    StartY      float32
-    TargetX     float32        // Where player moves to during animation
-    TargetY     float32
-    TargetGridX int            // Tile coordinates for removal
-    TargetGridY int
-    Elapsed     float32        // Time elapsed in animation
-    Duration    float32        // Variable duration (1.0-24+ seconds based on depth/ore/drill)
-    Tile        *entities.Tile
-}
-
-// Duration is calculated dynamically per tile based on depth and hardness
-```
-
-**Game Loop Flow:**
-
-The drilling system receives input AFTER physics (which handles landing), ensuring:
-1. Player lands on ground (physics)
-2. Fall damage applied if landing from height (physics)
-3. Drilling animation can only start when grounded
-4. Player is locked in animation (duration varies: 1.0-24+ seconds based on depth/ore/drill)
-5. Tile removed on completion, ore collected
-
-```go
-// Game loop order (internal/domain/engine/game.go)
-g.physicsSystem.UpdatePhysics(g.player, inputState, dt)      // Physics FIRST
-g.fuelSystem.ConsumeFuel(g.player, inputState, dt)           // Fuel runs always
-g.drillingSystem.ProcessDrilling(g.player, inputState, dt)    // Then drilling
-if g.player.IsDrilling { return }                             // Block interactions during drill
-// ... interaction systems (market, upgrade, etc.)
-```
-
-**Vertical Drilling (S/Down Key):**
-
-```go
-// Check tile directly below player's center
-playerCenterX := player.AABB.X + player.AABB.Width/2
-playerBottomY := player.AABB.Y + player.AABB.Height
-tile := ds.world.GetTileAt(playerCenterX, playerBottomY)
-
-// Calculate animation targets
-tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
-targetX := tileCenterX - player.AABB.Width/2
-
-tileBottomY := float32(tileGridY+1) * world.TileSize
-targetY := tileBottomY - player.AABB.Height  // Align bottom edges
-
-// Start variable-duration animation (1.0-24+ seconds based on depth/ore/drill)
-ds.startDrillAnimation(player, DrillDown, tileGridX, tileGridY, targetX, targetY, tile)
-```
-
-**Horizontal Drilling (Left/Right When Grounded):**
-
-```go
-// Check tile beside player
-playerCenterY := player.AABB.Y + player.AABB.Height/2
-
-if inputState.Left {
-    tile := ds.world.GetTileAt(player.AABB.X - 1, playerCenterY)
-    if tile != nil && tile.IsDrillable() {
-        // Move to tile center (X) but keep current Y
-        tileCenterX := float32(tileGridX)*world.TileSize + world.TileSize/2
-        targetX := tileCenterX - player.AABB.Width/2
-        targetY := player.AABB.Y  // Stay at ground level
-
-        ds.startDrillAnimation(player, DrillLeft, tileGridX, tileGridY, targetX, targetY, tile)
-    }
-}
-// Similar for Right
-```
-
-**Lava Tile Drilling:**
-
-Lava tiles are special hazards that drill quickly but deal damage on completion. Lava hardness is defined in `HazardHardness` map in `hazard_type.go`:
-
-```go
-// Lava uses fixed duration from HazardHardness (0.3s), depth-independent
-if tile.Type == entities.TileTypeLava {
-    return entities.HazardHardness[entities.HazardLava]  // 0.3s fixed
-}
-
-// On completion, apply damage scaling with heat shield
-if dugTile.Type == entities.TileTypeLava {
-    baseDamage := 100.0
-    damageReduction := (player.HeatShield.HeatResistance() / 320.0) * 50.0
-    finalDamage := baseDamage - damageReduction
-    player.DealDamage(finalDamage)
-}
-```
-
-**Drill Upgrade Scaling:**
-
-Drill upgrades reduce drilling duration via a depth-scaled divisor. At surface, only 10% of the upgrade applies; at max depth, 100% applies. Lava tiles bypass this (always 0.3s).
-
-```go
-// Calculate depth factor (0 at ground, 1 at max depth)
-depthFactor := depthBelowGround / maxDepth
-
-// Apply depth-scaled divisor
-// At surface (depthFactor=0): effectiveDivisor = 1 + (drillSpeed-1)*0.1
-// At max depth (depthFactor=1): effectiveDivisor = drillSpeed
-drillSpeed := player.Drill.DrillSpeed()
-effectiveDivisor := 1 + (drillSpeed-1)*(0.1+0.9*depthFactor)
-duration := baseDuration / effectiveDivisor
-```
-
-**Animation Update (Each Frame):**
-
-```go
-// Lerp player position toward target
-ds.animation.Elapsed += dt
-progress := ds.animation.Elapsed / ds.animation.Duration
-if progress > 1.0 { progress = 1.0 }
-
-player.AABB.X = ds.animation.StartX + (ds.animation.TargetX - ds.animation.StartX) * progress
-player.AABB.Y = ds.animation.StartY + (ds.animation.TargetY - ds.animation.StartY) * progress
-
-// On completion (progress >= 1.0)
-if dugTile, success := ds.world.DrillTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
-    ds.collectOreIfPresent(player, dugTile)
-}
-```
-
-**Player State Flags:**
-
-The player has two state flags set by systems:
-- `player.OnGround` — Set by physics system on ground contact
-- `player.IsDrilling` — Set by drilling system during animation
-
-This allows both physics and rendering to query state directly:
-
-```go
-// Physics checks drilling state to skip movement
-if player.IsDrilling {
-    return  // Skip velocity/collision, but heat damage still applies
-}
-
-// Rendering displays state
-fmt.Sprintf("IsDrilling: %v", player.IsDrilling)
-```
-
-**Why This Design:**
-
-- **Clear State Machine**: Animation lifecycle (start → update → complete) is explicit
-- **Lerp-Based Movement**: Smooth animation feels natural vs teleporting
-- **Grounding Requirement**: Only drill when on ground (prevents mid-air exploits)
-- **Continuous Effects**: Fuel consumption and heat damage run during animation
-- **Fall Damage Protection**: Physics runs first, applies damage before drill starts
-- **One System Responsibility**: All animation logic in DrillingSystem, not scattered
-- **Testable**: Animation state tracked in struct, no external dependencies
-
-#### Physics System (`domain/systems/physics.go`)
-
-Orchestrates pure physics functions with axis-separated collision and fall damage:
-
-```go
-type PhysicsSystem struct {
-    world *world.World
-}
-
-func (ps *PhysicsSystem) UpdatePhysics(
-    player *entities.Player,
-    inputState input.InputState,
-    dt float32,
-) {
-    // 1. Apply movement and gravity to velocity (using player's component stats)
-    player.Velocity = physics.ApplyHorizontalMovement(
-        player.Velocity, inputState, dt,
-        player.Engine.MaxSpeed(), player.Engine.Acceleration(),
-    )
-    player.Velocity = physics.ApplyVerticalMovement(
-        player.Velocity, inputState, dt,
-        player.Engine.FlyAcceleration(), player.Engine.MaxUpwardSpeed(),
-    )
-    player.Velocity = physics.ApplyGravity(player.Velocity, dt)
-
-    // 2. AXIS-SEPARATED COLLISION RESOLUTION
-
-    // X-axis: integrate position → check → resolve
-    player.AABB.X += player.Velocity.X * dt
-    collisionsX := physics.CheckCollisions(player.AABB, ps.world)
-    player.AABB, player.Velocity = physics.ResolveCollisionsX(player.AABB, player.Velocity, collisionsX)
-
-    // Y-axis: integrate position → check → resolve
-    player.AABB.Y += player.Velocity.Y * dt
-    collisionsY := physics.CheckCollisions(player.AABB, ps.world)
-
-    // Capture state before Y-resolution for fall damage calculation
-    wasAirborne := !player.OnGround
-    ySpeedBeforeLanding := player.Velocity.Y
-
-    player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
-
-    // Apply fall damage on landing transition
-    if wasAirborne && player.OnGround {
-        ps.applyFallDamage(player, ySpeedBeforeLanding)
-    }
-}
-```
-
-**Why this design:**
-- Direct field access (no getters/setters) for simplicity
-- Axis-separated collision prevents corner-catching
-- Pure physics functions fully testable without framework
-- Accepts `InputState` (not Raylib types)
-- Works with `*Player` directly (no interface needed)
-
-**Fall Damage Implementation:**
-
-Damage is calculated when a landing transition occurs (airborne → grounded). The physics package computes damage, and Player.DealDamage() applies it:
-
-```go
-// domain/physics/fall_damage.go - Pure calculation function
-func ApplyFallDamage(player *entities.Player, ySpeed float32) {
-    if ySpeed < FallDamageThreshold {
-        return  // Below 500 px/sec threshold - safe landing
-    }
-
-    // Calculate damage: (ySpeed - threshold) / divisor
-    damage := (ySpeed - FallDamageThreshold) / FallDamageDivisor
-
-    // Apply through Player.DealDamage() which clamps HP at 0
-    player.DealDamage(damage)
-}
-
-// domain/systems/physics.go - Called from PhysicsSystem.UpdatePhysics()
-if wasAirborne && player.OnGround {
-    physics.ApplyFallDamage(player, ySpeedBeforeLanding)
-}
-```
-
-**Landing Detection:**
-- `wasAirborne = !player.OnGround` captures state before Y resolution
-- `player.OnGround` is set to true by `ResolveCollisionsY()` on ground contact
-- Condition `wasAirborne && player.OnGround` ensures damage only on transition
-- Prevents repeated damage when already grounded
-
-**Damage Application Pattern:**
-- Physics calculates damage: `damage = (ySpeed - threshold) / divisor`
-- Player applies damage: `player.DealDamage(damage)` clamps at zero
-- Centralizes HP mutation logic in Player entity (aggregate root)
-
-#### Heat System (`domain/physics/heat.go` & `domain/systems/physics.go`)
-
-Temperature increases with depth and deals exponential damage when exceeding heat resistance:
-
-```go
-// domain/physics/heat.go - Pure calculation + damage application
-func ApplyHeatDamage(player *entities.Player, dt float32) {
-    // Calculate temperature at player depth (15°C at surface, 350°C at max depth)
-    temperature := CalculateTemperature(player.AABB.Y)
-
-    // Check excess heat beyond resistance
-    excessHeat := temperature - player.HeatShield.HeatResistance()
-    if excessHeat <= 0 {
-        return  // Within safe temperature range
-    }
-
-    // Apply exponential damage: baseDPS * (excessHeat / divisor)^exponent * dt
-    damagePerSecond := float32(HeatDamageBaseDPS) *
-        float32(math.Pow(float64(excessHeat/float32(HeatDamageDivisor)),
-                         float64(HeatDamageExponent)))
-    damage := damagePerSecond * dt
-
-    // Apply through Player.DealDamage() which clamps HP at 0
-    player.DealDamage(damage)
-}
-
-// domain/systems/physics.go - Called every frame from PhysicsSystem.UpdatePhysics()
-physics.ApplyHeatDamage(player, dt)
-```
-
-**Temperature Calculation:**
-- **Ground Level** (Y=640): 15°C base temperature
-- **Max Depth** (Y=64,000): 350°C maximum temperature
-- **Formula**: Linear interpolation based on depth below ground
-- **No Damage**: Above ground level (Y < 640)
-
-**Damage Constants:**
-- `HeatDamageBaseDPS = 0.5` — Base damage per second
-- `HeatDamageDivisor = 10.0` — Scaling factor
-- `HeatDamageExponent = 1.5` — Exponential curve steepness
-
-**Heat Shield Component:**
-6 tiers enabling safe mining at progressively deeper zones:
-
-| Tier | Resistance | Price | Safe Depth |
-|------|------------|-------|-----------|
-| Base | 50°C | - | 0-6,600px |
-| Mk1 | 90°C | $200 | 6,600-14,000px |
-| Mk2 | 140°C | $500 | 14,000-23,500px |
-| Mk3 | 190°C | $1,200 | 23,500-33,000px |
-| Mk4 | 250°C | $3,000 | 33,000-44,500px |
-| Mk5 | 320°C | $7,500 | 44,500-64,000px |
-
-**Why this design:**
-- Called every frame continuously (unlike fall damage on landing only)
-- Exponential scaling creates meaningful progression gates
-- Heat becomes limiting factor for deep mining
-- Upgrades enable deeper exploration without level caps
-
-#### Fuel System (`domain/systems/fuel.go`)
-
-Manages fuel consumption based on player activity:
-
-```go
-type FuelSystem struct {
-    // No state - purely functional
-}
-
-func (fs *FuelSystem) ConsumeFuel(
-    player *entities.Player,
-    inputState input.InputState,
-    dt float32,
-) {
-    // Determine consumption rate based on input
-    var rate float32
-    if inputState.HasMovementInput() {
-        rate = FuelConsumptionMoving  // 0.333 L/s
-    } else {
-        rate = FuelConsumptionIdle    // 0.0833 L/s
-    }
-
-    // Consume fuel this frame
-    player.Fuel -= rate * dt
-    if player.Fuel < 0 {
-        player.Fuel = 0
-    }
-}
-```
-
-**Consumption Rates:**
-- **Active Input** (Left, Right, Up, Drill): 10L in 30 seconds = 0.333 L/s
-- **Idle** (no movement/drilling): 10L in 120 seconds = 0.0833 L/s
-- **Interact Input** (E key): Uses idle rate (not active activity)
-
-**Why this design:**
-- Called after physics to ensure movement is fully resolved
-- Uses `HasMovementInput()` helper to distinguish movement from shop interaction
-- Simple rate-based consumption with delta-time independence
-- Fuel clamped at zero (no negative values)
-- Direct field mutation for simplicity (no getters/setters)
-- Pure logic - could be replaced without affecting game structure
-
-#### Effects System (`domain/effects/`)
-
-All player state mutations go through the effects system, decoupling UI from state changes:
-
-```go
-// effect.go - Effect interface
-type Effect interface {
-    Apply(player *entities.Player)
-}
-
-// money.go - Money effects
-type TakeMoney struct { Amount int }
-func (e TakeMoney) Apply(player *entities.Player) { player.Money -= e.Amount }
-
-type AddMoney struct { Amount int }
-func (e AddMoney) Apply(player *entities.Player) { player.Money += e.Amount }
-
-// stats.go - Stat effects
-type SetFuel struct { Amount float32 }
-func (e SetFuel) Apply(player *entities.Player) { player.Fuel = e.Amount }
-
-type SetHP struct { Amount float32 }
-func (e SetHP) Apply(player *entities.Player) { player.HP = e.Amount }
-
-// upgrades.go - Upgrade effects (SetEngine, SetHull, SetFuelTank, SetCargoHold, SetHeatShield, SetDrill)
-type SetEngine struct { Engine entities.Engine }
-func (e SetEngine) Apply(player *entities.Player) { player.Engine = e.Engine }
-
-// inventory.go - Inventory effects
-type ClearOreInventory struct{}
-func (e ClearOreInventory) Apply(player *entities.Player) { player.OreInventory = make(map[string]int) }
-
-type AddItem struct { ItemType entities.ItemType }
-func (e AddItem) Apply(player *entities.Player) { player.ItemInventory[e.ItemType]++ }
-
-// processor.go - Applies effects to player
-type Processor struct{}
-func (p *Processor) Apply(player *entities.Player, effects []Effect) {
-    for _, effect := range effects {
-        effect.Apply(player)
-    }
-}
-```
-
-**Effect Types:**
-- **Money**: `TakeMoney`, `AddMoney` — direct money mutations
-- **Stats**: `SetFuel`, `SetHP` — set resource values
-- **Upgrades**: `SetEngine`, `SetHull`, `SetFuelTank`, `SetCargoHold`, `SetHeatShield`, `SetDrill`
-- **Inventory**: `ClearOreInventory`, `AddItem`
-
-**Why this design:**
-- Decouples UI from player mutations (UI returns effects, processor applies them)
-- Testable: effects can be unit tested independently (37 tests)
-- Composable: complex operations are sequences of simple effects
-- Auditable: easy to log or track all state changes
-
-#### UI System (`domain/ui/`)
-
-Unified UI layer handling both modal (shops) and instant (market/hospital/fuel) interactions:
-
-```go
-// ui.go - Core types
-type Result struct {
-    ShouldClose bool
-    Effects     []effects.Effect
-}
-
-func NoChange() Result { return Result{} }
-func Close() Result { return Result{ShouldClose: true} }
-func WithEffects(effs ...effects.Effect) Result { return Result{Effects: effs} }
-func CloseWithEffects(effs ...effects.Effect) Result { return Result{ShouldClose: true, Effects: effs} }
-
-type UI interface {
-    Process(player *entities.Player, inputState input.InputState) Result
-    GetRenderState() interface{}
-}
-
-// manager.go - UI Manager
-type Manager struct {
-    uis        map[components.InteractableType]UI
-    activeUI   UI
-    activeType components.InteractableType
-}
-
-func (m *Manager) Register(t components.InteractableType, ui UI)
-func (m *Manager) OpenUI(t components.InteractableType) bool
-func (m *Manager) Process(player *entities.Player, inputState input.InputState) Result
-func (m *Manager) HasActiveUI() bool
-func (m *Manager) GetActiveUI() UI
-```
-
-**Modal UIs (UpgradeShopUI, ItemShopUI):**
-- Return `NoChange()` to stay open
-- Return `WithEffects(...)` on purchase (stay open)
-- Return `Close()` on Q/Escape
-- Have render state for display
-
-**Instant UIs (MarketUI, HospitalUI, FuelStationUI):**
-- Return `CloseWithEffects(...)` immediately
-- Close on first process (no modal)
-- No render state needed
-
-**Why this design:**
-- Unified interface for all building interactions
-- Effects-based return decouples UI from state changes
-- Manager handles opening/closing and routing
-- Modal vs instant behavior determined by UI implementation
-
-#### Interaction System (`domain/systems/interaction.go`)
-
-Simple function to detect player-building overlap with E key:
-
-```go
-func DetectInteraction(
-    player *entities.Player,
-    buildings []*entities.Building,
-    inputState input.InputState,
-) *components.InteractableType {
-    if !inputState.Interact {
-        return nil
-    }
-
-    playerPos := components.Position{AABB: player.AABB}
-    for _, b := range buildings {
-        if b.Position.Intersects(playerPos) {
-            interactableType := b.Interactable.Type
-            return &interactableType
-        }
-    }
-    return nil
-}
-```
-
-**Why this design:**
-- Simple function, not a struct (no state needed)
-- Takes buildings as parameter (lightweight)
-- Checks input internally (single responsibility)
-- Returns optional type (nil if no interaction)
-
-#### Item System (`domain/systems/item.go`)
-
-Manages consumable item usage with effects on player state or world tiles:
-
-```go
-type ItemSystem struct {
-    world  *world.World
-    spawnX float32
-    spawnY float32
-}
-
-func (is *ItemSystem) ProcessItemUsage(player *entities.Player, inputState input.InputState) {
-    // Check discrete item inputs (one press per frame, no repeat while held)
-    if inputState.UseTeleport && player.UseItem(entities.ItemTeleport) {
-        is.applyTeleport(player)
-    }
-    if inputState.UseRepair && player.UseItem(entities.ItemRepair) {
-        is.applyRepair(player)
-    }
-    if inputState.UseRefuel && player.UseItem(entities.ItemRefuel) {
-        is.applyRefuel(player)
-    }
-    if inputState.UseBomb && player.UseItem(entities.ItemBomb) {
-        is.applyBomb(player, 2)  // radius 2 tiles
-    }
-    if inputState.UseBigBomb && player.UseItem(entities.ItemBigBomb) {
-        is.applyBomb(player, 4)  // radius 4 tiles
-    }
-}
-
-// Teleport: Return to spawn point at ground level
-func (is *ItemSystem) applyTeleport(player *entities.Player) {
-    player.AABB.X = is.spawnX
-    player.AABB.Y = is.spawnY
-    player.Velocity = types.Zero()
-    player.OnGround = false
-}
-
-// Repair: Restore HP to max instantly
-func (is *ItemSystem) applyRepair(player *entities.Player) {
-    player.HP = player.Hull.MaxHP()
-}
-
-// Refuel: Fill tank to max instantly
-func (is *ItemSystem) applyRefuel(player *entities.Player) {
-    player.Fuel = player.FuelTank.Capacity()
-}
-
-// Bomb: Destroy tiles in circular radius (ore is lost, not collected)
-// Bombs bypass drillability check - they can destroy rocks that cannot be drilled
-func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
-    centerX := int((player.AABB.X + player.AABB.Width/2) / world.TileSize)
-    centerY := int((player.AABB.Y + player.AABB.Height/2) / world.TileSize)
-
-    for dy := -radius; dy <= radius; dy++ {
-        for dx := -radius; dx <= radius; dx++ {
-            // Circular blast check: distance <= radius
-            if dx*dx+dy*dy <= radius*radius {
-                gridX, gridY := centerX+dx, centerY+dy
-                // NukeTileAtGrid bypasses drillability check (works on rocks)
-                is.world.NukeTileAtGrid(gridX, gridY)
-            }
-        }
-    }
-}
-```
-
-**Item Types:**
-- `ItemTeleport` (key T, $500) — Return to spawn point
-- `ItemRepair` (key R, $200) — Restore HP to max
-- `ItemRefuel` (key F, $100) — Fill fuel to max
-- `ItemBomb` (key B, $300) — Destroy tiles in 2-tile radius
-- `ItemBigBomb` (key G, $800) — Destroy tiles in 4-tile radius
-
-**Design:**
-- Called after drilling animation check (items blocked during animation)
-- Uses discrete input (`IsKeyPressed()`, not continuous)
-- `Player.UseItem()` handles atomicity: checks count, decrements on success
-- Effects applied immediately (no cost, no confirmation)
-- Teleport resets velocity (safe movement after arrival)
-- Bombs destroy ore (not collected) — purely terrain-clearing tool
-
-#### World Methods
-
-**DrillTileAtGrid(gridX, gridY)** — Standard drilling:
-```go
-// Removes tile only if it's drillable (IsDrillable() == true)
-func (w *World) DrillTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
-    tile := w.tiles[[2]int{gridX, gridY}]
-    if tile != nil && tile.IsDrillable() {
-        delete(w.tiles, [2]int{gridX, gridY})
-        return tile, true
-    }
-    return nil, false
-}
-```
-- Used by drilling system to remove ore/lava/dirt
-- Rock tiles return false (not drillable)
-
-**NukeTileAtGrid(gridX, gridY)** — Bomb destruction:
-```go
-// Removes tile only if it's solid (IsSolid() == true), bypassing drillability
-func (w *World) NukeTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
-    tile := w.tiles[[2]int{gridX, gridY}]
-    if tile != nil && tile.IsSolid() {
-        delete(w.tiles, [2]int{gridX, gridY})
-        return tile, true
-    }
-    return nil, false
-}
-```
-- Used by bombs to destroy any solid tile (including rocks)
-- Bypasses drillability check via `IsSolid()` instead of `IsDrillable()`
-- Rock tiles return true (solid, and successfully removed)
-
-**Key Distinction:**
-- Rock: `IsSolid() = true`, `IsDrillable() = false` → DrillTile fails, NukeTile succeeds
-- Lava: `IsSolid() = true`, `IsDrillable() = true` → Both succeed
-- Dirt: `IsSolid() = true`, `IsDrillable() = true` → Both succeed
-
-#### Pure Physics Functions (`domain/physics/`)
-
-Framework-independent mathematical functions:
-
-```go
-// movement.go - Pure functions, no Raylib, fully testable
-// Parameters for max speed/acceleration come from player upgrades
-func ApplyHorizontalMovement(velocity Vec2, inputState InputState, dt float32, maxSpeed, acceleration float32) Vec2
-func ApplyVerticalMovement(velocity Vec2, inputState InputState, dt float32, flyAcceleration, maxUpwardVelocity float32) Vec2
-
-// gravity.go - Pure functions
-func ApplyGravity(velocity Vec2, dt float32) Vec2
-
-// collision.go - AABB-based collision functions
-func CheckCollisions(aabb AABB, world *World) []TileCollision
-func ResolveCollisionsX(aabb AABB, velocity Vec2, collisions []TileCollision) (AABB, Vec2)
-func ResolveCollisionsY(aabb AABB, velocity Vec2, collisions []TileCollision) (AABB, Vec2, bool)
-func GetOccupiedTileRange(aabb AABB, tileSize float32) (minX, maxX, minY, maxY int)
-```
-
-**Why this design:**
-- Zero Raylib imports
-- Can be tested standalone
-- Input/output are domain types (AABB, Vec2, etc.)
-- Pure functions enable unit testing without framework
-- Value-based (no pointer mutations in function signatures)
-
-#### Player Entity (`domain/entities/player.go`)
-
-Player is the **aggregate root** with exported component value objects (Engine, Hull, FuelTank, CargoHold). Stats are accessed via components; mutations go through Player methods.
-
-```go
-type Player struct {
-    AABB          types.AABB  // Position and dimensions
-    Velocity      types.Vec2  // Pixels per second
-    OnGround      bool        // Collision state
-    IsDrilling    bool        // Drilling animation state
-    OreInventory  [6]int      // Ore counts indexed by OreType
-    ItemInventory [5]int      // Item counts (Teleport, Repair, Refuel, Bomb, BigBomb)
-    Money         int         // Currency from ore sales
-    Fuel          float32     // Current fuel in liters
-    HP            float32     // Hit points
-    Engine        Engine      // Engine component (exported)
-    Hull          Hull        // Hull component (exported)
-    FuelTank      FuelTank    // FuelTank component (exported)
-    CargoHold     CargoHold   // CargoHold component (exported)
-    HeatShield    HeatShield  // HeatShield component (exported)
-    Drill         Drill       // Drill component (exported)
-}
-
-// Component types are value objects with named constructors
-type Engine struct {
-    tier, name, maxSpeed, acceleration, flyAcceleration, maxUpwardSpeed
-}
-func NewEngineBase() Engine  // tier 0, 450 px/s max speed, etc.
-func NewEngineMk1() Engine   // tier 1, 475 px/s max speed, etc.
-// ... through NewEngineMk5() - tier 5, 600 px/s max speed, etc.
-
-// Stats accessed via components
-player.Engine.MaxSpeed()      // 450.0 for base engine
-player.Engine.Tier()          // 0 for base engine
-player.Hull.MaxHP()           // 10.0 for base hull
-player.FuelTank.Capacity()    // 10.0 for base tank
-player.CargoHold.Capacity()   // 10 for base cargo hold
-player.HeatShield.HeatResistance() // 50.0 for base heat shield
-player.Drill.DrillSpeed()     // 1.0 for base drill
-player.GetTotalOreCount()     // Sum of all ore in inventory
-
-// Purchase methods enforce invariants
-func (p *Player) CanAfford(cost int) bool
-func (p *Player) BuyEngine(e Engine, cost int)
-func (p *Player) BuyHull(h Hull, cost int)
-func (p *Player) BuyFuelTank(ft FuelTank, cost int)
-func (p *Player) BuyCargoHold(ch CargoHold, cost int)
-func (p *Player) BuyHeatShield(hs HeatShield, cost int)
-func (p *Player) BuyDrill(d Drill, cost int)
-func (p *Player) Refuel() bool  // checks money, fills tank
-func (p *Player) Heal() bool    // checks money, restores HP
-
-// Item methods (consumable items)
-func (p *Player) AddItem(itemType ItemType) bool   // increments item count
-func (p *Player) UseItem(itemType ItemType) bool   // checks & decrements if available
-
-// Ore methods
-func (p *Player) AddOre(oreType OreType) bool  // returns false if cargo full
-func (p *Player) GetTotalOreCount() int        // sum of all ore
-
-// Damage application (called by physics damage sources)
-func (p *Player) DealDamage(damage float32)  // applies damage, clamps HP at 0
-
-func NewPlayer(startX, startY float32) *Player {
-    engine := NewEngineBase()
-    hull := NewHullBase()
-    fuelTank := NewFuelTankBase()
-    cargoHold := NewCargoHoldBase()
-    return &Player{
-        AABB:      types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
-        Velocity:  types.Zero(),
-        Fuel:      fuelTank.Capacity(),
-        HP:        hull.MaxHP(),
-        Engine:    engine,
-        Hull:      hull,
-        FuelTank:  fuelTank,
-        CargoHold: cargoHold,
-    }
-}
-
-// AddOre increments ore count for given type
-func (p *Player) AddOre(oreType OreType, amount int) {
-    if oreType >= 0 && oreType < 6 {
-        p.OreInventory[oreType] += amount
-    }
-}
-```
-
-**Why this design:**
-- AABB eliminates redundant Position storage (X, Y already in AABB)
-- No Render() method (rendering is adapter responsibility)
-- Uses domain types (AABB, Vec2, not rl.Vector2)
-- Zero Raylib dependency
-- Direct field access (no getters/setters) for simplicity
-- AABB enables proper collision detection (not just ground)
-- `OreInventory [6]int` stores counts for all 6 ore types efficiently
-- `AddOre()` is the only ore collection method (simple, one-purpose)
-
-#### Types (`domain/types/`)
-
-Custom math types independent of framework:
-
-**Vec2** (`vec2.go`):
-```go
-type Vec2 struct {
-    X float32
-    Y float32
-}
-
-func (v Vec2) Add(other Vec2) Vec2
-func (v Vec2) Scale(scalar float32) Vec2
-func (v Vec2) Magnitude() float32
-// ... other operations
-```
-
-**AABB** (`aabb.go`):
-```go
-type AABB struct {
-    X, Y          float32 // Top-left corner position
-    Width, Height float32 // Dimensions
-}
-
-func (a AABB) Intersects(b AABB) bool
-func (a AABB) Penetration(b AABB) (dx, dy float32)
-func (a AABB) Min() Vec2
-func (a AABB) Max() Vec2
-```
-
-**Why this design:**
-- No Raylib dependency
-- Physics can use its own types
-- Conversion to Raylib types only happens in rendering adapter
-- AABB provides proper collision detection (not just point-based)
-- Value types (not pointers) for simplicity and performance
-
-#### InputState (`domain/input/input_state.go`)
-
-Platform-agnostic input representation:
-
-```go
-type InputState struct {
-    // Continuous inputs (movement, checked every frame while held)
-    Left  bool  // A or Arrow Left - move left
-    Right bool  // D or Arrow Right - move right
-    Up    bool  // W or Arrow Up - jump/fly
-    Drill bool  // S or Arrow Down - drill downward
-
-    // Discrete inputs (one-shot, only true on frame key is first pressed)
-    Interact    bool  // E - interact with buildings (market, shops, hospital, fuel station)
-    UseTeleport bool  // T - use teleport item
-    UseRepair   bool  // R - use repair item
-    UseRefuel   bool  // F - use refuel item
-    UseBomb     bool  // B - use bomb item
-    UseBigBomb  bool  // G - use big bomb item
-
-    // Shop navigation inputs
-    CloseShop bool  // Q or Escape - close modal UI
-    PrevTab   bool  // Z - previous tab in upgrade shop
-    NextTab   bool  // X - next tab in upgrade shop
-    NavLeft   bool  // Arrow Left - navigate grid
-    NavRight  bool  // Arrow Right - navigate grid
-    NavUp     bool  // Arrow Up - navigate grid
-    NavDown   bool  // Arrow Down - navigate grid
-}
-
-// HasMovementInput returns true if player is actively moving or drilling
-func (is InputState) HasMovementInput() bool {
-    return is.Left || is.Right || is.Up || is.Drill
-}
-
-// HasHorizontalInput returns true if player is moving left or right
-func (is InputState) HasHorizontalInput() bool {
-    return is.Left || is.Right
-}
-
-// HasVerticalInput returns true if player is jumping/flying
-func (is InputState) HasVerticalInput() bool {
-    return is.Up
-}
-```
-
-**Continuous vs. Discrete:**
-- **Continuous inputs** (Left, Right, Up, Drill): Detected via `IsKeyDown()` — true every frame while key is held
-- **Discrete inputs** (Interact, item keys, shop navigation): Detected via `IsKeyPressed()` — true only on frame key first transitions to pressed
-- Prevents repeated item use when holding a key down
-
-**Why this design:**
-- Not a Raylib type
-- Physics and game logic receive this, not raw keyboard input
-- Easy to swap input sources (file playback, network, AI)
-- Domain logic decoupled from input mechanism
-- Helper methods (`HasMovementInput()`) avoid repeating conditionals
-- `Interact` and item keys are separate from movement (don't count as active input for fuel consumption)
-
-#### World (`domain/world/world.go`)
-
-World data structure:
-
-```go
-type World struct {
-    GroundLevel float32
-    Width       float32
-    Height      float32
-}
-
-func (w *World) GetGroundLevel() float32
-func (w *World) IsInBounds(x, y float32) bool
-```
-
-**Why this design:**
-- Centralizes world parameters
-- No rendering data (colors, textures)
-- Extensible for future terrain, tiles, etc.
-- Used by physics system for collision checks
-
----
-
-### Adapter Layer (Framework Integration)
-
-#### Input Adapter (`internal/adapters/input/raylib.go`)
-
-Translates Raylib input to domain InputState:
-
-```go
-type RaylibInputAdapter struct{}
-
-func (a *RaylibInputAdapter) ReadInput() input.InputState {
-    return input.InputState{
-        Left:  rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA),
-        Right: rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD),
-        Up:    rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW),
-        Down:  rl.IsKeyDown(rl.KeyDown) || rl.IsKeyDown(rl.KeyS),
-    }
-}
-```
-
-**Why this design:**
-- Single responsibility: Read Raylib keys, output platform-agnostic InputState
-- All Raylib input code in one place
-- Easy to add new input sources (just create a new adapter)
-- Can be mocked for testing
-
-#### Rendering Adapter (`internal/adapters/rendering/raylib.go`)
-
-Takes domain entities and renders them with Raylib:
-
-```go
-type RaylibRenderer struct{}
-
-func (r *RaylibRenderer) Render(game *engine.Game) {
-    rl.BeginDrawing()
-    rl.ClearBackground(rl.RayWhite)
-
-    r.renderWorld(game.GetWorld())
-    r.renderPlayer(game.GetPlayer())
-
-    rl.EndDrawing()
-}
-
-// Window lifecycle
-func (r *RaylibRenderer) InitWindow(width, height int32, title string)
-func (r *RaylibRenderer) CloseWindow()
-func (r *RaylibRenderer) WindowShouldClose() bool
-func (r *RaylibRenderer) SetTargetFPS(fps int32)
-func (r *RaylibRenderer) GetFrameTime() float32
-```
-
-**Why this design:**
-- Complete abstraction of Raylib
-- Takes domain entities (Game, Player, World) and renders them
-- All window lifecycle management in one place
-- No business logic (pure rendering)
-- Easy to swap for different renderer (SDL, canvas, headless)
-
----
-
-### Application Layer (Orchestration)
-
-#### Main (`cmd/game/main.go`)
-
-Orchestrates the game loop:
-
-```go
-func main() {
-    // Create adapters
-    renderer := rendering.NewRaylibRenderer()
-    inputAdapter := input.NewRaylibInputAdapter()
-
-    // Initialize Raylib (adapter responsibility)
-    renderer.InitWindow(screenWidth, screenHeight, "Drill Game")
-    defer renderer.CloseWindow()
-    renderer.SetTargetFPS(targetFPS)
-
-    // Create game (world created internally from config)
-    game := engine.NewGame(gameCfg)
-
-    // Main loop
-    for renderer.WindowShouldClose() == false {
-        dt := renderer.GetFrameTime()
-
-        // 1. Read input from adapter
-        inputState := inputAdapter.ReadInput()
-
-        // 2. Update domain
-        err := game.Update(dt, inputState)
-        if err != nil {
-            slog.Error("Error during update", "error", err)
-            break
-        }
-
-        // 3. Render via adapter
-        renderer.Render(game)
-    }
-}
-```
-
-**Why this design:**
-- Clear, linear flow: Input → Update → Render
-- No game logic (orchestration only)
-- Dependencies are explicit
-- Easy to understand at a glance
 
 ---
 
 ## Design Principles
 
-### 1. Separation of Concerns
-
-Each layer has a single responsibility:
-
-- **Domain**: Business logic (physics, game rules)
-- **Adapters**: Framework integration (Raylib)
-- **Application**: Orchestration (wiring it together)
-
-### 2. Framework Independence
+### 1. Framework Independence
 
 The domain layer has **zero framework dependencies**:
-
 - No `import rl "github.com/gen2brain/raylib-go/raylib"`
 - No Raylib types (rl.Vector2, rl.Color, etc.)
 - All conversions happen in adapters
 
-### 3. Testability
+**Verify:** `grep -r "raylib" internal/domain/`
+
+### 2. Testability
 
 Core logic is fully testable without Raylib:
 
-```go
-// This runs WITHOUT rl.InitWindow()
-go test ./internal/domain/physics/...
-
-// 11 physics tests pass with zero Raylib dependency
-TestApplyHorizontalMovement_Acceleration
-TestApplyHorizontalMovement_MaxSpeed
-TestApplyGravity_IncreasesDownwardVelocity
-// ... etc
+```bash
+go test ./internal/domain/...  # Runs without rl.InitWindow()
 ```
 
-### 4. Value Types for Small Objects
+### 3. Value Types for Small Objects
 
 Small types are values, not pointers:
 
 ```go
-type Vec2 struct {
-    X float32  // 8 bytes total
-    Y float32
-}
+type Vec2 struct { X, Y float32 }      // 8 bytes
+type AABB struct { X, Y, W, H float32 } // 16 bytes
 
-type AABB struct {
-    X, Y          float32  // 16 bytes total
-    Width, Height float32
-}
-
-// ✓ Good: Values for small types
+// Good: Values for small types
 player.Velocity = types.Vec2{X: 100, Y: 200}
-player.AABB = types.NewAABB(0, 0, 64, 64)
 
-// ✗ Bad: Pointers for small types
+// Bad: Pointers for small types
 player.Velocity = &types.Vec2{X: 100, Y: 200}
 ```
 
-**Why:** Small types (8-16 bytes) should be values:
-- Faster on stack than heap allocation
-- Better cache locality
-- No nil pointer issues
-- Go idiom (see time.Time, image.Point)
-- Cheaper to copy than pointer indirection on modern CPUs
+### 4. Direct Field Access
 
-### 5. Direct Field Access for Simplicity
-
-Use direct field access instead of getters/setters when appropriate:
+Use direct field access for simplicity:
 
 ```go
-// ✓ Good: Direct field access
+// Good: Direct access
 player.AABB.X += player.Velocity.X * dt
-player.Velocity.Y += gravity * dt
 player.OnGround = true
 
-// ✗ Overly complex: Unnecessary indirection
-player.SetPosition(player.GetPosition().Add(player.GetVelocity().Scale(dt)))
-player.SetVelocity(player.GetVelocity().Add(Vec2{Y: gravity * dt}))
-player.SetOnGround(true)
+// Overly complex
+player.SetPosition(player.GetPosition().Add(...))
 ```
 
-**Why:**
-- Simpler code, easier to read
-- Less boilerplate (no getter/setter methods)
-- Better performance (no function call overhead)
-- Go idiom: exported fields for simple data structures
-- Still maintains encapsulation at package boundaries
+### 5. Getters for External Access
 
-### 6. Getters for External Access
-
-Adapters access domain data through getters:
+Adapters access domain data through getters (read-only):
 
 ```go
 // Domain provides getters
 func (g *Game) GetWorld() *world.World
 func (g *Game) GetPlayer() *entities.Player
 
-// Adapter reads via getters (doesn't modify)
+// Adapter reads via getters
 func (r *RaylibRenderer) Render(game *engine.Game) {
     world := game.GetWorld()
     player := game.GetPlayer()
-    // ... render
 }
-```
-
-**Why:**
-- Encapsulation (adapter can't modify game state)
-- Clear data flow (one-way: domain → adapter)
-- Easy to add state management later
-
----
-
-## AABB Collision System
-
-The game uses **Axis-Aligned Bounding Box (AABB) collision detection** with axis-separated resolution for precise 2D platformer physics.
-
-### Core Concepts
-
-**AABB Primitive:**
-- Rectangular collision box defined by position (X, Y) and dimensions (Width, Height)
-- Axis-aligned (no rotation) for fast intersection tests
-- Used for both player and tiles
-
-**Axis-Separated Resolution:**
-- X-axis movement and collision resolved first
-- Y-axis movement and collision resolved second
-- Prevents corner-catching and enables natural wall sliding
-
-### Collision Pipeline
-
-```go
-// 1. Apply movement and gravity
-player.Velocity = ApplyHorizontalMovement(player.Velocity, input, dt)
-player.Velocity = ApplyGravity(player.Velocity, dt)
-
-// 2. X-axis: integrate → detect → resolve
-player.AABB.X += player.Velocity.X * dt
-collisionsX := CheckCollisions(player.AABB, world)
-player.AABB, player.Velocity = ResolveCollisionsX(player.AABB, player.Velocity, collisionsX)
-
-// 3. Y-axis: integrate → detect → resolve
-player.AABB.Y += player.Velocity.Y * dt
-collisionsY := CheckCollisions(player.AABB, world)
-player.AABB, player.Velocity, player.OnGround = ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
-```
-
-### Collision Detection
-
-**CheckCollisions()** finds all solid tiles overlapping the player:
-
-```go
-func CheckCollisions(aabb AABB, world *World) []TileCollision {
-    // 1. Calculate which tiles the AABB might overlap
-    minX, maxX, minY, maxY := GetOccupiedTileRange(aabb, TileSize)
-
-    // 2. Check each potentially overlapping tile
-    for x := minX; x <= maxX; x++ {
-        for y := minY; y <= maxY; y++ {
-            tile := world.GetTileAtGrid(x, y)
-            if tile != nil && tile.IsSolid() && aabb.Intersects(tile.GetAABB(x, y, TileSize)) {
-                // Found collision!
-            }
-        }
-    }
-}
-```
-
-**Performance:** Player can overlap at most 4 tiles (2×2 grid), so maximum 4 intersection tests per frame.
-
-### Collision Resolution
-
-**ResolveCollisionsX()** pushes player out horizontally:
-- Calculates penetration depth using `AABB.Penetration()`
-- Adjusts position: `aabb.X -= dx`
-- Zeros horizontal velocity on wall hit
-
-**ResolveCollisionsY()** pushes player out vertically:
-- Calculates penetration depth
-- Adjusts position: `aabb.Y -= dy`
-- Detects ground: if pushed up (`dy > 0`), set `OnGround = true`
-- Detects ceiling: if pushed down (`dy < 0`), zero upward velocity
-
-### Why Axis-Separated?
-
-**Without axis separation (naive AABB):**
-- Player moving diagonally into corner gets "stuck"
-- Cannot slide along walls smoothly
-- Ground detection is ambiguous
-
-**With axis separation:**
-- X collision resolved first, Y collision resolved second
-- Player slides along walls naturally during diagonal movement
-- Clear ground/ceiling/wall detection based on which axis had collision
-
-### Penetration Calculation
-
-```go
-func (a AABB) Penetration(b AABB) (dx, dy float32) {
-    // Calculate overlap on each axis
-    overlapX := min(a.X+a.Width, b.X+b.Width) - max(a.X, b.X)
-    overlapY := min(a.Y+a.Height, b.Y+b.Height) - max(a.Y, b.Y)
-
-    // Determine push direction based on relative positions
-    if a.X < b.X {
-        dx = overlapX  // Push left (subtract to move right)
-    } else {
-        dx = -overlapX // Push right (subtract to move left)
-    }
-
-    // Same for Y axis
-    // ...
-}
-```
-
-**Key insight:** Signs are chosen so `position -= penetration` always pushes objects apart.
-
----
-
-## Camera System
-
-The game uses Raylib's `Camera2D` for viewport management, allowing the player to explore a world much larger than the screen.
-
-### Camera Implementation
-
-**Camera2D** lives in the rendering adapter (not domain):
-
-```go
-type RaylibRenderer struct {
-    camera       rl.Camera2D
-    screenWidth  float32
-    screenHeight float32
-    worldWidth   float32
-}
-
-func (r *RaylibRenderer) updateCamera(player *entities.Player, w *world.World) {
-    // Camera target follows player center
-    playerCenterX := player.AABB.X + player.AABB.Width/2
-    playerCenterY := player.AABB.Y + player.AABB.Height/2
-
-    // Clamp camera to world bounds
-    halfScreenW := r.screenWidth / 2
-    halfScreenH := r.screenHeight / 2
-
-    minX := halfScreenW
-    maxX := r.worldWidth - halfScreenW
-    minY := w.GetGroundLevel() - halfScreenH
-
-    // Clamp and assign to camera target
-    targetX := clamp(playerCenterX, minX, maxX)
-    targetY := clamp(playerCenterY, minY, maxY)
-    r.camera.Target = rl.Vector2{X: targetX, Y: targetY}
-}
-
-func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) {
-    r.updateCamera(game.GetPlayer(), game.GetWorld())
-
-    rl.BeginDrawing()
-    rl.ClearBackground(rl.RayWhite)
-
-    // World space rendering (camera applied)
-    rl.BeginMode2D(r.camera)
-    r.renderWorld(game.GetWorld())
-    r.renderTiles(game.GetWorld())
-    r.renderPlayer(game.GetPlayer())
-    rl.EndMode2D()
-
-    // Screen space rendering (no camera, UI always visible)
-    r.renderDebugInfo(game.GetPlayer(), inputState)
-
-    rl.EndDrawing()
-}
-```
-
-### Viewport Culling
-
-For performance with large worlds, only tiles visible in the camera viewport are rendered:
-
-```go
-func (r *RaylibRenderer) renderTiles(w *world.World) {
-    tiles := w.GetAllTiles()
-
-    // Calculate visible tile range
-    minVisibleX := int((r.camera.Target.X - r.screenWidth/2) / world.TileSize) - 1
-    maxVisibleX := int((r.camera.Target.X + r.screenWidth/2) / world.TileSize) + 1
-    minVisibleY := int((r.camera.Target.Y - r.screenHeight/2) / world.TileSize) - 1
-    maxVisibleY := int((r.camera.Target.Y + r.screenHeight/2) / world.TileSize) + 1
-
-    for coord, tile := range tiles {
-        gridX, gridY := coord[0], coord[1]
-
-        // Skip tiles outside viewport
-        if gridX < minVisibleX || gridX > maxVisibleX ||
-           gridY < minVisibleY || gridY > maxVisibleY {
-            continue
-        }
-
-        // Render visible tile...
-    }
-}
-```
-
-**Performance:** Reduces tiles rendered from ~94,000 to ~300 (~300× improvement).
-
-### Why in Adapter, Not Domain?
-
-- Camera is a **rendering concern**, not game logic
-- Tightly coupled to Raylib's `Camera2D` struct
-- Player position and world bounds already in domain (no new logic)
-- Follows pattern: adapters translate domain state to visual representation
-
----
-
-## World Boundary Constraints
-
-Players cannot leave the game area. World boundaries are enforced by the physics system:
-
-```go
-func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
-    // Horizontal: player.X must be in [0, worldWidth - playerWidth]
-    minX := float32(0.0)
-    maxX := ps.world.Width - float32(entities.PlayerWidth)
-
-    if player.AABB.X < minX {
-        player.AABB.X = minX
-        player.Velocity.X = 0
-    } else if player.AABB.X > maxX {
-        player.AABB.X = maxX
-        player.Velocity.X = 0
-    }
-
-    // Vertical: player.Y must be >= 0
-    minY := float32(0.0)
-
-    if player.AABB.Y < minY {
-        player.AABB.Y = minY
-        player.Velocity.Y = 0
-    }
-    // No maximum Y - player can drill infinitely deep
-}
-```
-
-Called after collision resolution in the physics pipeline:
-
-```go
-// 2. Axis-separated collision resolution
-player.AABB.X += player.Velocity.X * dt
-collisionsX := physics.CheckCollisions(player.AABB, ps.world)
-player.AABB, player.Velocity = physics.ResolveCollisionsX(player.AABB, player.Velocity, collisionsX)
-
-player.AABB.Y += player.Velocity.Y * dt
-collisionsY := physics.CheckCollisions(player.AABB, ps.world)
-player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)
-
-// 3. Enforce world boundary constraints
-ps.constrainPlayerToWorldBounds(player)
-```
-
-**Design note:** Boundary constraints are purely domain-level (physics system), not rendering. Camera clamping happens independently in the adapter, preventing the camera from showing off-screen areas.
-
----
-
-## Configuration System
-
-The game uses a **data-driven configuration architecture** where all game parameters flow from config structs. This enables per-level customization without code changes.
-
-### Config Package Structure
-
-```
-internal/domain/config/
-├── game_config.go       # GameConfig aggregate with Validate()
-├── world_config.go      # WorldConfig (dimensions, spawn, buildings)
-├── player_config.go     # PlayerConfig (starting money, items, upgrades)
-├── generation_config.go # GenerationConfig (ores, hazards, distributions)
-├── upgrade_config.go    # UpgradeConfig (6 upgrade type tiers)
-├── item_config.go       # ItemConfig (5 items with prices/effects)
-└── component_stats.go   # EngineStats, HullStats, etc.
-```
-
-### GameConfig Aggregate
-
-```go
-type GameConfig struct {
-    World      WorldConfig      // Dimensions, spawn, building positions
-    Player     PlayerConfig     // Starting money, items, upgrade tiers
-    Generation GenerationConfig // Ore/hazard distributions, colors, values
-    Upgrades   UpgradeConfig    // 6 upgrade types with price/stats per tier
-    Items      ItemConfig       // 5 items with prices and effects
-    Level      LevelConfig      // Level number and name (boss placeholder)
-}
-
-func (c *GameConfig) Validate() error {
-    // Validates world config
-    // Checks starting tiers don't exceed available tiers
-    // Ensures at least one ore exists
-    // Validates ore/hazard ID uniqueness
-}
-```
-
-### Key Config Structs
-
-**GenerationConfig** — Defines all tile types with Gaussian distributions:
-
-```go
-type GenerationConfig struct {
-    Empty        TileDistribution  // Air pocket distribution
-    Dirt         TileDistribution  // Dirt distribution
-    DirtHardness float32           // Drilling time multiplier for dirt
-    Ores         []OreConfig       // Dynamic list of ores (varies per level)
-    Hazards      []HazardConfig    // Dynamic list of hazards
-}
-
-type OreConfig struct {
-    ID           string           // Unique identifier (e.g., "copper", "uranium")
-    Name         string           // Display name
-    Value        int              // Sell price at market
-    Hardness     float32          // Drilling time multiplier
-    Distribution TileDistribution // Gaussian spawn parameters
-    Color        [4]uint8         // RGBA for rendering
-}
-
-type HazardConfig struct {
-    ID            string           // Unique identifier (e.g., "rock", "lava")
-    Name          string           // Display name
-    Drillable     bool             // false = impenetrable (rock)
-    FixedDuration float32          // If drillable: fixed drill time (0 = depth formula)
-    OnDrillDamage float32          // Damage dealt when drilling completes
-    Distribution  TileDistribution // Gaussian spawn parameters
-    Color         [4]uint8         // RGBA for rendering
-}
-```
-
-**UpgradeConfig** — Generic upgrade tiers with prices and stats:
-
-```go
-type UpgradeTier[T any] struct {
-    Name  string  // Tier name (e.g., "Base", "Mk1")
-    Price int     // Purchase price (0 for base tier)
-    Stats T       // Type-specific stats (EngineStats, HullStats, etc.)
-}
-
-type UpgradeConfig struct {
-    Engines     []UpgradeTier[EngineStats]
-    Hulls       []UpgradeTier[HullStats]
-    FuelTanks   []UpgradeTier[FuelTankStats]
-    CargoHolds  []UpgradeTier[CargoHoldStats]
-    HeatShields []UpgradeTier[HeatShieldStats]
-    Drills      []UpgradeTier[DrillStats]
-}
-```
-
-### Levels System
-
-Levels are defined in `internal/domain/levels/` as functions returning complete `GameConfig`:
-
-```go
-// levels/registry.go
-func GetLevelConfig(levelNum int) (*config.GameConfig, error) {
-    switch levelNum {
-    case -1:
-        return GetTestLevelConfig(), nil  // Development testing
-    case 1:
-        return GetLevel1Config(), nil     // Production level
-    default:
-        return nil, fmt.Errorf("level %d not found", levelNum)
-    }
-}
-
-// levels/level1.go
-func GetLevel1Config() *config.GameConfig {
-    return &config.GameConfig{
-        World: config.WorldConfig{...},
-        Player: config.PlayerConfig{...},
-        Generation: config.GenerationConfig{...},
-        Upgrades: config.UpgradeConfig{...},
-        Items: config.ItemConfig{...},
-        Level: config.LevelConfig{Number: 1, Name: "Level 1"},
-    }
-}
-```
-
-**Test Level (-1):** Special level for development with advanced player stats (max upgrades, lots of money/items).
-
-### Config Flow Through Application
-
-```
-main.go                    → levels.GetLevelConfig(levelNum)
-                          ↓
-GameConfig                → gameCfg.Validate()
-                          ↓
-engine.NewGame            → receives GameConfig, creates world and systems internally
-                          ↓
-entities.NewPlayerFromConfig → receives PlayerConfig, UpgradeConfig
-                          ↓
-renderer.NewWithConfig    → receives GenerationConfig (for ore/hazard colors)
-```
-
-**Design Benefits:**
-- **Level Isolation**: Each level defines all parameters independently
-- **Validation**: Config validates at startup, not runtime
-- **Testability**: Tests can create custom configs without level files
-- **Extensibility**: Add new ores, hazards, or upgrades via config alone
-- **Future Levels**: New levels only require adding a `levelN.go` file
-
----
-
-## World Configuration
-
-All world parameters are centralized in `WorldConfig` struct (`internal/domain/config/world_config.go`):
-
-```go
-type WorldConfig struct {
-    Width          float32         // World width in pixels
-    Height         float32         // World height in pixels
-    GroundLevel    float32         // Y coordinate of ground level
-    Seed           int64           // Procedural generation seed
-    PlayerSpawn    PlayerSpawn     // Player starting position (X, Y)
-    BuildingLayout BuildingLayout  // Building X positions (Y auto-calculated)
-}
-```
-
-**Configuration Location:** All hardcoded values in `cmd/game/main.go` (constants section). Change world layout by editing this file.
-
----
-
-## World Dimensions
-
-The game world extends far beyond the screen:
-
-| Dimension | Size | Tiles |
-|-----------|------|-------|
-| Width | 3072 pixels | 48 tiles wide (compact, configurable) |
-| Height | 51200 pixels | 800 tiles deep |
-| Ground Level | 640 pixels | 10 tiles up from bottom |
-| Tile Size | 64×64 pixels | Standard |
-
-**Layout:** `[480px pad] [Hospital] [50px] [FuelStation] [230px] [Market] [130px] [UpgradeShop] [50px] [ItemShop] [532px pad]`
-
-**Sparse tile storage:** Only non-empty tiles are stored in memory, enabling efficient large worlds.
-
----
-
-## World Generation
-
-### Tile Composition
-
-Underground tiles (below ground level) are generated with **depth-dependent weighted selection** rather than fixed rates. This creates dynamic terrain that becomes increasingly hazardous at deeper depths.
-
-**Depth-Based Weights:**
-- **Surface (0% depth)**: 8.0 Empty, 20.0 Dirt, various ores, no hazards
-- **Shallow (20%)**: Weights begin decreasing; some ore variety
-- **Deep (80%)**: 0.5 Empty, 2.0 Dirt, hazards dominate, ore present
-- **Max Depth (100%)**: Hazards dominate terrain (rocks and lava are most common)
-
-**Generation Formula:**
-
-```
-Empty: 8.0 - 7.5 * depthFactor        (decreases with depth)
-Dirt:  20.0 - 18.0 * depthFactor      (decreases with depth)
-depthFactor = (tileY - groundTileY) / maxDepth  (0.0 at surface, 1.0 at max)
-```
-
-All tile types (empty, dirt, ore, hazards) use weighted random selection with `totalWeight = Empty + Dirt + Ores + Hazards`.
-
-**Why Depth-Dependent?**
-- Encourages natural progression gates (can't skip depths)
-- Surface remains accessible (mostly dirt/empty)
-- Deep depths become challenging (hazards dominate)
-- Hazards incentivize bomb and heat shield upgrades
-
-### Ore Distribution Parameters
-
-Each ore type uses a Gaussian distribution with three parameters:
-
-| Ore | Peak Depth (px) | Sigma (spread) | Max Weight (rarity) | Notes |
-|-----|-----------------|----------------|-------------------|-------|
-| Copper | -75 | 120 | 8.0 | Near surface, very common |
-| Iron | 70 | 90 | 5.0 | Shallow, common |
-| Gold | 230 | 80 | 3.0 | Mid-shallow, uncommon |
-| Mythril | 360 | 70 | 2.2 | Mid-depth, rare |
-| Platinum | 500 | 80 | 1.8 | Deep, very rare |
-| Diamond | 600 | 180 | 0.15 | Mid-deep, extremely rare |
-
-**Formula:** `weight = maxWeight × e^(-(depth - peakDepth)² / (2σ²))`
-
-**Design rationale:**
-- Tight sigma values (70-120) create distinct depth bands where specific ores dominate
-- Diamond's wider sigma (180) means it appears in a broader zone but remains extremely rare (0.15 weight)
-- Lower ore spawn rates (10% vs 15% previously) create more exploration challenge
-- All ores appear shallower overall, compressing progression into 800-tile world
-
-### Hazard Tile Distribution
-
-Two hazard types use Gaussian distributions to create depth-based challenges:
-
-| Hazard | Peak Depth (tiles) | Sigma (spread) | Max Weight (rarity) | First Appears |
-|--------|------------------|----------------|-------------------|---------------|
-| Rock | 650 (~80% depth) | 200 (wide) | 15.0 (common) | ~40% depth |
-| Lava | 750 (~85% depth) | 150 (medium) | 12.0 (common) | ~60% depth |
-
-**Rock Tile Mechanics:**
-- **Impenetrable**: Cannot be drilled at any depth
-- **Block Movement**: Prevents player and drilling
-- **Interaction**: Only destroyed by bombs (both sizes bypass drillability check)
-- **Purpose**: Creates natural obstacles encouraging bomb usage
-
-**Lava Tile Mechanics:**
-- **Drillable**: Always takes 0.3 seconds to drill (depth-independent)
-- **Damage on Completion**: Deals 100 damage when drilling finishes (50 with Mk5 heat shield)
-- **Damage Reduction**: `damageReduction = (heatResistance / 320.0) * 50`
-  - 0°C resistance: 100 damage
-  - 160°C resistance (Mk2): ~75 damage
-  - 320°C resistance (Mk5): 50 damage
-- **Purpose**: Incentivizes heat shield upgrades for deep mining
-
-**Design Rationale:**
-- Wide sigma (200 for rock) ensures rocky zones start shallow (~40%) and spread deeply
-- Rock's higher max weight (15.0) makes them dominant at depth
-- Lava's slightly lower peak (750 vs 650) places it deeper, after rock introduction
-- Hazards scale with depth factor, ensuring surface mining remains pure ore/dirt
-- Fast lava drilling (0.3s) prevents tedious endgame drilling while maintaining risk
-
----
-
-## Boss System
-
-### Overview
-
-The boss system provides extensible end-of-level encounters. Bosses are implemented as a separate package with common interfaces, enabling different boss types with varying mechanics. Each boss type has its own AI logic (domain) and rendering (adapter), avoiding generic interfaces polluted with boss-specific methods.
-
-### Architecture
-
-**Package Structure:**
-
-```
-internal/domain/bosses/
-├── boss.go              # Core interfaces (Boss, PhysicalBoss) + shared types (AOEInfo)
-├── projectile.go        # Projectile entity with AABB collision
-├── phase.go             # PhaseManager for HP-threshold phases
-├── attacks/             # Reusable attack patterns
-│   ├── attack.go        # Attack interface
-│   ├── projectile_attack.go  # Fires projectiles at player
-│   └── aoe_attack.go    # Ground slam with telegraph
-├── movement/            # Reusable movement behaviors
-│   ├── movement.go      # MovementBehavior interface
-│   └── grounded.go      # Left-right patrol on floor
-└── test_boss/           # TestBoss implementation
-    └── boss.go          # State machine, phases, attacks
-
-internal/adapters/rendering/bosses/
-├── renderer.go          # BossRenderer interface + registry
-└── test_boss.go         # TestBoss-specific rendering
-```
-
-**Core Interfaces (Domain Logic):**
-
-```go
-// Boss defines the interface all bosses must implement
-type Boss interface {
-    Update(player *entities.Player, dt float32)
-    GetHP() float32
-    GetMaxHP() float32
-    IsDefeated() bool
-    IsActive() bool
-    Activate()
-    Deactivate()
-    GetProjectiles() []*Projectile
-}
-
-// PhysicalBoss extends Boss for bomb-vulnerable bosses
-type PhysicalBoss interface {
-    Boss
-    GetAABB() types.AABB
-    TakeDamage(damage float32)
-    IsVulnerable() bool           // When can boss take damage?
-    GetVulnerableTimer() float32  // For UI feedback
-    GetContactDamage() float32    // Damage per second on player contact (0 = passable)
-}
-
-// AOEInfo for rendering AOE effects (used by boss-specific renderers)
-type AOEInfo struct {
-    Position    types.Vec2
-    Radius      float32
-    IsTelegraph bool    // Warning phase
-    IsDamaging  bool    // Damage phase
-    StateTimer  float32
-}
-```
-
-**Key Components:**
-
-- **Boss Entities** — Separate packages per boss type (e.g., `bosses/test_boss/`)
-- **Projectile Entity** — Reusable projectile with AABB collision detection
-- **PhaseManager** — HP-threshold based phase transitions with configurable behaviors
-- **Attack System** — `ProjectileAttack`, `AOEAttack` with cooldowns and patterns
-- **Movement System** — `Grounded` patrol behavior with boundary reversal
-- **BossFightSystem** — Orchestrates encounters, handles projectile/contact damage
-- **BossRenderer** — Per-boss rendering in adapter layer (no generic animation interfaces)
-
-### State Machine (TestBoss Example)
-
-```
-StatePatrol (moving + shooting)
-    │
-    ├─ AOE cooldown expires
-    v
-StateWindup (stopped, vibrating warning, 1 second)
-    │
-    v
-StateSlam (AOE damage zone, 0.3 seconds)
-    │
-    ├─ More slams to do? → StateWindup (0.4s pause)
-    v
-StateVulnerable (immobile, can be bombed)
-    │
-    ├─ Timer expires OR bomb hit
-    v
-StatePatrol (cooldown reset)
-```
-
-### Phase System
-
-`PhaseManager` tracks HP-based phase transitions:
-
-```go
-type PhaseConfig struct {
-    HPThreshold        float32  // Phase ends when HP% drops below this
-    MovementSpeed      float32
-    ProjectileCooldown float32
-    AOECooldown        float32  // 0 = disabled
-    AlwaysVulnerable   bool
-    VulnerableDuration float32
-}
-```
-
-**TestBoss Phases:**
-- **Phase 1 (100-66% HP)**: Slow patrol, projectiles every 3s, always vulnerable
-- **Phase 2 (66-33% HP)**: Faster patrol, projectiles every 2s, slam every 6s, 3s vulnerability
-- **Phase 3 (33-0% HP)**: Fast patrol, projectiles every 1s, slam every 4s, 2s vulnerability, 50% double slam
-
-### World Generation Integration
-
-Boss rooms are generated as:
-
-1. **Empty Space** — Boss room area has no tiles (players can navigate freely)
-2. **Floor Tiles** — Solid, indestructible `TileTypeFloor` tiles below the boss room
-3. **Camera Clamping** — Camera stops at world bottom to prevent viewing/nuking below floor
-
-The world generator receives `BossRoomConfig` and tracks:
-- `bossRoomStartY` — Top of boss room
-- `bossRoomEndY` — Bottom of boss room (start of floor)
-- `floorEndY` — Bottom of floor
-
-### Bomb-Boss Interaction
-
-When a bomb is used:
-1. ItemSystem creates a circular AABB for the blast radius
-2. Checks if blast AABB intersects boss's AABB
-3. Checks `boss.IsVulnerable()` before applying damage
-4. If vulnerable and hit, calls `boss.TakeDamage(damage)`
-5. Damage closes vulnerability window (one hit per window)
-
-**Damage Values:**
-- Regular bomb: 10 HP
-- Big bomb: 25 HP
-
-### Contact Damage
-
-`BossFightSystem.handleContactDamage()`:
-1. Checks `physicalBoss.GetContactDamage()`
-2. If > 0 and player intersects boss AABB
-3. Applies `damage * dt` to player (damage per second)
-
-### Game State Transitions
-
-```
-GameStatePlaying (initial)
-    ├─ Normal gameplay
-    ├─ Boss can be active or inactive
-    ├─ BossFightSystem.Update() called every frame
-    └─ If boss.IsDefeated() → GameStateVictory
-       If player.HP <= 0 → GameStateDefeat
-
-GameStateVictory (terminal)
-    └─ Boss defeated, victory screen displayed
-
-GameStateDefeat (terminal)
-    └─ Player defeated, defeat screen displayed
-```
-
-### Extensibility
-
-**Adding a New Boss Type:**
-
-1. Create `internal/domain/bosses/my_boss/boss.go`
-   - Implement `Boss` or `PhysicalBoss` interface
-   - Use `attacks/` and `movement/` packages or create custom logic
-   - Define states, phases, and behaviors specific to this boss
-
-2. Create `internal/adapters/rendering/bosses/my_boss.go`
-   - Implement `BossRenderer` interface
-   - Type-assert to `*my_boss.MyBoss` for state access
-   - Register in `init()`: `Register(&MyBossRenderer{})`
-
-3. Add case in `engine/game.go` `createBossByType()`:
-   ```go
-   case "my_boss":
-       return my_boss.New(roomStartY, worldWidth), nil
-   ```
-
-4. Configure in level config:
-   ```go
-   BossRoom: &config.BossRoomConfig{
-       BossType: "my_boss",
-       FloorType: config.FloorConcrete,
-       RoomHeight: 680.0,
-       FloorHeight: 6.0,
-   }
-   ```
-
-**Key Design Principle:** Boss-specific behavior (state machines, animations, attack patterns) stays in boss-specific files. No generic `IsSlamming()` interfaces—renderers type-assert to concrete types.
-
-### Rendering Integration
-
-**Adapter Layer** (`internal/adapters/rendering/bosses/`):
-
-```go
-// Renderer interface for boss-specific rendering
-type Renderer interface {
-    CanRender(boss bosses.Boss) bool
-    Render(boss bosses.Boss)
-}
-
-// Registry dispatches to appropriate renderer
-func RenderBoss(boss bosses.Boss) bool
-func RenderGeneric(boss bosses.Boss)  // Fallback
-```
-
-**TestBossRenderer** type-asserts to access:
-- `GetState()` — Current animation state
-- `GetStateTimer()` — Time remaining in state
-- `GetAOEInfo()` — AOE position/radius/phase
-
-**Main Renderer** (`raylib.go`):
-- `renderBoss()` — Dispatches to `bossrenderers.RenderBoss()` or fallback
-- `renderBossHPBar()` — HP bar at screen top with health gradient
-- `renderProjectiles()` — Active projectiles in world space
-- `renderGameStateOverlay()` — Victory/defeat screens
-
-Boss rendering is purely visual; all game logic lives in domain layer.
-
----
-
-## Future Architecture Considerations
-
-### Adding New Entities
-
-To add an Enemy that also uses physics:
-
-```go
-// 1. Create entity with AABB
-type Enemy struct {
-    AABB     types.AABB
-    Velocity types.Vec2
-    Health   float32
-    AI       AIState
-    // ...
-}
-
-// 2. Create a separate UpdateEnemyPhysics method or generalize UpdatePhysics
-func (ps *PhysicsSystem) UpdateEnemyPhysics(enemy *entities.Enemy, dt float32) {
-    // Same collision logic as player
-    enemy.Velocity = physics.ApplyGravity(enemy.Velocity, dt)
-
-    enemy.AABB.X += enemy.Velocity.X * dt
-    collisionsX := physics.CheckCollisions(enemy.AABB, ps.world)
-    enemy.AABB, enemy.Velocity = physics.ResolveCollisionsX(enemy.AABB, enemy.Velocity, collisionsX)
-
-    enemy.AABB.Y += enemy.Velocity.Y * dt
-    collisionsY := physics.CheckCollisions(enemy.AABB, ps.world)
-    enemy.AABB, enemy.Velocity, _ = physics.ResolveCollisionsY(enemy.AABB, enemy.Velocity, collisionsY)
-}
-```
-
-### Swapping Renderers
-
-To use SDL instead of Raylib:
-
-```go
-// Create SDL adapter with same interface
-type SDLRenderer struct {
-    window *sdl.Window
-    // ...
-}
-
-func (r *SDLRenderer) Render(game *engine.Game) {
-    // SDL drawing logic
-}
-
-// Swap in main.go
-renderer := sdl.NewSDLRenderer()  // Instead of Raylib
-// Rest of main.go works unchanged!
-```
-
-### Adding Input Sources
-
-To add file-based replay input:
-
-```go
-// New adapter with same interface
-type FileInputAdapter struct {
-    frames []InputState
-    index  int
-}
-
-func (a *FileInputAdapter) ReadInput() input.InputState {
-    state := a.frames[a.index]
-    a.index++
-    return state
-}
-
-// Swap in main.go
-inputAdapter := file.NewFileInputAdapter("replay.bin")
-// Game loop works unchanged!
 ```
 
 ---
 
-## Testing Strategy
+## Key Entities
 
-### Unit Tests (Domain Logic)
-
-Test pure functions without framework:
-
-```bash
-# Physics tests (11 tests, no Raylib required)
-go test ./internal/domain/physics/...
-
-# Tests cover:
-# - Movement (acceleration, damping, max speed)
-# - Gravity (falling, velocity integration)
-# - Collision (AABB detection, axis-separated resolution, wall/ceiling/ground)
-```
-
-### Integration Tests (Systems)
-
-Test systems working together:
+### Player (Aggregate Root)
 
 ```go
-// Example: Test player movement with physics
-world := domain.NewWorld(1280, 720, 600)
-player := domain.NewPlayer(640, 500)
-physics := domain.NewPhysicsSystem(world)
+type Player struct {
+    AABB          types.AABB   // Position and dimensions
+    Velocity      types.Vec2   // Pixels per second
+    OnGround      bool         // Collision state
+    IsDrilling    bool         // Animation state
+    OreInventory  [6]int       // Ore counts
+    ItemInventory [5]int       // Item counts
+    Money         int          // Currency
+    Fuel          float32      // Current fuel
+    HP            float32      // Hit points
 
-inputState := domain.InputState{Right: true}
-physics.UpdatePhysics(player, inputState, 0.016)
-
-// Assert player moved right
-assert.True(player.GetVelocityVec().X > 0)
+    // Components (exported value objects)
+    Engine     Engine
+    Hull       Hull
+    FuelTank   FuelTank
+    CargoHold  CargoHold
+    HeatShield HeatShield
+    Drill      Drill
+}
 ```
 
-### Manual Testing
+Access stats via components: `player.Engine.MaxSpeed()`
 
-Rendering and feel testing requires manual play:
-
-- Gameplay feel (movement responsiveness)
-- Visual polish (animations, particles)
-- Performance (frame rates, memory)
-
----
-
-## Performance Considerations
-
-### Current (Phase 1)
-
-- Simple physics (position + velocity)
-- No spatial partitioning yet
-- Direct collision checks
-- Frame-independent movement via delta time
-
-### Future Optimizations
-
-- **Spatial Partitioning**: Grid or quadtree for collision queries
-- **Object Pooling**: Reuse frequently created objects
-- **Batch Rendering**: Group draw calls
-- **Chunk Loading**: Only simulate/render visible area
-
----
-
-## Physics Constants
-
-Physics tuning values are split between two locations:
-
-**Fixed constants** (`internal/domain/physics/constants.go`):
+### Building (Component-Based)
 
 ```go
-const (
-    Gravity             = 800     // pixels/sec² - downward acceleration
-    MoveDamping         = 1000    // pixels/sec² - how fast player slows down
-    FlyDamping          = 300     // pixels/sec² - air resistance when flying
-    FallDamageThreshold = 500.0   // pixels/sec - minimum downward speed for damage
-    FallDamageDivisor   = 20.0    // damage scaling: (speed - threshold) / divisor
-)
+type Building struct {
+    Position    components.Position     // AABB wrapper
+    Interactable components.Interactable // Type enum
+}
 ```
 
-**Dynamic values** (`internal/domain/entities/engine.go`):
-
-Movement stats are defined per engine upgrade tier via named constructors:
-
-| Stat | Base | Mk5 (Max) |
-|------|------|-----------|
-| MaxMoveSpeed | 450 px/s | 600 px/s |
-| MoveAcceleration | 2500 px/s² | 3500 px/s² |
-| FlyAcceleration | 2500 px/s² | 3500 px/s² |
-| MaxUpwardVelocity | -600 px/s | -775 px/s |
-
-**How these affect gameplay:**
-- **Gravity=800**: Heavy downward pull (1.25× Earth gravity) makes falling quick
-- **MoveDamping=1000**: Tight ground control (stops in 0.45s)
-- **FallDamageThreshold=500**: Small falls (under 500 px/sec) are safe
-- **FallDamageDivisor=20**: Scales impact speed into damage (500+ px/sec → 0+ damage points)
-- **Engine upgrades**: Better engines allow faster movement and climbing
-
-See `internal/domain/physics/constants.go` and component files (`engine.go`, `hull.go`, `fuel_tank.go`) for source of truth.
-
----
-
-## Game Configuration Reference
-
-### Window & Display (`cmd/game/main.go`)
-
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| Screen Width | 1280 pixels | Horizontal viewport |
-| Screen Height | 720 pixels | Vertical viewport |
-| Target FPS | 60 | Frame rate cap |
-| Ground Level | 640.0 pixels | Safe spawning elevation (10 tiles up) |
-
-### Player Configuration (`internal/domain/entities/player.go`)
-
-| Property | Value | Notes |
-|----------|-------|-------|
-| Size | 64×64 pixels | Matches tile size |
-| Start Position | (640, 576) | Center X, just above ground |
-| Inventory Types | 6 ore types | Copper, Iron, Gold, Mythril, Platinum, Diamond |
-| Initial Cargo Capacity | 10 ore | Upgradeable to 75 ore |
-| Initial Money | $1,000,000 | For development; earned by selling ores in game |
-| Initial Fuel | 10.0 liters | Full tank (upgradeable to 65L) |
-| Initial Health | 10.0 HP | Full HP (upgradeable to 75 HP) |
-| Initial Upgrades | All Base | Engine, Hull, FuelTank, CargoHold at level 0 |
-
-**Movement stats** (upgradeable via Engine):
-| Stat | Base | Max (Mk5) |
-|------|------|-----------|
-| Max Move Speed | 450 px/sec | 600 px/sec |
-| Fly Speed | 600 px/sec | 775 px/sec |
-
-### Market Configuration (`internal/domain/entities/market.go`)
-
-| Property | Value | Purpose |
-|----------|-------|---------|
-| Position | (960, 576) | 3 tiles right of player spawn, ground level |
-| Size | 320×192 pixels | 5 tiles wide × 3 tiles tall |
-| Appearance | Forest green rect with dark border | Visual identification |
-| Interaction | E key to sell | Triggers inventory sale |
-
-### Upgrade Shop Configuration (`internal/domain/entities/upgrade_shop.go`)
-
-| Property | Value | Purpose |
-|----------|-------|---------|
-| Position | (1410, 576) | 450px right of market (130px void), ground level |
-| Size | 320×192 pixels | 5 tiles wide × 3 tiles tall (standard building size) |
-| Interaction | E key to open modal | Opens unified 6-tab shop interface |
-| Modal Grid | 2x3 (6 tiers per tab) | Base + Mk1-Mk5 shown per upgrade type |
-| Tab Keys | Z (prev) / X (next) | Cycle between 6 upgrade categories |
-| Navigation | Arrows or WASD | Move through grid with wrapping |
-| Purchase Key | E | Buy selected tier if affordable |
-| Close Key | Q or Escape | Close modal, resume gameplay |
-
-### Item Shop Configuration (`internal/domain/entities/item_shop.go`)
-
-| Property | Value | Purpose |
-|----------|-------|---------|
-| Position | (1770, 576) | 360px right of upgrade shop (40px gap), ground level |
-| Size | 320×192 pixels | 5 tiles wide × 3 tiles tall (standard building size) |
-| Interaction | E key to open modal | Opens unified 5-item shop interface |
-| Modal Grid | 2x3 (5 items + 1 empty) | All items fit on single screen |
-| Layout | Top row: Teleport, Repair, Refuel<br>Bottom row: Bomb, BigBomb, (empty) | 6-cell grid with position 5 empty |
-| Navigation | Arrows or WASD | Move through grid, auto-skips empty cell |
-| Purchase Key | E | Buy selected item if affordable |
-| Close Key | Q or Escape | Close modal, resume gameplay |
-
-### Ore Values
-
-| Ore | Value | Peak Depth (tiles) | Availability |
-|-----|-------|------------------|--------------|
-| Copper | $25 | -1.2 (surface) | Very common |
-| Iron | $75 | 1.1 | Common |
-| Gold | $300 | 3.6 | Uncommon |
-| Mythril | $1500 | 5.6 | Rare |
-| Platinum | $10000 | 7.8 | Very rare |
-| Diamond | $30000 | 9.4 | Extremely rare |
-
-**Distribution:** Each ore type uses Gaussian distribution with tight sigma values (70-180), creating distinct depth bands. Diamond is concentrated around tile 600px with MaxWeight 0.15, making it extremely rare even at peak depth.
-
-### Fuel System (`internal/domain/systems/fuel.go`)
-
-| Setting | Value | Formula |
-|---------|-------|---------|
-| Base Tank Capacity | 10.0 liters | Upgradeable to 65L via FuelTank |
-| Active Consumption | 0.33333 L/s | Base tank depletes in 30s with active input |
-| Idle Consumption | 0.08333 L/s | Base tank depletes in 120s with no input |
-| Active Input Triggers | Left, Right, Up, Drill | Movement/drilling inputs only |
-
-**Consumption Behavior:**
-- Holding movement keys (Left/Right/Up) or drilling (Down/S) = active mode
-- Pressing Interact (E) does NOT trigger active consumption
-- No movement for 1+ frame = idle consumption applies
-
-### Controls & Input Mapping
-
-| Input | Type | Action | Notes |
-|-------|------|--------|-------|
-| **Left** (A or ←) | Continuous | Move left / Drill left | Drill only when grounded against wall |
-| **Right** (D or →) | Continuous | Move right / Drill right | Drill only when grounded against wall |
-| **Up** (W or ↑) | Continuous | Jump/Fly | Hold to fly continuously |
-| **Drill** (S or ↓) | Continuous | Drill downward | Always available, snaps to grid |
-| **Interact** (E) | Discrete | Sell / Refuel / Heal / Upgrade / Buy Item | Context-aware (AABB overlap) |
-| **T** | Discrete | Use Teleport Item | Return to spawn (if available) |
-| **R** | Discrete | Use Repair Item | Restore HP to max (if available) |
-| **F** | Discrete | Use Refuel Item | Fill fuel to max (if available) |
-| **B** | Discrete | Use Bomb Item | Destroy tiles in 2-tile radius (if available) |
-| **G** | Discrete | Use Big Bomb Item | Destroy tiles in 4-tile radius (if available) |
-
-**Continuous Inputs:**
-- Detected via `IsKeyDown()` — true every frame while key is held
-- Used for smooth movement and drilling animation
-
-**Discrete Inputs:**
-- Detected via `IsKeyPressed()` — true only on first frame key is pressed
-- Prevents repeated action when holding key
-- Consumed once per key press
-
-**Drilling Behavior:**
-- **Downward (S/Down)**: Always available, auto-aligns player to tile grid
-- **Horizontal (A/D or Left/Right)**: Only when grounded, auto-drills blocking tiles
+Types: Market, FuelStation, Hospital, UpgradeShop, ItemShop
 
 ---
 
@@ -2477,11 +298,45 @@ See `internal/domain/physics/constants.go` and component files (`engine.go`, `hu
 
 Minimal, intentional dependencies:
 
-- `github.com/gen2brain/raylib-go/raylib` - Graphics/audio (adapters only)
-- `github.com/stretchr/testify` - Testing utilities (optional, use as needed)
-- Go standard library - Everything else
+- `github.com/gen2brain/raylib-go/raylib` — Graphics/audio (adapters only)
+- `github.com/stretchr/testify` — Testing utilities
+- Go standard library — Everything else
 
 **Strict rule:** No domain code imports Raylib.
+
+---
+
+## Future Extensibility
+
+### Adding New Entities
+
+1. Create entity in `internal/domain/entities/`
+2. Add to Game struct in `engine/game.go`
+3. Update physics if needed
+4. Add rendering in adapter
+5. Write tests
+
+### Swapping Renderers
+
+```go
+// Create SDL adapter with same interface
+type SDLRenderer struct { ... }
+func (r *SDLRenderer) Render(game *engine.Game) { ... }
+
+// Swap in main.go
+renderer := sdl.NewSDLRenderer()  // Game loop unchanged!
+```
+
+### Adding Input Sources
+
+```go
+// File-based replay input
+type FileInputAdapter struct { frames []InputState }
+func (a *FileInputAdapter) ReadInput() input.InputState { ... }
+
+// Swap in main.go
+inputAdapter := file.NewFileInputAdapter("replay.bin")
+```
 
 ---
 
@@ -2489,10 +344,10 @@ Minimal, intentional dependencies:
 
 This architecture achieves:
 
-- ✅ **Testability**: Domain logic 100% testable without framework
-- ✅ **Portability**: Could swap Raylib for any renderer
-- ✅ **Maintainability**: Clear responsibilities, linear data flow
-- ✅ **Extensibility**: Easy to add new entities, systems, input sources
-- ✅ **Clarity**: Folder structure = architecture diagram
+- **Testability**: Domain logic 100% testable without framework
+- **Portability**: Could swap Raylib for any renderer
+- **Maintainability**: Clear responsibilities, linear data flow
+- **Extensibility**: Easy to add new entities, systems, input sources
+- **Clarity**: Folder structure = architecture diagram
 
-The core principle: **Domain stays pure, framework stays outside.**
+**Core principle: Domain stays pure, framework stays outside.**
