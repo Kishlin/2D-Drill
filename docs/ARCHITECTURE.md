@@ -1422,9 +1422,8 @@ func main() {
     defer renderer.CloseWindow()
     renderer.SetTargetFPS(targetFPS)
 
-    // Create domain objects
-    gameWorld := world.NewWorld(screenWidth, screenHeight, groundLevel)
-    game := engine.NewGame(gameWorld)
+    // Create game (world created internally from config)
+    game := engine.NewGame(gameCfg)
 
     // Main loop
     for renderer.WindowShouldClose() == false {
@@ -1941,9 +1940,7 @@ main.go                    → levels.GetLevelConfig(levelNum)
                           ↓
 GameConfig                → gameCfg.Validate()
                           ↓
-world.NewWorldFromConfig  → receives WorldConfig, GenerationConfig
-                          ↓
-engine.NewGame            → receives GameConfig, creates systems with sub-configs
+engine.NewGame            → receives GameConfig, creates world and systems internally
                           ↓
 entities.NewPlayerFromConfig → receives PlayerConfig, UpgradeConfig
                           ↓

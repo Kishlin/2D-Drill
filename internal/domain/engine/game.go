@@ -30,8 +30,11 @@ type Game struct {
 	config              *config.GameConfig
 }
 
-func NewGame(w *world.World, gameCfg *config.GameConfig) *Game {
+func NewGame(gameCfg *config.GameConfig) *Game {
 	worldCfg := gameCfg.World
+
+	// Create the world from config
+	w := world.NewWorldFromConfigWithBoss(&worldCfg, gameCfg.Generation, gameCfg.Level.BossRoom)
 
 	// Use configured player spawn position
 	spawnX := worldCfg.PlayerSpawn.X

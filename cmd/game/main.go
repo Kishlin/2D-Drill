@@ -8,7 +8,6 @@ import (
 	"github.com/Kishlin/drill-game/internal/adapters/rendering"
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/levels"
-	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
 const (
@@ -45,9 +44,7 @@ func main() {
 
 	renderer.SetTargetFPS(targetFPS)
 
-	gameWorld := world.NewWorldFromConfigWithBoss(&gameCfg.World, gameCfg.Generation, gameCfg.Level.BossRoom)
-
-	game := engine.NewGame(gameWorld, gameCfg)
+	game := engine.NewGame(gameCfg)
 
 	for {
 		dt := renderer.GetFrameTime() // Delta time in seconds
