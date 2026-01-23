@@ -11,21 +11,9 @@ const (
 	FuelConsumptionIdle   float32 = 10.0 / 120.0 // 0.08333 L/s when idle (no inputs)
 )
 
-type FuelSystem struct {
-	// Empty for now - could add config or state later
-}
-
-func NewFuelSystem() *FuelSystem {
-	return &FuelSystem{}
-}
-
-// ConsumeFuel drains fuel based on player input state
-// Movement inputs (Left, Right, Up, Drill) consume fuel faster than idle state
-func (fs *FuelSystem) ConsumeFuel(
-	player *entities.Player,
-	inputState input.InputState,
-	dt float32,
-) {
+// ConsumeFuel drains fuel based on player input state.
+// Movement inputs (Left, Right, Up, Drill) consume fuel faster than idle state.
+func ConsumeFuel(player *entities.Player, inputState input.InputState, dt float32) {
 	var rate float32
 	if inputState.HasMovementInput() {
 		rate = FuelConsumptionMoving

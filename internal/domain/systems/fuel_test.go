@@ -10,7 +10,6 @@ import (
 )
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingLeft(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
@@ -20,7 +19,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingLeft(t *testing.T) {
 
 	// Simulate 1 second of leftward movement
 	inputState := input.InputState{Left: true}
-	fs.ConsumeFuel(player, inputState, 1.0)
+	ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionMoving
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
@@ -29,12 +28,11 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingLeft(t *testing.T) {
 }
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingRight(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
 	inputState := input.InputState{Right: true}
-	fs.ConsumeFuel(player, inputState, 1.0)
+	ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionMoving
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
@@ -43,12 +41,11 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingRight(t *testing.T) {
 }
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingUp(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
 	inputState := input.InputState{Up: true}
-	fs.ConsumeFuel(player, inputState, 1.0)
+	ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionMoving
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
@@ -57,13 +54,12 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingUp(t *testing.T) {
 }
 
 func TestFuelSystem_ConsumesMovingRateWhenDrilling(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
 	// Drilling should use movement rate (active work)
 	inputState := input.InputState{Drill: true}
-	fs.ConsumeFuel(player, inputState, 1.0)
+	ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionMoving
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
@@ -72,13 +68,12 @@ func TestFuelSystem_ConsumesMovingRateWhenDrilling(t *testing.T) {
 }
 
 func TestFuelSystem_ConsumesIdleRateWhenNoInput(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
 	// No input = idle state
 	inputState := input.InputState{}
-	fs.ConsumeFuel(player, inputState, 1.0)
+	ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionIdle
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
@@ -87,13 +82,12 @@ func TestFuelSystem_ConsumesIdleRateWhenNoInput(t *testing.T) {
 }
 
 func TestFuelSystem_ConsumesIdleRateWhenOnlyInteractingInput(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
 	// Interact input alone should use idle rate (not active movement)
 	inputState := input.InputState{Interact: true}
-	fs.ConsumeFuel(player, inputState, 1.0)
+	ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionIdle
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
@@ -102,13 +96,12 @@ func TestFuelSystem_ConsumesIdleRateWhenOnlyInteractingInput(t *testing.T) {
 }
 
 func TestFuelSystem_ConsumesMovingRateWhenMovingAndInteracting(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
 	// Moving + selling = use movement rate (movement takes priority)
 	inputState := input.InputState{Up: true, Interact: true}
-	fs.ConsumeFuel(player, inputState, 1.0)
+	ConsumeFuel(player, inputState, 1.0)
 
 	expectedFuel := fuelCapacity - FuelConsumptionMoving
 	if math.Abs(float64(player.Fuel-expectedFuel)) > 0.0001 {
@@ -117,12 +110,11 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingAndInteracting(t *testing.T) {
 }
 
 func TestFuelSystem_FuelDoesNotGoBelowZero(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 
 	// Consume all fuel in one very large frame
 	inputState := input.InputState{Left: true}
-	fs.ConsumeFuel(player, inputState, 1000.0) // Way more than 10 liters
+	ConsumeFuel(player, inputState, 1000.0) // Way more than 10 liters
 
 	if player.Fuel < 0 {
 		t.Errorf("expected fuel >= 0, got %.4f", player.Fuel)
@@ -135,21 +127,20 @@ func TestFuelSystem_FuelDoesNotGoBelowZero(t *testing.T) {
 
 func TestFuelSystem_FrameRateIndependence(t *testing.T) {
 	// 60 seconds at two different frame rates should consume the same fuel
-	fs := NewFuelSystem()
 
 	// Test at 60 FPS
 	player60 := testFuelPlayer()
 	inputState := input.InputState{Up: true}
 	frameTime60 := float32(1.0 / 60.0)
 	for i := 0; i < 3600; i++ { // 60 frames/sec * 60 seconds
-		fs.ConsumeFuel(player60, inputState, frameTime60)
+		ConsumeFuel(player60, inputState, frameTime60)
 	}
 
 	// Test at 30 FPS
 	player30 := testFuelPlayer()
 	frameTime30 := float32(1.0 / 30.0)
 	for i := 0; i < 1800; i++ { // 30 frames/sec * 60 seconds
-		fs.ConsumeFuel(player30, inputState, frameTime30)
+		ConsumeFuel(player30, inputState, frameTime30)
 	}
 
 	// Both should have consumed approximately the same amount of fuel
@@ -163,7 +154,6 @@ func TestFuelSystem_FrameRateIndependence(t *testing.T) {
 func TestFuelSystem_FullTankDurationMoving(t *testing.T) {
 	// 10 liters in 30 seconds = 0.333 L/s
 	// Starting with 10L, moving continuously should last 30 seconds
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
@@ -174,7 +164,7 @@ func TestFuelSystem_FullTankDurationMoving(t *testing.T) {
 	maxFrames := 500 // Safety limit
 
 	for remainingFuel > 0 && frames < maxFrames {
-		fs.ConsumeFuel(player, inputState, dt)
+		ConsumeFuel(player, inputState, dt)
 		remainingFuel = player.Fuel
 		frames++
 	}
@@ -192,7 +182,6 @@ func TestFuelSystem_FullTankDurationMoving(t *testing.T) {
 func TestFuelSystem_FullTankDurationIdle(t *testing.T) {
 	// 10 liters in 120 seconds = 0.08333 L/s
 	// Starting with 10L, idle should last 120 seconds
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
@@ -203,7 +192,7 @@ func TestFuelSystem_FullTankDurationIdle(t *testing.T) {
 	maxFrames := 150 // Safety limit
 
 	for remainingFuel > 0 && frames < maxFrames {
-		fs.ConsumeFuel(player, inputState, dt)
+		ConsumeFuel(player, inputState, dt)
 		remainingFuel = player.Fuel
 		frames++
 	}
@@ -218,19 +207,18 @@ func TestFuelSystem_FullTankDurationIdle(t *testing.T) {
 }
 
 func TestFuelSystem_MultipleConsumptionsAccumulate(t *testing.T) {
-	fs := NewFuelSystem()
 	player := testFuelPlayer()
 	fuelCapacity := player.FuelCapacity()
 
 	// Consume fuel multiple times
 	inputState1 := input.InputState{Left: true}
-	fs.ConsumeFuel(player, inputState1, 1.0) // -0.0833L
+	ConsumeFuel(player, inputState1, 1.0) // -0.0833L
 
-	inputState2 := input.InputState{}        // Idle
-	fs.ConsumeFuel(player, inputState2, 1.0) // -0.0167L
+	inputState2 := input.InputState{}     // Idle
+	ConsumeFuel(player, inputState2, 1.0) // -0.0167L
 
 	inputState3 := input.InputState{Up: true}
-	fs.ConsumeFuel(player, inputState3, 2.0) // -0.1667L (2 seconds moving)
+	ConsumeFuel(player, inputState3, 2.0) // -0.1667L (2 seconds moving)
 
 	// Total should be: 10 - 0.0833 - 0.0167 - 0.1667 = 9.7333
 	expectedFuel := fuelCapacity - FuelConsumptionMoving - FuelConsumptionIdle - (FuelConsumptionMoving * 2.0)

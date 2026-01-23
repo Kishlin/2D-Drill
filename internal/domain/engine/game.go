@@ -22,9 +22,7 @@ type Game struct {
 	buildings       []*entities.Building
 	upgradeCatalog  *upgrades.Catalog
 	itemCatalog     *entities.ItemCatalog
-	physicsSystem   *systems.PhysicsSystem
 	drillingSystem  *systems.DrillingSystem
-	fuelSystem      *systems.FuelSystem
 	uiManager       *ui.Manager
 	effectProcessor *effects.Processor
 	effectContext   *effects.EffectContext
@@ -110,9 +108,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		buildings:       buildings,
 		upgradeCatalog:  upgradeCatalog,
 		itemCatalog:     itemCatalog,
-		physicsSystem:   systems.NewPhysicsSystem(w),
 		drillingSystem:  systems.NewDrillingSystem(w),
-		fuelSystem:      systems.NewFuelSystem(),
 		uiManager:       uiManager,
 		effectProcessor: effects.NewProcessor(),
 		effectContext:   effectContext,
@@ -163,10 +159,10 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	}
 
 	// 3. Physics - handles landing/fall damage before drilling, heat damage, prevents movement during drilling
-	g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
+	systems.UpdatePhysics(g.player, g.world, inputState, dt)
 
 	// 4. Fuel consumption (runs even during drilling animation to maintain resource pressure)
-	g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
+	systems.ConsumeFuel(g.player, inputState, dt)
 
 	// 5. Drilling animation (vertical + horizontal)
 	g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
