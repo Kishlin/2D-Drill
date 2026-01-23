@@ -4,7 +4,6 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
-	"github.com/Kishlin/drill-game/internal/domain/physics"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
@@ -171,7 +170,7 @@ func (ds *DrillingSystem) startDrillAnimation(
 
 	// Calculate depth factor (0 at ground level, 1 at max depth)
 	groundLevel := ds.world.GroundLevel
-	maxDepth := physics.MaxUndergroundY - groundLevel
+	maxDepth := ds.world.Height - groundLevel
 	depthBelowGround := tileY - groundLevel
 	depthFactor := depthBelowGround / maxDepth
 	if depthFactor < 0 {
@@ -326,10 +325,10 @@ func (ds *DrillingSystem) calculateDepthFactor(tileY float32) float32 {
 		return 1.0
 	}
 
-	maxDepth := physics.MaxUndergroundY - groundLevel
+	maxDepth := ds.world.Height - groundLevel
 	normalizedDepth := depthBelowGround / maxDepth
 
-	// Clamp normalized depth to [0, 1] in case tile exceeds MaxUndergroundY
+	// Clamp normalized depth to [0, 1] in case tile exceeds ds.world.Height
 	if normalizedDepth > 1.0 {
 		normalizedDepth = 1.0
 	}

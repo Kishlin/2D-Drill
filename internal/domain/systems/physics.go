@@ -9,8 +9,6 @@ import (
 
 // UpdatePhysics applies physics using axis-separated AABB collision
 func UpdatePhysics(player *entities.Player, w *world.World, inputState input.InputState, dt float32) {
-	physics.ApplyHeatDamage(player, dt)
-
 	if player.IsDrilling || player.InShop {
 		return
 	}

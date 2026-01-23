@@ -1,10 +1,17 @@
-package physics
+package systems
 
 import (
 	"testing"
 
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
+	"github.com/Kishlin/drill-game/internal/domain/world"
+)
+
+// Test constants matching the original hardcoded values
+const (
+	testGroundLevel  = 640.0
+	testWorldHeight  = 64000.0
 )
 
 // Test helper - creates player with specified heat resistance
@@ -25,11 +32,23 @@ func testHeatPlayer(heatResistance float32) *entities.Player {
 	return entities.NewPlayerFromConfig(0, 0, playerCfg, upgradeCfg)
 }
 
+// Test helper - creates a test world with standard dimensions for heat tests
+func testHeatWorld() *world.World {
+	worldCfg := &config.WorldConfig{
+		Width:       1280,
+		Height:      testWorldHeight,
+		GroundLevel: testGroundLevel,
+		Seed:        12345,
+	}
+	genCfg := config.GenerationConfig{}
+	return world.NewWorldFromConfig(worldCfg, genCfg)
+}
+
 // TemperatureTests
 
 func TestCalculateTemperature_AtGroundLevel(t *testing.T) {
 	// At ground level (Y=640), temperature should be 15°C
-	temp := CalculateTemperature(640.0)
+	temp := CalculateTemperature(640.0, testGroundLevel, testWorldHeight)
 
 	if temp != 15.0 {
 		t.Errorf("Expected 15°C at ground level, got %f°C", temp)
@@ -38,7 +57,7 @@ func TestCalculateTemperature_AtGroundLevel(t *testing.T) {
 
 func TestCalculateTemperature_AboveGround(t *testing.T) {
 	// Above ground (Y < 640), temperature should be clamped to base (15°C)
-	temp := CalculateTemperature(500.0)
+	temp := CalculateTemperature(500.0, testGroundLevel, testWorldHeight)
 
 	if temp != 15.0 {
 		t.Errorf("Expected 15°C above ground, got %f°C", temp)
@@ -47,7 +66,7 @@ func TestCalculateTemperature_AboveGround(t *testing.T) {
 
 func TestCalculateTemperature_AtMaxDepth(t *testing.T) {
 	// At max depth (Y=64000), temperature should be 350°C
-	temp := CalculateTemperature(64000.0)
+	temp := CalculateTemperature(64000.0, testGroundLevel, testWorldHeight)
 
 	if temp != 350.0 {
 		t.Errorf("Expected 350°C at max depth, got %f°C", temp)
@@ -58,7 +77,7 @@ func TestCalculateTemperature_Midpoint(t *testing.T) {
 	// Midpoint between ground and max depth
 	// Y = (640 + 64000) / 2 = 32320
 	// temp = 15 + 0.5 * (350 - 15) = 15 + 167.5 = 182.5°C
-	temp := CalculateTemperature(32320.0)
+	temp := CalculateTemperature(32320.0, testGroundLevel, testWorldHeight)
 
 	const expected = 182.5
 	const tolerance = 0.1
@@ -70,7 +89,7 @@ func TestCalculateTemperature_Midpoint(t *testing.T) {
 func TestCalculateTemperature_OneQuarter(t *testing.T) {
 	// One quarter down: 640 + 0.25 * (64000 - 640) = 640 + 15840 = 16480
 	// temp = 15 + 0.25 * 335 = 15 + 83.75 = 98.75°C
-	temp := CalculateTemperature(16480.0)
+	temp := CalculateTemperature(16480.0, testGroundLevel, testWorldHeight)
 
 	const expected = 98.75
 	const tolerance = 0.1
@@ -82,7 +101,7 @@ func TestCalculateTemperature_OneQuarter(t *testing.T) {
 func TestCalculateTemperature_ThreeQuarters(t *testing.T) {
 	// Three quarters down: 640 + 0.75 * (64000 - 640) = 640 + 47520 = 48160
 	// temp = 15 + 0.75 * 335 = 15 + 251.25 = 266.25°C
-	temp := CalculateTemperature(48160.0)
+	temp := CalculateTemperature(48160.0, testGroundLevel, testWorldHeight)
 
 	const expected = 266.25
 	const tolerance = 0.1
@@ -93,34 +112,36 @@ func TestCalculateTemperature_ThreeQuarters(t *testing.T) {
 
 // Heat Damage Tests
 
-func TestApplyHeatDamage_NoExcessHeat(t *testing.T) {
+func TestUpdateHeat_NoExcessHeat(t *testing.T) {
 	player := testHeatPlayer(50) // 50°C resistance
 	player.AABB.Y = 640          // At ground level (15°C)
 	player.HP = 10.0
+	w := testHeatWorld()
 
 	// Temperature 15°C < resistance 50°C, no damage
-	ApplyHeatDamage(player, 0.016) // ~60 FPS
+	UpdateHeat(player, w, 0.016) // ~60 FPS
 
 	if player.HP != 10.0 {
 		t.Errorf("Expected no damage when below resistance, got HP: %f", player.HP)
 	}
 }
 
-func TestApplyHeatDamage_AtResistanceLimit(t *testing.T) {
+func TestUpdateHeat_AtResistanceLimit(t *testing.T) {
 	// At 640 + 800 = 1440px, temp = 15 + (800/63360) * 335 ≈ 19.24°C
 	// Resistance 50°C > temp, no damage
 	player := testHeatPlayer(50)
 	player.AABB.Y = 1440
 	player.HP = 10.0
+	w := testHeatWorld()
 
-	ApplyHeatDamage(player, 0.016)
+	UpdateHeat(player, w, 0.016)
 
 	if player.HP != 10.0 {
 		t.Errorf("Expected no damage within resistance margin, got HP: %f", player.HP)
 	}
 }
 
-func TestApplyHeatDamage_SlightExcess(t *testing.T) {
+func TestUpdateHeat_SlightExcess(t *testing.T) {
 	// At 640 + 6650 = 7290px, temp ≈ 50.35°C
 	// Base resistance = 50°C
 	// Excess = 0.35°C (minimal)
@@ -128,8 +149,9 @@ func TestApplyHeatDamage_SlightExcess(t *testing.T) {
 	player := testHeatPlayer(50)
 	player.AABB.Y = 7290
 	player.HP = 10.0
+	w := testHeatWorld()
 
-	ApplyHeatDamage(player, 1.0) // 1 second
+	UpdateHeat(player, w, 1.0) // 1 second
 
 	if player.HP >= 10.0 {
 		t.Errorf("Expected some damage with excess heat, got HP: %f", player.HP)
@@ -139,7 +161,7 @@ func TestApplyHeatDamage_SlightExcess(t *testing.T) {
 	}
 }
 
-func TestApplyHeatDamage_SignificantExcess(t *testing.T) {
+func TestUpdateHeat_SignificantExcess(t *testing.T) {
 	// At 640 + 6650*3 = 20590px, temp ≈ 116.04°C
 	// Base resistance = 50°C
 	// Excess = 66.04°C
@@ -147,8 +169,9 @@ func TestApplyHeatDamage_SignificantExcess(t *testing.T) {
 	player := testHeatPlayer(50)
 	player.AABB.Y = 20590
 	player.HP = 10.0
+	w := testHeatWorld()
 
-	ApplyHeatDamage(player, 1.0) // 1 second
+	UpdateHeat(player, w, 1.0) // 1 second
 
 	// Should take significant damage
 	if player.HP >= 5.0 {
@@ -159,28 +182,30 @@ func TestApplyHeatDamage_SignificantExcess(t *testing.T) {
 	}
 }
 
-func TestApplyHeatDamage_ClampsAtZero(t *testing.T) {
+func TestUpdateHeat_ClampsAtZero(t *testing.T) {
 	// Very deep: temperature far exceeds resistance
 	player := testHeatPlayer(50) // 50°C resistance
 	player.AABB.Y = 64000        // Max depth (350°C)
 	player.HP = 10.0
+	w := testHeatWorld()
 
 	// Apply 10 seconds of heat damage
-	ApplyHeatDamage(player, 10.0)
+	UpdateHeat(player, w, 10.0)
 
 	if player.HP != 0.0 {
 		t.Errorf("Expected HP clamped at 0, got HP: %f", player.HP)
 	}
 }
 
-func TestApplyHeatDamage_UpgradedShield(t *testing.T) {
+func TestUpdateHeat_UpgradedShield(t *testing.T) {
 	// At depth with 140°C temp, Mk2 shield (140°C resistance) should take minimal/no damage
 	// Y = 640 + (140-15)/335 * 63360 = 640 + 23647 ≈ 24287
 	player := testHeatPlayer(140) // 140°C resistance (Mk2)
 	player.AABB.Y = 24287
 	player.HP = 10.0
+	w := testHeatWorld()
 
-	ApplyHeatDamage(player, 0.016) // One frame at 60 FPS
+	UpdateHeat(player, w, 0.016) // One frame at 60 FPS
 
 	// At this depth, temp ≈ 140°C, resistance = 140°C
 	// Allow for floating-point tolerance (tiny rounding errors)
@@ -189,9 +214,10 @@ func TestApplyHeatDamage_UpgradedShield(t *testing.T) {
 	}
 }
 
-func TestApplyHeatDamage_ScalesWithDeltaTime(t *testing.T) {
+func TestUpdateHeat_ScalesWithDeltaTime(t *testing.T) {
 	// Same depth, test that damage scales with dt
 	depth := float32(20590.0) // ~116°C temp
+	w := testHeatWorld()
 
 	player1 := testHeatPlayer(50)
 	player1.AABB.Y = depth
@@ -201,8 +227,8 @@ func TestApplyHeatDamage_ScalesWithDeltaTime(t *testing.T) {
 	player2.AABB.Y = depth
 	player2.HP = 10.0
 
-	ApplyHeatDamage(player1, 0.5) // Half second
-	ApplyHeatDamage(player2, 1.0) // Full second
+	UpdateHeat(player1, w, 0.5) // Half second
+	UpdateHeat(player2, w, 1.0) // Full second
 
 	// Damage should roughly double with 2x delta time
 	damage1 := 10.0 - player1.HP
@@ -213,12 +239,13 @@ func TestApplyHeatDamage_ScalesWithDeltaTime(t *testing.T) {
 	}
 }
 
-func TestApplyHeatDamage_AlreadyDead(t *testing.T) {
+func TestUpdateHeat_AlreadyDead(t *testing.T) {
 	player := testHeatPlayer(50)
 	player.AABB.Y = 64000
 	player.HP = 0.0 // Already dead
+	w := testHeatWorld()
 
-	ApplyHeatDamage(player, 10.0)
+	UpdateHeat(player, w, 10.0)
 
 	// Should remain at 0, not go negative
 	if player.HP != 0.0 {
@@ -226,13 +253,14 @@ func TestApplyHeatDamage_AlreadyDead(t *testing.T) {
 	}
 }
 
-func TestApplyHeatDamage_PreservesPartialHealth(t *testing.T) {
+func TestUpdateHeat_PreservesPartialHealth(t *testing.T) {
 	// Player at 8 HP with excess heat
 	player := testHeatPlayer(50)
 	player.AABB.Y = 20590 // ~116°C
 	player.HP = 8.0       // Damaged
+	w := testHeatWorld()
 
-	ApplyHeatDamage(player, 0.5)
+	UpdateHeat(player, w, 0.5)
 
 	// Should reduce proportionally but not clamp to 0 if still above 0
 	if player.HP < 0.0 || player.HP >= 8.0 {
@@ -240,10 +268,11 @@ func TestApplyHeatDamage_PreservesPartialHealth(t *testing.T) {
 	}
 }
 
-func TestApplyHeatDamage_MoreDamageThanExposure(t *testing.T) {
+func TestUpdateHeat_MoreDamageThanExposure(t *testing.T) {
 	// Verify that deeper (hotter) locations take more damage
 	// Shallow location: temp ≈ 75°C, excess = 25°C
 	// Deep location: temp ≈ 200°C, excess = 150°C
+	w := testHeatWorld()
 
 	shallowPlayer := testHeatPlayer(50)
 	shallowPlayer.AABB.Y = 6650 // Shallow depth
@@ -253,8 +282,8 @@ func TestApplyHeatDamage_MoreDamageThanExposure(t *testing.T) {
 	deepPlayer.AABB.Y = 30000 // Deeper depth
 	deepPlayer.HP = 10.0
 
-	ApplyHeatDamage(shallowPlayer, 1.0)
-	ApplyHeatDamage(deepPlayer, 1.0)
+	UpdateHeat(shallowPlayer, w, 1.0)
+	UpdateHeat(deepPlayer, w, 1.0)
 
 	shallowDamage := 10.0 - shallowPlayer.HP
 	deepDamage := 10.0 - deepPlayer.HP

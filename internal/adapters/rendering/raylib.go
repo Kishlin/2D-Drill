@@ -12,7 +12,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/engine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
-	"github.com/Kishlin/drill-game/internal/domain/physics"
+	"github.com/Kishlin/drill-game/internal/domain/systems"
 	"github.com/Kishlin/drill-game/internal/domain/ui"
 	"github.com/Kishlin/drill-game/internal/domain/upgrades"
 	"github.com/Kishlin/drill-game/internal/domain/world"
@@ -147,7 +147,7 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	rl.EndMode2D()
 
 	// === SCREEN SPACE (no camera, always visible) ===
-	r.renderDebugInfo(game.GetPlayer(), inputState)
+	r.renderDebugInfo(game.GetPlayer(), game.GetWorld(), inputState)
 
 	// Boss HP bar
 	if game.GetBoss() != nil {
@@ -309,7 +309,7 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 	}
 }
 
-func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState input.InputState) {
+func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, w *world.World, inputState input.InputState) {
 	fontSize := int32(20)
 	textColor := rl.Black
 	lineHeight := int32(25)
@@ -361,7 +361,7 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	posY += lineHeight
 
 	// Draw temperature
-	temperature := physics.CalculateTemperature(player.AABB.Y)
+	temperature := systems.CalculateTemperature(player.AABB.Y, w.GroundLevel, w.Height)
 	tempText := fmt.Sprintf("Temperature: %.1f°C (Resistance: %.1f°C)",
 		temperature, player.HeatResistance())
 	rl.DrawText(tempText, posX, posY, fontSize, textColor)

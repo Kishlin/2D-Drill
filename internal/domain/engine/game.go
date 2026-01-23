@@ -158,13 +158,16 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		}
 	}
 
-	// 3. Physics - handles landing/fall damage before drilling, heat damage, prevents movement during drilling
+	// 3. Heat damage - applies damage based on depth-based temperature
+	systems.UpdateHeat(g.player, g.world, dt)
+
+	// 4. Physics - handles landing/fall damage before drilling, prevents movement during drilling
 	systems.UpdatePhysics(g.player, g.world, inputState, dt)
 
-	// 4. Fuel consumption (runs even during drilling animation to maintain resource pressure)
+	// 5. Fuel consumption (runs even during drilling animation to maintain resource pressure)
 	systems.ConsumeFuel(g.player, inputState, dt)
 
-	// 5. Drilling animation (vertical + horizontal)
+	// 6. Drilling animation (vertical + horizontal)
 	g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
 
 	// Skip interactions if drilling animation is active
@@ -172,13 +175,13 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		return nil
 	}
 
-	// 6. Handle item usage
+	// 7. Handle item usage
 	itemEffects := systems.DetectItemUsage(g.player, inputState, g.config.Items)
 	if len(itemEffects) > 0 {
 		g.effectProcessor.Apply(g.effectContext, itemEffects)
 	}
 
-	// 7. Update boss fight system (if active)
+	// 8. Update boss fight system (if active)
 	if g.bossFightSystem != nil {
 		g.gameState = g.bossFightSystem.Update(g.player, dt)
 	}
