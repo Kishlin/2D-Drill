@@ -27,7 +27,8 @@ internal/
 ├── adapters/              # Raylib integration (input, rendering)
 └── domain/                # Pure game logic
     ├── engine/            # Game loop orchestration
-    ├── entities/          # Player, Building, Tile, components
+    ├── entities/          # Player, Building, Tile, ItemCatalog
+    ├── upgrades/          # Upgrade types, Catalog, UpgradeType enum
     ├── systems/           # Physics, Drilling, Fuel, Items, Boss
     ├── effects/           # Player state mutations
     ├── ui/                # Shop interfaces
@@ -61,7 +62,8 @@ Read these docs on-demand when you need details:
 - **Data-driven config** — All parameters in `config/` structs, loaded via `levels.GetLevelConfig(n)`
 - **Effects system** — All player mutations via `Effect` interface in `effects/`
 - **Component-based entities** — Buildings use `Position` + `Interactable` components
-- **Config-driven constructors** — `NewPlayerFromConfig()`, `NewEngineFromStats()`, etc.
+- **Upgrade facade** — Player stats via `player.MaxSpeed()`, upgrades via `player.GetUpgrade(type)`
+- **Unified upgrade catalog** — Single `Catalog` type handles all upgrade types
 - **Damage through Player** — All damage calls `player.DealDamage(amount)`
 
 ## Special Levels

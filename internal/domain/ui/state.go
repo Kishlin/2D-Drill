@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/Kishlin/drill-game/internal/domain/entities"
+import "github.com/Kishlin/drill-game/internal/domain/upgrades"
 
 const (
 	// Grid layout: 2 rows x 3 columns for Base + Mk1-Mk5
@@ -9,29 +9,29 @@ const (
 )
 
 type UpgradeShopState struct {
-	ActiveTab    entities.UpgradeType
+	ActiveTab    upgrades.UpgradeType
 	SelectedTier int
 }
 
 func NewUpgradeShopState() *UpgradeShopState {
 	return &UpgradeShopState{
-		ActiveTab:    entities.UpgradeEngine,
+		ActiveTab:    upgrades.TypeEngine,
 		SelectedTier: 0,
 	}
 }
 
 func (s *UpgradeShopState) Reset() {
-	s.ActiveTab = entities.UpgradeEngine
+	s.ActiveTab = upgrades.TypeEngine
 	s.SelectedTier = 0
 }
 
 func (s *UpgradeShopState) NextTab() {
-	s.ActiveTab = entities.UpgradeType((int(s.ActiveTab) + 1) % int(entities.UpgradeTypeCount))
+	s.ActiveTab = upgrades.UpgradeType((int(s.ActiveTab) + 1) % int(upgrades.TypeCount))
 	s.SelectedTier = 0
 }
 
 func (s *UpgradeShopState) PrevTab() {
-	s.ActiveTab = entities.UpgradeType((int(s.ActiveTab) - 1 + int(entities.UpgradeTypeCount)) % int(entities.UpgradeTypeCount))
+	s.ActiveTab = upgrades.UpgradeType((int(s.ActiveTab) - 1 + int(upgrades.TypeCount)) % int(upgrades.TypeCount))
 	s.SelectedTier = 0
 }
 

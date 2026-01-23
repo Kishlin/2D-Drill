@@ -5,28 +5,28 @@ import (
 
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
-	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
-// Test helper - creates components from config for fall damage tests
-func testFallDamagePlayerComponents() (entities.Hull, entities.Engine) {
-	hullStats := config.HullStats{MaxHP: 10}
-	engineStats := config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}
-
-	hull := entities.NewHullFromConfig(0, "Base", hullStats)
-	engine := entities.NewEngineFromConfig(0, "Base", engineStats)
-
-	return hull, engine
+func testFallDamagePlayer() *entities.Player {
+	playerCfg := config.PlayerConfig{
+		StartingMoney:    0,
+		StartingItems:    [5]int{0, 0, 0, 0, 0},
+		StartingUpgrades: config.StartingUpgrades{},
+	}
+	upgradeCfg := config.UpgradeConfig{
+		Engines:     []config.UpgradeTier[config.EngineStats]{{Name: "Base", Price: 0, Stats: config.EngineStats{MaxSpeed: 450, Acceleration: 2500, FlyAcceleration: 2500, MaxUpwardSpeed: -600}}},
+		Hulls:       []config.UpgradeTier[config.HullStats]{{Name: "Base", Price: 0, Stats: config.HullStats{MaxHP: 10}}},
+		FuelTanks:   []config.UpgradeTier[config.FuelTankStats]{{Name: "Base", Price: 0, Stats: config.FuelTankStats{Capacity: 10}}},
+		CargoHolds:  []config.UpgradeTier[config.CargoHoldStats]{{Name: "Base", Price: 0, Stats: config.CargoHoldStats{Capacity: 10}}},
+		HeatShields: []config.UpgradeTier[config.HeatShieldStats]{{Name: "Base", Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50}}},
+		Drills:      []config.UpgradeTier[config.DrillStats]{{Name: "Base", Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}}},
+	}
+	return entities.NewPlayerFromConfig(0, 0, playerCfg, upgradeCfg)
 }
 
 func TestApplyFallDamage_BelowThreshold(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Fall at 400 px/sec (below 500 threshold)
 	ApplyFallDamage(player, 400.0)
@@ -37,13 +37,8 @@ func TestApplyFallDamage_BelowThreshold(t *testing.T) {
 }
 
 func TestApplyFallDamage_AtThreshold(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Fall at exactly 500 px/sec (threshold)
 	ApplyFallDamage(player, 500.0)
@@ -54,13 +49,8 @@ func TestApplyFallDamage_AtThreshold(t *testing.T) {
 }
 
 func TestApplyFallDamage_SlightlyAboveThreshold(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Fall at 520 px/sec: damage = (520 - 500) / 20 = 1.0
 	ApplyFallDamage(player, 520.0)
@@ -71,13 +61,8 @@ func TestApplyFallDamage_SlightlyAboveThreshold(t *testing.T) {
 }
 
 func TestApplyFallDamage_ModerateFall(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Fall at 600 px/sec: damage = (600 - 500) / 20 = 5.0
 	ApplyFallDamage(player, 600.0)
@@ -88,13 +73,8 @@ func TestApplyFallDamage_ModerateFall(t *testing.T) {
 }
 
 func TestApplyFallDamage_LethalFall(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Fall at 700 px/sec: damage = (700 - 500) / 20 = 10.0 (lethal)
 	ApplyFallDamage(player, 700.0)
@@ -105,13 +85,8 @@ func TestApplyFallDamage_LethalFall(t *testing.T) {
 }
 
 func TestApplyFallDamage_ExtremeVelocity(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Fall at 1500 px/sec: damage = (1500 - 500) / 20 = 50.0
 	// But HP should clamp at 0
@@ -123,13 +98,8 @@ func TestApplyFallDamage_ExtremeVelocity(t *testing.T) {
 }
 
 func TestApplyFallDamage_PreservesPartialHealth(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     8.0, // Damaged player
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 8.0 // Damaged player
 
 	// Fall at 600 px/sec: damage = (600 - 500) / 20 = 5.0
 	// Should reduce to 3.0, not clamp to 0
@@ -141,13 +111,8 @@ func TestApplyFallDamage_PreservesPartialHealth(t *testing.T) {
 }
 
 func TestApplyFallDamage_AlreadyDead(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     0.0, // Already dead
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 0.0 // Already dead
 
 	// Fall at 600 px/sec
 	ApplyFallDamage(player, 600.0)
@@ -159,13 +124,8 @@ func TestApplyFallDamage_AlreadyDead(t *testing.T) {
 }
 
 func TestApplyFallDamage_NegativeVelocity(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Negative velocity (moving upward) - should not apply damage
 	ApplyFallDamage(player, -600.0)
@@ -176,13 +136,8 @@ func TestApplyFallDamage_NegativeVelocity(t *testing.T) {
 }
 
 func TestApplyFallDamage_ZeroVelocity(t *testing.T) {
-	hull, engine := testFallDamagePlayerComponents()
-	player := &entities.Player{
-		AABB:   types.NewAABB(0, 0, 64, 64),
-		HP:     10.0,
-		Hull:   hull,
-		Engine: engine,
-	}
+	player := testFallDamagePlayer()
+	player.HP = 10.0
 
 	// Zero velocity - no damage
 	ApplyFallDamage(player, 0.0)

@@ -107,7 +107,8 @@ Pure game logic with zero framework dependencies:
 | Package | Purpose |
 |---------|---------|
 | `engine/` | Game orchestration |
-| `entities/` | Player, Building, Tile, components |
+| `entities/` | Player, Building, Tile, ItemCatalog |
+| `upgrades/` | Upgrade types, Catalog, UpgradeType enum |
 | `systems/` | Physics, Drilling, Fuel, Items, Boss fights |
 | `effects/` | Player state mutations |
 | `ui/` | Shop interfaces |
@@ -137,7 +138,8 @@ drill-game/
 │   │
 │   └── domain/                   # Pure Business Logic (NO RAYLIB)
 │       ├── engine/game.go        # Game loop orchestration
-│       ├── entities/             # Player, Building, Tile, components
+│       ├── entities/             # Player, Building, Tile, ItemCatalog
+│       ├── upgrades/             # Upgrade types, Catalog, UpgradeType
 │       ├── systems/              # Physics, Drilling, Fuel, Items, Boss
 │       ├── effects/              # Effect interface and implementations
 │       ├── ui/                   # UI interface, Manager, shops
@@ -259,27 +261,54 @@ func (r *RaylibRenderer) Render(game *engine.Game) {
 
 ```go
 type Player struct {
-    AABB          types.AABB   // Position and dimensions
-    Velocity      types.Vec2   // Pixels per second
-    OnGround      bool         // Collision state
-    IsDrilling    bool         // Animation state
-    OreInventory  [6]int       // Ore counts
-    ItemInventory [5]int       // Item counts
-    Money         int          // Currency
-    Fuel          float32      // Current fuel
-    HP            float32      // Hit points
+    AABB          types.AABB     // Position and dimensions
+    Velocity      types.Vec2     // Pixels per second
+    OnGround      bool           // Collision state
+    IsDrilling    bool           // Animation state
+    OreInventory  map[string]int // Ore counts by ID
+    ItemInventory [5]int         // Item counts
+    Money         int            // Currency
+    Fuel          float32        // Current fuel
+    HP            float32        // Hit points
 
-    // Components (exported value objects)
-    Engine     Engine
-    Hull       Hull
-    FuelTank   FuelTank
-    CargoHold  CargoHold
-    HeatShield HeatShield
-    Drill      Drill
+    // Upgrades (unexported - access via methods)
+    engine     upgrades.Engine
+    hull       upgrades.Hull
+    fuelTank   upgrades.FuelTank
+    cargoHold  upgrades.CargoHold
+    heatShield upgrades.HeatShield
+    drill      upgrades.Drill
 }
 ```
 
-Access stats via components: `player.Engine.MaxSpeed()`
+**Stat Accessors** — Clean facade methods for stats:
+```go
+// Movement stats (from Engine)
+player.MaxSpeed()        // float32
+player.Acceleration()    // float32
+player.FlyAcceleration() // float32
+player.MaxUpwardSpeed()  // float32
+
+// Defense stats (from Hull)
+player.MaxHP()           // float32
+
+// Resource stats
+player.FuelCapacity()    // float32
+player.CargoCapacity()   // int
+
+// Heat/Environment stats
+player.HeatResistance()  // float32
+
+// Drilling stats
+player.DrillSpeed()      // float32
+```
+
+**Upgrade Management** — Generic accessors for shop/catalog:
+```go
+player.GetUpgrade(upgrades.TypeEngine)     // returns upgrades.Upgrade
+player.SetUpgrade(newEngine)               // accepts any upgrades.Upgrade
+player.GetUpgradeTier(upgrades.TypeEngine) // returns int
+```
 
 ### Building (Component-Based)
 

@@ -184,7 +184,7 @@ func (ds *DrillingSystem) startDrillAnimation(
 	// Apply depth-scaled drill divisor
 	// At surface (depthFactor=0): only 10% of upgrade applies
 	// At max depth (depthFactor=1): 100% of upgrade applies
-	drillSpeed := player.Drill.DrillSpeed()
+	drillSpeed := player.DrillSpeed()
 	effectiveDivisor := 1 + (drillSpeed-1)*(0.1+0.9*depthFactor)
 	duration := baseDuration / effectiveDivisor
 
@@ -276,7 +276,7 @@ func (ds *DrillingSystem) applyLavaDamage(player *entities.Player, tile *entitie
 		baseDamage = hazardCfg.OnDrillDamage
 	}
 
-	currentHeatResistance := player.HeatShield.HeatResistance()
+	currentHeatResistance := player.HeatResistance()
 
 	// Linear reduction: 100% damage at 0 resistance, 50% damage at max resistance
 	damageReduction := (currentHeatResistance / maxHeatResistance) * baseDamage * maxDamageReduction

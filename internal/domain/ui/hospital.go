@@ -15,7 +15,7 @@ func NewHospitalUI() *HospitalUI {
 }
 
 func (u *HospitalUI) Process(player *entities.Player, inputState input.InputState) Result {
-	hpNeeded := player.Hull.MaxHP() - player.HP
+	hpNeeded := player.MaxHP() - player.HP
 	if hpNeeded <= 0 {
 		return Close()
 	}
@@ -27,7 +27,7 @@ func (u *HospitalUI) Process(player *entities.Player, inputState input.InputStat
 
 	return CloseWithEffects(
 		effects.TakeMoney{Amount: cost},
-		effects.SetHP{Amount: player.Hull.MaxHP()},
+		effects.SetHP{Amount: player.MaxHP()},
 	)
 }
 

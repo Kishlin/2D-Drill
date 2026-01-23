@@ -1,4 +1,4 @@
-package entities
+package upgrades
 
 import "github.com/Kishlin/drill-game/internal/domain/config"
 
@@ -14,6 +14,10 @@ func (h Hull) Tier() int {
 
 func (h Hull) Name() string {
 	return h.name
+}
+
+func (h Hull) Type() UpgradeType {
+	return TypeHull
 }
 
 func (h Hull) MaxHP() float32 {

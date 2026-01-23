@@ -60,11 +60,11 @@ func (is *ItemSystem) applyTeleport(player *entities.Player) {
 }
 
 func (is *ItemSystem) applyRepair(player *entities.Player) {
-	player.HP = player.Hull.MaxHP()
+	player.HP = player.MaxHP()
 }
 
 func (is *ItemSystem) applyRefuel(player *entities.Player) {
-	player.Fuel = player.FuelTank.Capacity()
+	player.Fuel = player.FuelCapacity()
 }
 
 func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {

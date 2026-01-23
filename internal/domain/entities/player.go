@@ -5,6 +5,7 @@ import (
 
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/types"
+	"github.com/Kishlin/drill-game/internal/domain/upgrades"
 )
 
 const (
@@ -23,12 +24,12 @@ type Player struct {
 	Money         int            // Player's currency from selling ores
 	Fuel          float32        // Current fuel in liters
 	HP            float32        // Current hit points
-	Engine        Engine         // Engine component (exported)
-	Hull          Hull           // Hull component (exported)
-	FuelTank      FuelTank       // FuelTank component (exported)
-	CargoHold     CargoHold      // CargoHold component (exported)
-	HeatShield    HeatShield     // HeatShield component (exported)
-	Drill         Drill          // Drill component (exported)
+	engine        upgrades.Engine
+	hull          upgrades.Hull
+	fuelTank      upgrades.FuelTank
+	cargoHold     upgrades.CargoHold
+	heatShield    upgrades.HeatShield
+	drill         upgrades.Drill
 }
 
 func NewPlayerFromConfig(startX, startY float32, playerCfg config.PlayerConfig, upgradeCfg config.UpgradeConfig) *Player {
@@ -41,12 +42,12 @@ func NewPlayerFromConfig(startX, startY float32, playerCfg config.PlayerConfig, 
 	drillTier := upgradeCfg.Drills[playerCfg.StartingUpgrades.Drill]
 
 	// Create components from config
-	engine := NewEngineFromConfig(playerCfg.StartingUpgrades.Engine, engineTier.Name, engineTier.Stats)
-	hull := NewHullFromConfig(playerCfg.StartingUpgrades.Hull, hullTier.Name, hullTier.Stats)
-	fuelTank := NewFuelTankFromConfig(playerCfg.StartingUpgrades.FuelTank, fuelTankTier.Name, fuelTankTier.Stats)
-	cargoHold := NewCargoHoldFromConfig(playerCfg.StartingUpgrades.CargoHold, cargoTier.Name, cargoTier.Stats)
-	heatShield := NewHeatShieldFromConfig(playerCfg.StartingUpgrades.HeatShield, heatTier.Name, heatTier.Stats)
-	drill := NewDrillFromConfig(playerCfg.StartingUpgrades.Drill, drillTier.Name, drillTier.Stats)
+	engine := upgrades.NewEngineFromConfig(playerCfg.StartingUpgrades.Engine, engineTier.Name, engineTier.Stats)
+	hull := upgrades.NewHullFromConfig(playerCfg.StartingUpgrades.Hull, hullTier.Name, hullTier.Stats)
+	fuelTank := upgrades.NewFuelTankFromConfig(playerCfg.StartingUpgrades.FuelTank, fuelTankTier.Name, fuelTankTier.Stats)
+	cargoHold := upgrades.NewCargoHoldFromConfig(playerCfg.StartingUpgrades.CargoHold, cargoTier.Name, cargoTier.Stats)
+	heatShield := upgrades.NewHeatShieldFromConfig(playerCfg.StartingUpgrades.HeatShield, heatTier.Name, heatTier.Stats)
+	drill := upgrades.NewDrillFromConfig(playerCfg.StartingUpgrades.Drill, drillTier.Name, drillTier.Stats)
 
 	return &Player{
 		AABB:          types.NewAABB(startX, startY, PlayerWidth, PlayerHeight),
@@ -56,14 +57,76 @@ func NewPlayerFromConfig(startX, startY float32, playerCfg config.PlayerConfig, 
 		ItemInventory: playerCfg.StartingItems,
 		Fuel:          fuelTank.Capacity(),
 		HP:            hull.MaxHP(),
-		Engine:        engine,
-		Hull:          hull,
-		FuelTank:      fuelTank,
-		CargoHold:     cargoHold,
-		HeatShield:    heatShield,
-		Drill:         drill,
+		engine:        engine,
+		hull:          hull,
+		fuelTank:      fuelTank,
+		cargoHold:     cargoHold,
+		heatShield:    heatShield,
+		drill:         drill,
 		Money:         playerCfg.StartingMoney,
 	}
+}
+
+// Movement stats (from Engine)
+func (p *Player) MaxSpeed() float32        { return p.engine.MaxSpeed() }
+func (p *Player) Acceleration() float32    { return p.engine.Acceleration() }
+func (p *Player) FlyAcceleration() float32 { return p.engine.FlyAcceleration() }
+func (p *Player) MaxUpwardSpeed() float32  { return p.engine.MaxUpwardSpeed() }
+
+// Defense stats (from Hull)
+func (p *Player) MaxHP() float32 { return p.hull.MaxHP() }
+
+// Resource stats
+func (p *Player) FuelCapacity() float32 { return p.fuelTank.Capacity() }
+func (p *Player) CargoCapacity() int    { return p.cargoHold.Capacity() }
+
+// Heat/Environment stats
+func (p *Player) HeatResistance() float32 { return p.heatShield.HeatResistance() }
+
+// Drilling stats
+func (p *Player) DrillSpeed() float32 { return p.drill.DrillSpeed() }
+
+// Upgrade management
+func (p *Player) GetUpgrade(t upgrades.UpgradeType) upgrades.Upgrade {
+	switch t {
+	case upgrades.TypeEngine:
+		return p.engine
+	case upgrades.TypeHull:
+		return p.hull
+	case upgrades.TypeFuelTank:
+		return p.fuelTank
+	case upgrades.TypeCargoHold:
+		return p.cargoHold
+	case upgrades.TypeHeatShield:
+		return p.heatShield
+	case upgrades.TypeDrill:
+		return p.drill
+	}
+	return nil
+}
+
+func (p *Player) SetUpgrade(u upgrades.Upgrade) {
+	switch u.Type() {
+	case upgrades.TypeEngine:
+		p.engine = u.(upgrades.Engine)
+	case upgrades.TypeHull:
+		p.hull = u.(upgrades.Hull)
+	case upgrades.TypeFuelTank:
+		p.fuelTank = u.(upgrades.FuelTank)
+	case upgrades.TypeCargoHold:
+		p.cargoHold = u.(upgrades.CargoHold)
+	case upgrades.TypeHeatShield:
+		p.heatShield = u.(upgrades.HeatShield)
+	case upgrades.TypeDrill:
+		p.drill = u.(upgrades.Drill)
+	}
+}
+
+func (p *Player) GetUpgradeTier(t upgrades.UpgradeType) int {
+	if u := p.GetUpgrade(t); u != nil {
+		return u.Tier()
+	}
+	return 0
 }
 
 // Purchase methods
@@ -72,39 +135,9 @@ func (p *Player) CanAfford(cost int) bool {
 	return p.Money >= cost
 }
 
-func (p *Player) BuyEngine(e Engine, cost int) {
-	p.Money -= cost
-	p.Engine = e
-}
-
-func (p *Player) BuyHull(h Hull, cost int) {
-	p.Money -= cost
-	p.Hull = h
-}
-
-func (p *Player) BuyFuelTank(ft FuelTank, cost int) {
-	p.Money -= cost
-	p.FuelTank = ft
-}
-
-func (p *Player) BuyCargoHold(ch CargoHold, cost int) {
-	p.Money -= cost
-	p.CargoHold = ch
-}
-
-func (p *Player) BuyHeatShield(hs HeatShield, cost int) {
-	p.Money -= cost
-	p.HeatShield = hs
-}
-
-func (p *Player) BuyDrill(d Drill, cost int) {
-	p.Money -= cost
-	p.Drill = d
-}
-
 // Refuel fills the tank if player can afford it, returns success
 func (p *Player) Refuel() bool {
-	fuelCapacity := p.FuelTank.Capacity()
+	fuelCapacity := p.fuelTank.Capacity()
 	litersNeeded := fuelCapacity - p.Fuel
 	cost := int(math.Ceil(float64(litersNeeded)))
 
@@ -119,7 +152,7 @@ func (p *Player) Refuel() bool {
 
 // Heal restores HP to max if player can afford it, returns success
 func (p *Player) Heal() bool {
-	maxHP := p.Hull.MaxHP()
+	maxHP := p.hull.MaxHP()
 	hpNeeded := maxHP - p.HP
 
 	if hpNeeded <= 0 {
@@ -159,7 +192,7 @@ func (p *Player) AddOreByID(oreID string) bool {
 	if oreID == "" {
 		return false
 	}
-	if p.GetTotalOreCount() >= p.CargoHold.Capacity() {
+	if p.GetTotalOreCount() >= p.cargoHold.Capacity() {
 		return false // Cargo full
 	}
 	p.OreInventory[oreID]++

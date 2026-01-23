@@ -1,4 +1,4 @@
-package entities
+package upgrades
 
 import "github.com/Kishlin/drill-game/internal/domain/config"
 
@@ -14,6 +14,10 @@ func (ft FuelTank) Tier() int {
 
 func (ft FuelTank) Name() string {
 	return ft.name
+}
+
+func (ft FuelTank) Type() UpgradeType {
+	return TypeFuelTank
 }
 
 func (ft FuelTank) Capacity() float32 {

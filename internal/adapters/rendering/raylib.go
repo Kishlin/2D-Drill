@@ -14,6 +14,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/physics"
 	"github.com/Kishlin/drill-game/internal/domain/ui"
+	"github.com/Kishlin/drill-game/internal/domain/upgrades"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
@@ -344,20 +345,25 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, inputState inp
 	// Draw player money, fuel, HP, and cargo
 	totalOre := player.GetTotalOreCount()
 	moneyFuelHPText := fmt.Sprintf("Money: $%d | Fuel: %.2fL | HP: %.1f | Cargo: %d/%d",
-		player.Money, player.Fuel, player.HP, totalOre, player.CargoHold.Capacity())
+		player.Money, player.Fuel, player.HP, totalOre, player.CargoCapacity())
 	rl.DrawText(moneyFuelHPText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
 	// Draw upgrade levels
 	upgradeText := fmt.Sprintf("Upgrades: Engine=%d Hull=%d Tank=%d Cargo=%d Heat=%d Drill=%d",
-		player.Engine.Tier(), player.Hull.Tier(), player.FuelTank.Tier(), player.CargoHold.Tier(), player.HeatShield.Tier(), player.Drill.Tier())
+		player.GetUpgradeTier(upgrades.TypeEngine),
+		player.GetUpgradeTier(upgrades.TypeHull),
+		player.GetUpgradeTier(upgrades.TypeFuelTank),
+		player.GetUpgradeTier(upgrades.TypeCargoHold),
+		player.GetUpgradeTier(upgrades.TypeHeatShield),
+		player.GetUpgradeTier(upgrades.TypeDrill))
 	rl.DrawText(upgradeText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
 	// Draw temperature
 	temperature := physics.CalculateTemperature(player.AABB.Y)
 	tempText := fmt.Sprintf("Temperature: %.1f°C (Resistance: %.1f°C)",
-		temperature, player.HeatShield.HeatResistance())
+		temperature, player.HeatResistance())
 	rl.DrawText(tempText, posX, posY, fontSize, textColor)
 	posY += lineHeight
 
@@ -387,7 +393,7 @@ func (r *RaylibRenderer) renderUI(uiType components.InteractableType, state inte
 }
 
 // renderUpgradeShopModal draws the upgrade shop modal UI
-func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, catalog *entities.UpgradeCatalog, player *entities.Player) {
+func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, catalog *upgrades.Catalog, player *entities.Player) {
 	// Modal dimensions
 	modalWidth := float32(900)
 	modalHeight := float32(550)
@@ -461,7 +467,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 	cellGap := float32(15)
 
 	// Get current tier for this upgrade type
-	currentTier := entities.GetPlayerCurrentTier(player, uiState.ActiveTab)
+	currentTier := player.GetUpgradeTier(uiState.ActiveTab)
 
 	// Draw 2x3 grid of upgrades
 	tierNames := []string{"Base", "Mk1", "Mk2", "Mk3", "Mk4", "Mk5"}
@@ -480,7 +486,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 		if isOwned {
 			bgColor = rl.NewColor(40, 60, 40, 255) // Green tint for owned
 		} else {
-			price := catalog.GetUpgradePrice(uiState.ActiveTab, tier)
+			price := catalog.GetPrice(uiState.ActiveTab, tier)
 			if player.CanAfford(price) {
 				bgColor = rl.NewColor(60, 60, 80, 255) // Light for affordable
 			} else {
@@ -525,7 +531,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 			statusColor = rl.NewColor(100, 150, 100, 255)
 		} else {
 			// Always show price for non-owned upgrades
-			price := catalog.GetUpgradePrice(uiState.ActiveTab, tier)
+			price := catalog.GetPrice(uiState.ActiveTab, tier)
 			statusText = fmt.Sprintf("$%d", price)
 			if player.CanAfford(price) {
 				statusColor = rl.Yellow
@@ -553,7 +559,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 	)
 
 	// Selected upgrade details
-	selectedName := catalog.GetUpgradeName(uiState.ActiveTab, uiState.SelectedTier)
+	selectedName := catalog.GetName(uiState.ActiveTab, uiState.SelectedTier)
 	rl.DrawText(selectedName, int32(detailsX)+10, int32(detailsY)+10, 24, rl.White)
 
 	// Stats based on upgrade type
@@ -561,7 +567,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 	r.renderUpgradeStats(catalog, uiState.ActiveTab, uiState.SelectedTier, int32(detailsX)+10, statsY)
 
 	// Price
-	selectedPrice := catalog.GetUpgradePrice(uiState.ActiveTab, uiState.SelectedTier)
+	selectedPrice := catalog.GetPrice(uiState.ActiveTab, uiState.SelectedTier)
 	priceText := fmt.Sprintf("Price: $%d", selectedPrice)
 	if uiState.SelectedTier <= currentTier {
 		priceText = "Already owned"
@@ -571,7 +577,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 	// Player info
 	playerInfoY := detailsY + 220
 	rl.DrawText(fmt.Sprintf("Your Money: $%d", player.Money), int32(detailsX)+10, int32(playerInfoY), 18, rl.White)
-	rl.DrawText(fmt.Sprintf("Current: %s", catalog.GetUpgradeName(uiState.ActiveTab, currentTier)), int32(detailsX)+10, int32(playerInfoY)+25, 18, rl.LightGray)
+	rl.DrawText(fmt.Sprintf("Current: %s", catalog.GetName(uiState.ActiveTab, currentTier)), int32(detailsX)+10, int32(playerInfoY)+25, 18, rl.LightGray)
 
 	// Controls hint at bottom
 	controlsY := modalY + modalHeight - 40
@@ -581,37 +587,42 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 }
 
 // renderUpgradeStats renders the stats for a specific upgrade
-func (r *RaylibRenderer) renderUpgradeStats(catalog *entities.UpgradeCatalog, upgradeType entities.UpgradeType, tier int, x, y int32) {
+func (r *RaylibRenderer) renderUpgradeStats(catalog *upgrades.Catalog, upgradeType upgrades.UpgradeType, tier int, x, y int32) {
 	lineHeight := int32(22)
 	fontSize := int32(16)
 
+	entry := catalog.GetEntry(upgradeType, tier)
+	if entry == nil {
+		return
+	}
+
 	switch upgradeType {
-	case entities.UpgradeEngine:
-		if entry := catalog.GetEngineCatalogEntry(tier); entry != nil {
-			rl.DrawText(fmt.Sprintf("Max Speed: %.0f px/s", entry.Engine.MaxSpeed()), x, y, fontSize, rl.LightGray)
-			rl.DrawText(fmt.Sprintf("Acceleration: %.0f px/s²", entry.Engine.Acceleration()), x, y+lineHeight, fontSize, rl.LightGray)
-			rl.DrawText(fmt.Sprintf("Fly Accel: %.0f px/s²", entry.Engine.FlyAcceleration()), x, y+lineHeight*2, fontSize, rl.LightGray)
-			rl.DrawText(fmt.Sprintf("Max Upward: %.0f px/s", -entry.Engine.MaxUpwardSpeed()), x, y+lineHeight*3, fontSize, rl.LightGray)
+	case upgrades.TypeEngine:
+		if e, ok := entry.Upgrade.(upgrades.Engine); ok {
+			rl.DrawText(fmt.Sprintf("Max Speed: %.0f px/s", e.MaxSpeed()), x, y, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Acceleration: %.0f px/s²", e.Acceleration()), x, y+lineHeight, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Fly Accel: %.0f px/s²", e.FlyAcceleration()), x, y+lineHeight*2, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Max Upward: %.0f px/s", -e.MaxUpwardSpeed()), x, y+lineHeight*3, fontSize, rl.LightGray)
 		}
-	case entities.UpgradeHull:
-		if entry := catalog.GetHullCatalogEntry(tier); entry != nil {
-			rl.DrawText(fmt.Sprintf("Max HP: %.0f", entry.Hull.MaxHP()), x, y, fontSize, rl.LightGray)
+	case upgrades.TypeHull:
+		if h, ok := entry.Upgrade.(upgrades.Hull); ok {
+			rl.DrawText(fmt.Sprintf("Max HP: %.0f", h.MaxHP()), x, y, fontSize, rl.LightGray)
 		}
-	case entities.UpgradeFuelTank:
-		if entry := catalog.GetFuelTankCatalogEntry(tier); entry != nil {
-			rl.DrawText(fmt.Sprintf("Capacity: %.0f L", entry.FuelTank.Capacity()), x, y, fontSize, rl.LightGray)
+	case upgrades.TypeFuelTank:
+		if ft, ok := entry.Upgrade.(upgrades.FuelTank); ok {
+			rl.DrawText(fmt.Sprintf("Capacity: %.0f L", ft.Capacity()), x, y, fontSize, rl.LightGray)
 		}
-	case entities.UpgradeCargoHold:
-		if entry := catalog.GetCargoHoldCatalogEntry(tier); entry != nil {
-			rl.DrawText(fmt.Sprintf("Capacity: %d ore", entry.CargoHold.Capacity()), x, y, fontSize, rl.LightGray)
+	case upgrades.TypeCargoHold:
+		if ch, ok := entry.Upgrade.(upgrades.CargoHold); ok {
+			rl.DrawText(fmt.Sprintf("Capacity: %d ore", ch.Capacity()), x, y, fontSize, rl.LightGray)
 		}
-	case entities.UpgradeHeatShield:
-		if entry := catalog.GetHeatShieldCatalogEntry(tier); entry != nil {
-			rl.DrawText(fmt.Sprintf("Heat Resistance: %.0f°C", entry.HeatShield.HeatResistance()), x, y, fontSize, rl.LightGray)
+	case upgrades.TypeHeatShield:
+		if hs, ok := entry.Upgrade.(upgrades.HeatShield); ok {
+			rl.DrawText(fmt.Sprintf("Heat Resistance: %.0f°C", hs.HeatResistance()), x, y, fontSize, rl.LightGray)
 		}
-	case entities.UpgradeDrill:
-		if entry := catalog.GetDrillCatalogEntry(tier); entry != nil {
-			rl.DrawText(fmt.Sprintf("Drill Speed: %.1fx", entry.Drill.DrillSpeed()), x, y, fontSize, rl.LightGray)
+	case upgrades.TypeDrill:
+		if d, ok := entry.Upgrade.(upgrades.Drill); ok {
+			rl.DrawText(fmt.Sprintf("Drill Speed: %.1fx", d.DrillSpeed()), x, y, fontSize, rl.LightGray)
 		}
 	}
 }

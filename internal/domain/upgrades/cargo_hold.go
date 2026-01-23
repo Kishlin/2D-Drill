@@ -1,4 +1,4 @@
-package entities
+package upgrades
 
 import "github.com/Kishlin/drill-game/internal/domain/config"
 
@@ -14,6 +14,10 @@ func (ch CargoHold) Tier() int {
 
 func (ch CargoHold) Name() string {
 	return ch.name
+}
+
+func (ch CargoHold) Type() UpgradeType {
+	return TypeCargoHold
 }
 
 func (ch CargoHold) Capacity() int {

@@ -12,6 +12,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/systems"
 	"github.com/Kishlin/drill-game/internal/domain/ui"
+	"github.com/Kishlin/drill-game/internal/domain/upgrades"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
@@ -19,7 +20,7 @@ type Game struct {
 	world           *world.World
 	player          *entities.Player
 	buildings       []*entities.Building
-	upgradeCatalog  *entities.UpgradeCatalog
+	upgradeCatalog  *upgrades.Catalog
 	itemCatalog     *entities.ItemCatalog
 	physicsSystem   *systems.PhysicsSystem
 	drillingSystem  *systems.DrillingSystem
@@ -56,7 +57,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 	}
 
 	// Create catalogs
-	upgradeCatalog := entities.NewUpgradeCatalogFromConfig(gameCfg.Upgrades)
+	upgradeCatalog := upgrades.NewCatalogFromConfig(gameCfg.Upgrades)
 	itemCatalog := entities.NewItemCatalogFromConfig(gameCfg.Items)
 
 	// Create player from config
@@ -206,7 +207,7 @@ func (g *Game) GetBuildings() []*entities.Building {
 	return g.buildings
 }
 
-func (g *Game) GetUpgradeCatalog() *entities.UpgradeCatalog {
+func (g *Game) GetUpgradeCatalog() *upgrades.Catalog {
 	return g.upgradeCatalog
 }
 

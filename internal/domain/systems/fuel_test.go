@@ -12,7 +12,7 @@ import (
 func TestFuelSystem_ConsumesMovingRateWhenMovingLeft(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	if player.Fuel != fuelCapacity {
 		t.Fatalf("expected full tank (%.2f), got %.2f", fuelCapacity, player.Fuel)
@@ -31,7 +31,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingLeft(t *testing.T) {
 func TestFuelSystem_ConsumesMovingRateWhenMovingRight(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	inputState := input.InputState{Right: true}
 	fs.ConsumeFuel(player, inputState, 1.0)
@@ -45,7 +45,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingRight(t *testing.T) {
 func TestFuelSystem_ConsumesMovingRateWhenMovingUp(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	inputState := input.InputState{Up: true}
 	fs.ConsumeFuel(player, inputState, 1.0)
@@ -59,7 +59,7 @@ func TestFuelSystem_ConsumesMovingRateWhenMovingUp(t *testing.T) {
 func TestFuelSystem_ConsumesMovingRateWhenDrilling(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	// Drilling should use movement rate (active work)
 	inputState := input.InputState{Drill: true}
@@ -74,7 +74,7 @@ func TestFuelSystem_ConsumesMovingRateWhenDrilling(t *testing.T) {
 func TestFuelSystem_ConsumesIdleRateWhenNoInput(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	// No input = idle state
 	inputState := input.InputState{}
@@ -89,7 +89,7 @@ func TestFuelSystem_ConsumesIdleRateWhenNoInput(t *testing.T) {
 func TestFuelSystem_ConsumesIdleRateWhenOnlyInteractingInput(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	// Interact input alone should use idle rate (not active movement)
 	inputState := input.InputState{Interact: true}
@@ -104,7 +104,7 @@ func TestFuelSystem_ConsumesIdleRateWhenOnlyInteractingInput(t *testing.T) {
 func TestFuelSystem_ConsumesMovingRateWhenMovingAndInteracting(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	// Moving + selling = use movement rate (movement takes priority)
 	inputState := input.InputState{Up: true, Interact: true}
@@ -165,7 +165,7 @@ func TestFuelSystem_FullTankDurationMoving(t *testing.T) {
 	// Starting with 10L, moving continuously should last 30 seconds
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	inputState := input.InputState{Up: true}
 	dt := float32(0.1) // Simulate 0.1 second frames
@@ -194,7 +194,7 @@ func TestFuelSystem_FullTankDurationIdle(t *testing.T) {
 	// Starting with 10L, idle should last 120 seconds
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	inputState := input.InputState{} // No input = idle
 	dt := float32(1.0)               // Simulate 1 second frames for speed
@@ -220,7 +220,7 @@ func TestFuelSystem_FullTankDurationIdle(t *testing.T) {
 func TestFuelSystem_MultipleConsumptionsAccumulate(t *testing.T) {
 	fs := NewFuelSystem()
 	player := testFuelPlayer()
-	fuelCapacity := player.FuelTank.Capacity()
+	fuelCapacity := player.FuelCapacity()
 
 	// Consume fuel multiple times
 	inputState1 := input.InputState{Left: true}

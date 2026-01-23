@@ -4,14 +4,15 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/effects"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
+	"github.com/Kishlin/drill-game/internal/domain/upgrades"
 )
 
 type UpgradeShopUI struct {
-	catalog *entities.UpgradeCatalog
+	catalog *upgrades.Catalog
 	state   *UpgradeShopState
 }
 
-func NewUpgradeShopUI(catalog *entities.UpgradeCatalog) *UpgradeShopUI {
+func NewUpgradeShopUI(catalog *upgrades.Catalog) *UpgradeShopUI {
 	return &UpgradeShopUI{
 		catalog: catalog,
 		state:   NewUpgradeShopState(),
@@ -54,59 +55,27 @@ func (u *UpgradeShopUI) Process(player *entities.Player, inputState input.InputS
 }
 
 func (u *UpgradeShopUI) tryPurchase(player *entities.Player) []effects.Effect {
-	selectedTier := u.state.SelectedTier
-	currentTier := entities.GetPlayerCurrentTier(player, u.state.ActiveTab)
-
-	// Cannot purchase already-owned tiers
-	if selectedTier <= currentTier {
+	currentTier := player.GetUpgradeTier(u.state.ActiveTab)
+	if u.state.SelectedTier <= currentTier {
 		return nil
 	}
 
-	// Check price and affordability
-	price := u.catalog.GetUpgradePrice(u.state.ActiveTab, selectedTier)
-	if !player.CanAfford(price) {
+	entry := u.catalog.GetEntry(u.state.ActiveTab, u.state.SelectedTier)
+	if entry == nil || !player.CanAfford(entry.Price) {
 		return nil
 	}
 
-	// Create effects for the purchase
-	effs := []effects.Effect{effects.TakeMoney{Amount: price}}
-
-	// Add the upgrade effect
-	switch u.state.ActiveTab {
-	case entities.UpgradeEngine:
-		if entry := u.catalog.GetEngineCatalogEntry(selectedTier); entry != nil {
-			effs = append(effs, effects.SetEngine{Engine: entry.Engine})
-		}
-	case entities.UpgradeHull:
-		if entry := u.catalog.GetHullCatalogEntry(selectedTier); entry != nil {
-			effs = append(effs, effects.SetHull{Hull: entry.Hull})
-		}
-	case entities.UpgradeFuelTank:
-		if entry := u.catalog.GetFuelTankCatalogEntry(selectedTier); entry != nil {
-			effs = append(effs, effects.SetFuelTank{FuelTank: entry.FuelTank})
-		}
-	case entities.UpgradeCargoHold:
-		if entry := u.catalog.GetCargoHoldCatalogEntry(selectedTier); entry != nil {
-			effs = append(effs, effects.SetCargoHold{CargoHold: entry.CargoHold})
-		}
-	case entities.UpgradeHeatShield:
-		if entry := u.catalog.GetHeatShieldCatalogEntry(selectedTier); entry != nil {
-			effs = append(effs, effects.SetHeatShield{HeatShield: entry.HeatShield})
-		}
-	case entities.UpgradeDrill:
-		if entry := u.catalog.GetDrillCatalogEntry(selectedTier); entry != nil {
-			effs = append(effs, effects.SetDrill{Drill: entry.Drill})
-		}
+	return []effects.Effect{
+		effects.TakeMoney{Amount: entry.Price},
+		effects.SetUpgrade{Upgrade: entry.Upgrade},
 	}
-
-	return effs
 }
 
 func (u *UpgradeShopUI) GetRenderState() interface{} {
 	return u.state
 }
 
-func (u *UpgradeShopUI) GetCatalog() *entities.UpgradeCatalog {
+func (u *UpgradeShopUI) GetCatalog() *upgrades.Catalog {
 	return u.catalog
 }
 

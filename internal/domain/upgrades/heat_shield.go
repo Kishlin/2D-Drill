@@ -1,4 +1,4 @@
-package entities
+package upgrades
 
 import "github.com/Kishlin/drill-game/internal/domain/config"
 
@@ -14,6 +14,10 @@ func (hs HeatShield) Tier() int {
 
 func (hs HeatShield) Name() string {
 	return hs.name
+}
+
+func (hs HeatShield) Type() UpgradeType {
+	return TypeHeatShield
 }
 
 func (hs HeatShield) HeatResistance() float32 {

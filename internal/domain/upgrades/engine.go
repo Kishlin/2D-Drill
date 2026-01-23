@@ -1,4 +1,4 @@
-package entities
+package upgrades
 
 import "github.com/Kishlin/drill-game/internal/domain/config"
 
@@ -17,6 +17,10 @@ func (e Engine) Tier() int {
 
 func (e Engine) Name() string {
 	return e.name
+}
+
+func (e Engine) Type() UpgradeType {
+	return TypeEngine
 }
 
 func (e Engine) MaxSpeed() float32 {

@@ -178,7 +178,7 @@ if tile.Type == entities.TileTypeLava {
 // On completion, apply damage scaling with heat shield
 if dugTile.Type == entities.TileTypeLava {
     baseDamage := 100.0
-    damageReduction := (player.HeatShield.HeatResistance() / 320.0) * 50.0
+    damageReduction := (player.HeatResistance() / 320.0) * 50.0  // Stat facade
     finalDamage := baseDamage - damageReduction
     player.DealDamage(finalDamage)
 }
@@ -192,7 +192,7 @@ Drill upgrades apply a depth-scaled divisor. At surface, only 10% applies; at ma
 depthFactor := depthBelowGround / maxDepth
 
 // effectiveDivisor ranges from ~1 at surface to drillSpeed at max depth
-drillSpeed := player.Drill.DrillSpeed()
+drillSpeed := player.DrillSpeed()  // Stat facade method
 effectiveDivisor := 1 + (drillSpeed-1)*(0.1+0.9*depthFactor)
 duration := baseDuration / effectiveDivisor
 ```
@@ -242,7 +242,7 @@ func (ps *PhysicsSystem) UpdatePhysics(
     // 1. Apply movement and gravity to velocity
     player.Velocity = physics.ApplyHorizontalMovement(
         player.Velocity, inputState, dt,
-        player.Engine.MaxSpeed(), player.Engine.Acceleration(),
+        player.MaxSpeed(), player.Acceleration(),  // Stat facade methods
     )
     player.Velocity = physics.ApplyVerticalMovement(...)
     player.Velocity = physics.ApplyGravity(player.Velocity, dt)
@@ -310,6 +310,81 @@ func (fs *FuelSystem) ConsumeFuel(
 
 ---
 
+## Upgrades System (`upgrades/`)
+
+The upgrades package provides a unified type system for player upgrades with a clean interface and catalog.
+
+### UpgradeType Enum
+
+```go
+type UpgradeType int
+
+const (
+    TypeEngine UpgradeType = iota
+    TypeHull
+    TypeFuelTank
+    TypeCargoHold
+    TypeHeatShield
+    TypeDrill
+    TypeCount
+)
+
+// Array-based String/ShortName (no switch statements)
+var typeNames = [TypeCount]string{"Engine", "Hull", "Fuel Tank", "Cargo Hold", "Heat Shield", "Drill"}
+func (t UpgradeType) String() string { return typeNames[t] }
+```
+
+### Upgrade Interface
+
+```go
+type Upgrade interface {
+    Tier() int
+    Name() string
+    Type() UpgradeType
+}
+```
+
+All upgrade types (Engine, Hull, FuelTank, CargoHold, HeatShield, Drill) implement this interface plus their stat-specific methods.
+
+### Unified Catalog
+
+```go
+type CatalogEntry struct {
+    Price   int
+    Upgrade Upgrade
+}
+
+type Catalog struct {
+    entries [TypeCount][]CatalogEntry
+}
+
+func (c *Catalog) GetEntry(t UpgradeType, tier int) *CatalogEntry
+func (c *Catalog) GetPrice(t UpgradeType, tier int) int
+func (c *Catalog) GetName(t UpgradeType, tier int) string
+func (c *Catalog) TierCount(t UpgradeType) int
+```
+
+### Player Integration
+
+Upgrades are accessed through the Player's stat facade methods:
+
+```go
+// Read stats directly (preferred)
+player.MaxSpeed()       // from Engine
+player.MaxHP()          // from Hull
+player.FuelCapacity()   // from FuelTank
+player.CargoCapacity()  // from CargoHold
+player.HeatResistance() // from HeatShield
+player.DrillSpeed()     // from Drill
+
+// Generic upgrade access (for shop/catalog)
+player.GetUpgrade(upgrades.TypeEngine)
+player.SetUpgrade(newEngine)
+player.GetUpgradeTier(upgrades.TypeEngine)
+```
+
+---
+
 ## Effects System (`effects/`)
 
 All player state mutations go through effects, decoupling UI from state changes.
@@ -344,9 +419,11 @@ func (e SetHP) Apply(player *entities.Player) { player.HP = e.Amount }
 
 **Upgrade Effects:**
 ```go
-type SetEngine struct { Engine entities.Engine }
-func (e SetEngine) Apply(player *entities.Player) { player.Engine = e.Engine }
-// Also: SetHull, SetFuelTank, SetCargoHold, SetHeatShield, SetDrill
+// Single unified effect for all upgrade types
+type SetUpgrade struct { Upgrade upgrades.Upgrade }
+func (e SetUpgrade) Apply(player *entities.Player) {
+    player.SetUpgrade(e.Upgrade)  // Type-safe dispatch via interface
+}
 ```
 
 **Inventory Effects:**
@@ -496,12 +573,12 @@ func (is *ItemSystem) applyTeleport(player *entities.Player) {
 
 // Repair: Restore HP to max
 func (is *ItemSystem) applyRepair(player *entities.Player) {
-    player.HP = player.Hull.MaxHP()
+    player.HP = player.MaxHP()  // Stat facade method
 }
 
 // Refuel: Fill tank to max
 func (is *ItemSystem) applyRefuel(player *entities.Player) {
-    player.Fuel = player.FuelTank.Capacity()
+    player.Fuel = player.FuelCapacity()  // Stat facade method
 }
 
 // Bomb: Destroy tiles in circular radius (ore lost, not collected)

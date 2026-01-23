@@ -15,7 +15,7 @@ func NewFuelStationUI() *FuelStationUI {
 }
 
 func (u *FuelStationUI) Process(player *entities.Player, inputState input.InputState) Result {
-	fuelNeeded := player.FuelTank.Capacity() - player.Fuel
+	fuelNeeded := player.FuelCapacity() - player.Fuel
 	if fuelNeeded <= 0 {
 		return Close()
 	}
@@ -27,7 +27,7 @@ func (u *FuelStationUI) Process(player *entities.Player, inputState input.InputS
 
 	return CloseWithEffects(
 		effects.TakeMoney{Amount: cost},
-		effects.SetFuel{Amount: player.FuelTank.Capacity()},
+		effects.SetFuel{Amount: player.FuelCapacity()},
 	)
 }
 

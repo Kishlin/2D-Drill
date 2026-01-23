@@ -25,7 +25,7 @@ func CalculateTemperature(playerY float32) float32 {
 func ApplyHeatDamage(player *entities.Player, dt float32) {
 	temperature := CalculateTemperature(player.AABB.Y)
 
-	excessHeat := temperature - player.HeatShield.HeatResistance()
+	excessHeat := temperature - player.HeatResistance()
 	if excessHeat <= 0 {
 		return // Player is within safe temperature range
 	}
