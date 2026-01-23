@@ -15,7 +15,7 @@ func TestSetUpgrade_Engine(t *testing.T) {
 	})
 
 	effect := SetUpgrade{Upgrade: newEngine}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.GetUpgradeTier(upgrades.TypeEngine) != 1 {
 		t.Errorf("expected engine tier to be 1, got %d", player.GetUpgradeTier(upgrades.TypeEngine))
@@ -34,7 +34,7 @@ func TestSetUpgrade_Hull(t *testing.T) {
 	newHull := upgrades.NewHullFromConfig(2, "Mk2 Hull", config.HullStats{MaxHP: 200})
 
 	effect := SetUpgrade{Upgrade: newHull}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.GetUpgradeTier(upgrades.TypeHull) != 2 {
 		t.Errorf("expected hull tier to be 2, got %d", player.GetUpgradeTier(upgrades.TypeHull))
@@ -53,7 +53,7 @@ func TestSetUpgrade_FuelTank(t *testing.T) {
 	newTank := upgrades.NewFuelTankFromConfig(3, "Mk3 Tank", config.FuelTankStats{Capacity: 250})
 
 	effect := SetUpgrade{Upgrade: newTank}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.GetUpgradeTier(upgrades.TypeFuelTank) != 3 {
 		t.Errorf("expected fuel tank tier to be 3, got %d", player.GetUpgradeTier(upgrades.TypeFuelTank))
@@ -72,7 +72,7 @@ func TestSetUpgrade_CargoHold(t *testing.T) {
 	newCargo := upgrades.NewCargoHoldFromConfig(4, "Mk4 Cargo", config.CargoHoldStats{Capacity: 50})
 
 	effect := SetUpgrade{Upgrade: newCargo}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.GetUpgradeTier(upgrades.TypeCargoHold) != 4 {
 		t.Errorf("expected cargo hold tier to be 4, got %d", player.GetUpgradeTier(upgrades.TypeCargoHold))
@@ -91,7 +91,7 @@ func TestSetUpgrade_HeatShield(t *testing.T) {
 	newShield := upgrades.NewHeatShieldFromConfig(5, "Mk5 Shield", config.HeatShieldStats{HeatResistance: 500})
 
 	effect := SetUpgrade{Upgrade: newShield}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.GetUpgradeTier(upgrades.TypeHeatShield) != 5 {
 		t.Errorf("expected heat shield tier to be 5, got %d", player.GetUpgradeTier(upgrades.TypeHeatShield))
@@ -110,7 +110,7 @@ func TestSetUpgrade_Drill(t *testing.T) {
 	newDrill := upgrades.NewDrillFromConfig(2, "Mk2 Drill", config.DrillStats{DrillSpeed: 2.5})
 
 	effect := SetUpgrade{Upgrade: newDrill}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.GetUpgradeTier(upgrades.TypeDrill) != 2 {
 		t.Errorf("expected drill tier to be 2, got %d", player.GetUpgradeTier(upgrades.TypeDrill))

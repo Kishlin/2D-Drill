@@ -25,9 +25,10 @@ type Game struct {
 	physicsSystem   *systems.PhysicsSystem
 	drillingSystem  *systems.DrillingSystem
 	fuelSystem      *systems.FuelSystem
-	itemSystem      *systems.ItemSystem
 	uiManager       *ui.Manager
 	effectProcessor *effects.Processor
+	effectContext   *effects.EffectContext
+	damageables     []effects.DamageableEntity
 	boss            bosses.Boss
 	bossFightSystem *systems.BossFightSystem
 	gameState       entities.GameState
@@ -76,12 +77,10 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 	uiManager.Register(components.InteractableUpgradeShop, ui.NewUpgradeShopUI(upgradeCatalog))
 	uiManager.Register(components.InteractableItemShop, ui.NewItemShopUI(itemCatalog))
 
-	// Create item system
-	itemSystem := systems.NewItemSystemWithConfig(w, spawnX, spawnY, gameCfg.Items)
-
 	// Create boss and boss fight system if configured
 	var boss bosses.Boss
 	var bossFightSystem *systems.BossFightSystem
+	var damageables []effects.DamageableEntity
 	if gameCfg.Level.BossRoom != nil {
 		var err error
 		boss, err = createBossByType(
@@ -91,8 +90,18 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		)
 		if err == nil && boss != nil {
 			bossFightSystem = systems.NewBossFightSystem(boss, gameCfg.Level.BossRoom, worldCfg.Height)
-			itemSystem.SetBossFightSystem(bossFightSystem)
+			// Add physical boss to damageables list
+			if physicalBoss, ok := boss.(effects.DamageableEntity); ok {
+				damageables = append(damageables, physicalBoss)
+			}
 		}
+	}
+
+	// Create effect context
+	effectContext := &effects.EffectContext{
+		Player:      player,
+		World:       w,
+		Damageables: damageables,
 	}
 
 	return &Game{
@@ -104,9 +113,10 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		physicsSystem:   systems.NewPhysicsSystem(w),
 		drillingSystem:  systems.NewDrillingSystem(w),
 		fuelSystem:      systems.NewFuelSystem(),
-		itemSystem:      itemSystem,
 		uiManager:       uiManager,
 		effectProcessor: effects.NewProcessor(),
+		effectContext:   effectContext,
+		damageables:     damageables,
 		boss:            boss,
 		bossFightSystem: bossFightSystem,
 		gameState:       entities.GameStatePlaying,
@@ -123,7 +133,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 1. If a UI is active, process it
 	if g.uiManager.HasActiveUI() {
 		result := g.uiManager.Process(g.player, inputState)
-		g.effectProcessor.Apply(g.player, result.Effects)
+		g.effectProcessor.Apply(g.effectContext, result.Effects)
 
 		// If UI closed, resume gameplay
 		if !g.uiManager.HasActiveUI() {
@@ -141,7 +151,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		if g.uiManager.OpenUI(*interactionType) {
 			// Process immediately (handles both instant and modal first frame)
 			result := g.uiManager.Process(g.player, inputState)
-			g.effectProcessor.Apply(g.player, result.Effects)
+			g.effectProcessor.Apply(g.effectContext, result.Effects)
 
 			// If still open after first process, it's modal - pause
 			if g.uiManager.HasActiveUI() {
@@ -167,7 +177,10 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	}
 
 	// 6. Handle item usage
-	g.itemSystem.ProcessItemUsage(g.player, inputState)
+	itemEffects := systems.DetectItemUsage(g.player, inputState, g.config.Items)
+	if len(itemEffects) > 0 {
+		g.effectProcessor.Apply(g.effectContext, itemEffects)
+	}
 
 	// 7. Update boss fight system (if active)
 	if g.bossFightSystem != nil {

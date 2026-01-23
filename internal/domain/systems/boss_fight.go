@@ -47,10 +47,6 @@ func NewBossFightSystem(boss bosses.Boss, bossRoomCfg *config.BossRoomConfig, wo
 // Update handles boss fight logic
 // Returns the current game state (Playing, Victory, or Defeat)
 func (s *BossFightSystem) Update(player *entities.Player, dt float32) entities.GameState {
-	if s == nil || s.boss == nil {
-		return entities.GameStatePlaying
-	}
-
 	playerInRoom := s.IsPlayerInBossRoom(player)
 
 	if playerInRoom && !s.wasPlayerInRoom {
@@ -83,19 +79,11 @@ func (s *BossFightSystem) Update(player *entities.Player, dt float32) entities.G
 }
 
 func (s *BossFightSystem) IsPlayerInBossRoom(player *entities.Player) bool {
-	if s == nil {
-		return false
-	}
-
 	playerCenterY := player.AABB.Y + player.AABB.Height/2
 	return playerCenterY >= s.bossRoomStartY && playerCenterY < s.bossRoomEndY
 }
 
 func (s *BossFightSystem) DamageBoss(damage float32) {
-	if s == nil || s.boss == nil {
-		return
-	}
-
 	physicalBoss, ok := s.boss.(bosses.PhysicalBoss)
 	if ok {
 		physicalBoss.TakeDamage(damage)
@@ -103,9 +91,6 @@ func (s *BossFightSystem) DamageBoss(damage float32) {
 }
 
 func (s *BossFightSystem) GetBoss() bosses.Boss {
-	if s == nil {
-		return nil
-	}
 	return s.boss
 }
 
@@ -152,8 +137,5 @@ func (s *BossFightSystem) handleFloorDamage(player *entities.Player) {
 }
 
 func (s *BossFightSystem) IsBossFightActive() bool {
-	if s == nil || s.boss == nil {
-		return false
-	}
 	return s.boss.IsActive()
 }

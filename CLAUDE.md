@@ -39,7 +39,7 @@ internal/
     ├── levels/            # Level definitions
     ├── types/             # Vec2, AABB
     ├── input/             # InputState
-    └── components/        # Position, Interactable
+    └── components/        # Position, Interactable, Damageable
 ```
 
 ## Documentation Index
@@ -60,11 +60,11 @@ Read these docs on-demand when you need details:
 ## Key Patterns
 
 - **Data-driven config** — All parameters in `config/` structs, loaded via `levels.GetLevelConfig(n)`
-- **Effects system** — All player mutations via `Effect` interface in `effects/`
-- **Component-based entities** — Buildings use `Position` + `Interactable` components
+- **Effects system** — All state mutations via `Effect` interface with `EffectContext` (player, world, damageables)
+- **Component-based entities** — Buildings use `Position` + `Interactable`, bosses use `Damageable` for HP
 - **Upgrade facade** — Player stats via `player.MaxSpeed()`, upgrades via `player.GetUpgrade(type)`
 - **Unified upgrade catalog** — Single `Catalog` type handles all upgrade types
-- **Damage through Player** — All damage calls `player.DealDamage(amount)`
+- **Damage through entity** — Player uses `player.DealDamage()`, bosses control own vulnerability via state machine
 
 ## Special Levels
 

@@ -1,6 +1,7 @@
 package bosses
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
@@ -39,7 +40,10 @@ type PhysicalBoss interface {
 	// GetAABB returns the boss's axis-aligned bounding box for collision detection
 	GetAABB() types.AABB
 
-	// TakeDamage applies damage to the boss
+	// GetDamageable returns the boss's damageable component
+	GetDamageable() *components.Damageable
+
+	// TakeDamage applies damage to the boss (delegates to Damageable)
 	TakeDamage(damage float32)
 
 	// IsVulnerable returns true if the boss can currently take damage

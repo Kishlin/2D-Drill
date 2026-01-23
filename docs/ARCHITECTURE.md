@@ -110,7 +110,7 @@ Pure game logic with zero framework dependencies:
 | `entities/` | Player, Building, Tile, ItemCatalog |
 | `upgrades/` | Upgrade types, Catalog, UpgradeType enum |
 | `systems/` | Physics, Drilling, Fuel, Items, Boss fights |
-| `effects/` | Player state mutations |
+| `effects/` | State mutations via EffectContext |
 | `ui/` | Shop interfaces |
 | `world/` | Chunk-based procedural world |
 | `physics/` | Movement, collision, damage |
@@ -119,7 +119,7 @@ Pure game logic with zero framework dependencies:
 | `config/` | Configuration structs |
 | `levels/` | Level definitions |
 | `bosses/` | Boss implementations |
-| `components/` | Position, Interactable |
+| `components/` | Position, Interactable, Damageable |
 
 ---
 
@@ -150,7 +150,7 @@ drill-game/
 │       ├── config/               # Configuration structs
 │       ├── levels/               # Level definitions
 │       ├── bosses/               # Boss implementations
-│       └── components/           # Position, Interactable
+│       └── components/           # Position, Interactable, Damageable
 │
 └── docs/                         # Documentation
 ```
@@ -270,6 +270,8 @@ type Player struct {
     Money         int            // Currency
     Fuel          float32        // Current fuel
     HP            float32        // Hit points
+    SpawnX        float32        // Spawn position for teleport
+    SpawnY        float32        // Spawn position for teleport
 
     // Upgrades (unexported - access via methods)
     engine     upgrades.Engine

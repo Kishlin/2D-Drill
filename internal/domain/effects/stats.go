@@ -1,19 +1,17 @@
 package effects
 
-import "github.com/Kishlin/drill-game/internal/domain/entities"
-
 type SetFuel struct {
 	Amount float32
 }
 
-func (e SetFuel) Apply(player *entities.Player) {
-	player.Fuel = e.Amount
+func (e SetFuel) Apply(ctx *EffectContext) {
+	ctx.Player.Fuel = e.Amount
 }
 
 type SetHP struct {
 	Amount float32
 }
 
-func (e SetHP) Apply(player *entities.Player) {
-	player.HP = e.Amount
+func (e SetHP) Apply(ctx *EffectContext) {
+	ctx.Player.HP = e.Amount
 }

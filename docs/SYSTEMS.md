@@ -31,10 +31,11 @@ type Game struct {
     buildings       []*entities.Building
     uiManager       *ui.Manager
     effectProcessor *effects.Processor
+    effectContext   *effects.EffectContext
+    damageables     []effects.DamageableEntity
     physicsSystem   *systems.PhysicsSystem
     drillingSystem  *systems.DrillingSystem
     fuelSystem      *systems.FuelSystem
-    itemSystem      *systems.ItemSystem
     bossFightSystem *systems.BossFightSystem
 }
 ```
@@ -49,7 +50,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     // 1. Process active UI (modal pause if open)
     if g.uiManager.HasActiveUI() {
         result := g.uiManager.Process(g.player, inputState)
-        g.effectProcessor.Apply(g.player, result.Effects)
+        g.effectProcessor.Apply(g.effectContext, result.Effects)
         if g.uiManager.HasActiveUI() {
             return nil  // Modal UI open - pause gameplay
         }
@@ -58,7 +59,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
     // 2. Detect building interactions (E key + overlap)
     if interactionType := systems.DetectInteraction(...); interactionType != nil {
         g.uiManager.OpenUI(*interactionType)
-        // ... process and apply effects
+        // ... process and apply effects via effectContext
     }
 
     // 3. Physics - handles movement, collision, fall/heat damage
@@ -73,8 +74,11 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
         return nil  // Skip interactions during drill
     }
 
-    // 6. Item usage (consumable items)
-    g.itemSystem.ProcessItemUsage(g.player, inputState)
+    // 6. Item usage (returns effects, applied via effectContext)
+    itemEffects := systems.DetectItemUsage(g.player, inputState, g.config.Items)
+    if len(itemEffects) > 0 {
+        g.effectProcessor.Apply(g.effectContext, itemEffects)
+    }
 
     // 7. Boss fight system
     if g.bossFightSystem != nil {
@@ -387,13 +391,31 @@ player.GetUpgradeTier(upgrades.TypeEngine)
 
 ## Effects System (`effects/`)
 
-All player state mutations go through effects, decoupling UI from state changes.
+All state mutations go through effects with an `EffectContext`, decoupling UI from state changes and enabling effects that interact with the world and damageable entities.
+
+### EffectContext
+
+```go
+// DamageableEntity is what effects need to damage entities in area
+type DamageableEntity interface {
+    GetAABB() types.AABB
+    GetDamageable() *components.Damageable
+    TakeDamage(amount float32)
+}
+
+// EffectContext provides access to game state for effects
+type EffectContext struct {
+    Player      *entities.Player
+    World       *world.World
+    Damageables []DamageableEntity  // Boss + future enemies
+}
+```
 
 ### Effect Interface
 
 ```go
 type Effect interface {
-    Apply(player *entities.Player)
+    Apply(ctx *EffectContext)
 }
 ```
 
@@ -402,37 +424,64 @@ type Effect interface {
 **Money Effects:**
 ```go
 type TakeMoney struct { Amount int }
-func (e TakeMoney) Apply(player *entities.Player) { player.Money -= e.Amount }
+func (e TakeMoney) Apply(ctx *EffectContext) { ctx.Player.Money -= e.Amount }
 
 type AddMoney struct { Amount int }
-func (e AddMoney) Apply(player *entities.Player) { player.Money += e.Amount }
+func (e AddMoney) Apply(ctx *EffectContext) { ctx.Player.Money += e.Amount }
 ```
 
 **Stat Effects:**
 ```go
 type SetFuel struct { Amount float32 }
-func (e SetFuel) Apply(player *entities.Player) { player.Fuel = e.Amount }
+func (e SetFuel) Apply(ctx *EffectContext) { ctx.Player.Fuel = e.Amount }
 
 type SetHP struct { Amount float32 }
-func (e SetHP) Apply(player *entities.Player) { player.HP = e.Amount }
+func (e SetHP) Apply(ctx *EffectContext) { ctx.Player.HP = e.Amount }
 ```
 
 **Upgrade Effects:**
 ```go
-// Single unified effect for all upgrade types
 type SetUpgrade struct { Upgrade upgrades.Upgrade }
-func (e SetUpgrade) Apply(player *entities.Player) {
-    player.SetUpgrade(e.Upgrade)  // Type-safe dispatch via interface
+func (e SetUpgrade) Apply(ctx *EffectContext) {
+    ctx.Player.SetUpgrade(e.Upgrade)
 }
 ```
 
 **Inventory Effects:**
 ```go
 type ClearOreInventory struct{}
-func (e ClearOreInventory) Apply(player *entities.Player) { player.OreInventory = make(map[string]int) }
+func (e ClearOreInventory) Apply(ctx *EffectContext) { ctx.Player.OreInventory = make(map[string]int) }
 
 type AddItem struct { ItemType entities.ItemType }
-func (e AddItem) Apply(player *entities.Player) { player.ItemInventory[e.ItemType]++ }
+func (e AddItem) Apply(ctx *EffectContext) { ctx.Player.AddItem(e.ItemType) }
+```
+
+**Item Effects** (`effects/items.go`):
+```go
+type Teleport struct{}
+func (e Teleport) Apply(ctx *EffectContext) {
+    ctx.Player.AABB.X = ctx.Player.SpawnX
+    ctx.Player.AABB.Y = ctx.Player.SpawnY
+    ctx.Player.Velocity = types.Zero()
+}
+
+type Repair struct{}
+func (e Repair) Apply(ctx *EffectContext) { ctx.Player.HP = ctx.Player.MaxHP() }
+
+type Refuel struct{}
+func (e Refuel) Apply(ctx *EffectContext) { ctx.Player.Fuel = ctx.Player.FuelCapacity() }
+
+type Bomb struct { Radius int; Damage float32 }
+func (e Bomb) Apply(ctx *EffectContext) {
+    // Damage damageable entities in range
+    for _, entity := range ctx.Damageables {
+        if entity.GetAABB().Intersects(blastAABB) {
+            entity.TakeDamage(e.Damage)
+        }
+    }
+    // Destroy tiles in circular radius
+    ctx.World.NukeTileAtGrid(...)
+}
 ```
 
 ### Processor
@@ -440,9 +489,9 @@ func (e AddItem) Apply(player *entities.Player) { player.ItemInventory[e.ItemTyp
 ```go
 type Processor struct{}
 
-func (p *Processor) Apply(player *entities.Player, effects []Effect) {
+func (p *Processor) Apply(ctx *EffectContext, effects []Effect) {
     for _, effect := range effects {
-        effect.Apply(player)
+        effect.Apply(ctx)
     }
 }
 ```
@@ -530,72 +579,43 @@ func DetectInteraction(
 
 ---
 
-## Item System (`systems/item.go`)
+## Item Usage (`systems/items.go`)
 
-Manages consumable item usage:
+Item usage detection is a pure function that returns effects to be applied via `EffectContext`:
 
 ```go
-type ItemSystem struct {
-    world  *world.World
-    spawnX float32
-    spawnY float32
-}
+func DetectItemUsage(player *entities.Player, inputState input.InputState, itemCfg config.ItemConfig) []effects.Effect {
+    var result []effects.Effect
 
-func (is *ItemSystem) ProcessItemUsage(player *entities.Player, inputState input.InputState) {
     if inputState.UseTeleport && player.UseItem(entities.ItemTeleport) {
-        is.applyTeleport(player)
+        result = append(result, effects.Teleport{})
     }
     if inputState.UseRepair && player.UseItem(entities.ItemRepair) {
-        is.applyRepair(player)
+        result = append(result, effects.Repair{})
     }
     if inputState.UseRefuel && player.UseItem(entities.ItemRefuel) {
-        is.applyRefuel(player)
+        result = append(result, effects.Refuel{})
     }
     if inputState.UseBomb && player.UseItem(entities.ItemBomb) {
-        is.applyBomb(player, 2)  // radius 2 tiles
+        result = append(result, effects.Bomb{Radius: itemCfg.Bomb.Radius, Damage: 10.0})
     }
     if inputState.UseBigBomb && player.UseItem(entities.ItemBigBomb) {
-        is.applyBomb(player, 4)  // radius 4 tiles
+        result = append(result, effects.Bomb{Radius: itemCfg.BigBomb.Radius, Damage: 25.0})
     }
+
+    return result
 }
 ```
 
-### Item Effects
+Item effects are defined in `effects/items.go` (see Effects System above).
 
-```go
-// Teleport: Return to spawn point
-func (is *ItemSystem) applyTeleport(player *entities.Player) {
-    player.AABB.X = is.spawnX
-    player.AABB.Y = is.spawnY
-    player.Velocity = types.Zero()
-    player.OnGround = false
-}
+### Bomb Damage
 
-// Repair: Restore HP to max
-func (is *ItemSystem) applyRepair(player *entities.Player) {
-    player.HP = player.MaxHP()  // Stat facade method
-}
+Bombs damage both tiles and damageable entities (bosses):
+- **Regular Bomb**: Radius 2 tiles, 10 HP damage to entities
+- **Big Bomb**: Radius 4 tiles, 25 HP damage to entities
 
-// Refuel: Fill tank to max
-func (is *ItemSystem) applyRefuel(player *entities.Player) {
-    player.Fuel = player.FuelCapacity()  // Stat facade method
-}
-
-// Bomb: Destroy tiles in circular radius (ore lost, not collected)
-func (is *ItemSystem) applyBomb(player *entities.Player, radius int) {
-    centerX := int((player.AABB.X + player.AABB.Width/2) / world.TileSize)
-    centerY := int((player.AABB.Y + player.AABB.Height/2) / world.TileSize)
-
-    for dy := -radius; dy <= radius; dy++ {
-        for dx := -radius; dx <= radius; dx++ {
-            if dx*dx+dy*dy <= radius*radius {
-                gridX, gridY := centerX+dx, centerY+dy
-                is.world.NukeTileAtGrid(gridX, gridY)  // Bypasses drillability
-            }
-        }
-    }
-}
-```
+Entities control their own vulnerability—the boss's `TakeDamage` method checks `IsVulnerable()` before applying damage.
 
 ### World Methods for Tile Removal
 

@@ -6,6 +6,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/attacks"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/movement"
+	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
@@ -66,9 +67,8 @@ var phases = []bosses.PhaseConfig{
 
 type TestBoss struct {
 	aabb             types.AABB
-	hp               float32
+	damageable       components.Damageable
 	active           bool
-	defeated         bool
 	projectiles      []*bosses.Projectile
 	movement         *movement.Grounded
 	projectileAttack *attacks.ProjectileAttack
@@ -121,9 +121,8 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 			Width:  Width,
 			Height: Height,
 		},
-		hp:               MaxHP,
+		damageable:       components.NewDamageable(MaxHP, MaxHP),
 		active:           false,
-		defeated:         false,
 		projectiles:      make([]*bosses.Projectile, 0),
 		movement:         groundedMovement,
 		projectileAttack: projAttack,
@@ -141,12 +140,12 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 }
 
 func (b *TestBoss) Update(player *entities.Player, dt float32) {
-	if !b.active || b.defeated {
+	if !b.active || b.damageable.IsDefeated() {
 		return
 	}
 
 	// Check for phase transitions
-	if b.phaseManager.Update(b.hp) {
+	if b.phaseManager.Update(b.damageable.HP) {
 		b.onPhaseChange()
 	}
 
@@ -299,15 +298,15 @@ func (b *TestBoss) updateProjectiles(dt float32, player *entities.Player) {
 }
 
 func (b *TestBoss) GetHP() float32 {
-	return b.hp
+	return b.damageable.HP
 }
 
 func (b *TestBoss) GetMaxHP() float32 {
-	return MaxHP
+	return b.damageable.MaxHP
 }
 
 func (b *TestBoss) IsDefeated() bool {
-	return b.defeated
+	return b.damageable.IsDefeated()
 }
 
 func (b *TestBoss) IsActive() bool {
@@ -340,11 +339,7 @@ func (b *TestBoss) TakeDamage(damage float32) {
 		return
 	}
 
-	b.hp -= damage
-	if b.hp <= 0 {
-		b.hp = 0
-		b.defeated = true
-	}
+	b.damageable.TakeDamage(damage)
 
 	// Close vulnerability window after taking damage
 	if b.state == StateVulnerable {
@@ -354,12 +349,11 @@ func (b *TestBoss) TakeDamage(damage float32) {
 
 func (b *TestBoss) IsVulnerable() bool {
 	phaseCfg := b.phaseManager.GetCurrentConfig()
+	return phaseCfg.AlwaysVulnerable || b.state == StateVulnerable
+}
 
-	if phaseCfg.AlwaysVulnerable {
-		return true
-	}
-
-	return b.state == StateVulnerable
+func (b *TestBoss) GetDamageable() *components.Damageable {
+	return &b.damageable
 }
 
 func (b *TestBoss) GetVulnerableTimer() float32 {

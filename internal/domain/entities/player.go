@@ -24,6 +24,8 @@ type Player struct {
 	Money         int            // Player's currency from selling ores
 	Fuel          float32        // Current fuel in liters
 	HP            float32        // Current hit points
+	SpawnX        float32        // Spawn position X for teleport
+	SpawnY        float32        // Spawn position Y for teleport
 	engine        upgrades.Engine
 	hull          upgrades.Hull
 	fuelTank      upgrades.FuelTank
@@ -57,6 +59,8 @@ func NewPlayerFromConfig(startX, startY float32, playerCfg config.PlayerConfig, 
 		ItemInventory: playerCfg.StartingItems,
 		Fuel:          fuelTank.Capacity(),
 		HP:            hull.MaxHP(),
+		SpawnX:        startX,
+		SpawnY:        startY,
 		engine:        engine,
 		hull:          hull,
 		fuelTank:      fuelTank,

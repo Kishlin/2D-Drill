@@ -17,12 +17,20 @@ func testPlayer() *entities.Player {
 	}
 }
 
+func testContext(player *entities.Player) *EffectContext {
+	return &EffectContext{
+		Player:      player,
+		World:       nil,
+		Damageables: nil,
+	}
+}
+
 func TestTakeMoney_Apply(t *testing.T) {
 	player := testPlayer()
 	player.Money = 100
 
 	effect := TakeMoney{Amount: 30}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.Money != 70 {
 		t.Errorf("expected money to be 70, got %d", player.Money)
@@ -34,7 +42,7 @@ func TestTakeMoney_Apply_TakesAllMoney(t *testing.T) {
 	player.Money = 50
 
 	effect := TakeMoney{Amount: 50}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.Money != 0 {
 		t.Errorf("expected money to be 0, got %d", player.Money)
@@ -46,7 +54,7 @@ func TestTakeMoney_Apply_CanGoNegative(t *testing.T) {
 	player.Money = 20
 
 	effect := TakeMoney{Amount: 50}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.Money != -30 {
 		t.Errorf("expected money to be -30, got %d", player.Money)
@@ -58,7 +66,7 @@ func TestAddMoney_Apply(t *testing.T) {
 	player.Money = 100
 
 	effect := AddMoney{Amount: 50}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.Money != 150 {
 		t.Errorf("expected money to be 150, got %d", player.Money)
@@ -70,7 +78,7 @@ func TestAddMoney_Apply_FromZero(t *testing.T) {
 	player.Money = 0
 
 	effect := AddMoney{Amount: 25}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.Money != 25 {
 		t.Errorf("expected money to be 25, got %d", player.Money)
@@ -82,7 +90,7 @@ func TestAddMoney_Apply_LargeAmount(t *testing.T) {
 	player.Money = 100
 
 	effect := AddMoney{Amount: 10000}
-	effect.Apply(player)
+	effect.Apply(testContext(player))
 
 	if player.Money != 10100 {
 		t.Errorf("expected money to be 10100, got %d", player.Money)

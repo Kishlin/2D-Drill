@@ -11,7 +11,7 @@ func TestProcessor_Apply_EmptyEffects(t *testing.T) {
 	player := testPlayer()
 	player.Money = 100
 
-	processor.Apply(player, []Effect{})
+	processor.Apply(testContext(player), []Effect{})
 
 	if player.Money != 100 {
 		t.Errorf("expected money to remain 100, got %d", player.Money)
@@ -23,7 +23,7 @@ func TestProcessor_Apply_NilEffects(t *testing.T) {
 	player := testPlayer()
 	player.Money = 100
 
-	processor.Apply(player, nil)
+	processor.Apply(testContext(player), nil)
 
 	if player.Money != 100 {
 		t.Errorf("expected money to remain 100, got %d", player.Money)
@@ -39,7 +39,7 @@ func TestProcessor_Apply_SingleEffect(t *testing.T) {
 		AddMoney{Amount: 50},
 	}
 
-	processor.Apply(player, effects)
+	processor.Apply(testContext(player), effects)
 
 	if player.Money != 150 {
 		t.Errorf("expected money to be 150, got %d", player.Money)
@@ -59,7 +59,7 @@ func TestProcessor_Apply_MultipleEffects(t *testing.T) {
 		SetHP{Amount: 100.0},
 	}
 
-	processor.Apply(player, effects)
+	processor.Apply(testContext(player), effects)
 
 	if player.Money != 75 {
 		t.Errorf("expected money to be 75, got %d", player.Money)
@@ -83,7 +83,7 @@ func TestProcessor_Apply_EffectsAppliedInOrder(t *testing.T) {
 		TakeMoney{Amount: 30},
 	}
 
-	processor.Apply(player, effects)
+	processor.Apply(testContext(player), effects)
 
 	if player.Money != 120 {
 		t.Errorf("expected money to be 120 (100 + 50 - 30), got %d", player.Money)
@@ -102,7 +102,7 @@ func TestProcessor_Apply_PurchaseScenario(t *testing.T) {
 		AddItem{ItemType: entities.ItemTeleport},
 	}
 
-	processor.Apply(player, effects)
+	processor.Apply(testContext(player), effects)
 
 	if player.Money != 400 {
 		t.Errorf("expected money to be 400, got %d", player.Money)
@@ -127,7 +127,7 @@ func TestProcessor_Apply_MarketSellScenario(t *testing.T) {
 		ClearOreInventory{},
 	}
 
-	processor.Apply(player, effects)
+	processor.Apply(testContext(player), effects)
 
 	if player.Money != 350 {
 		t.Errorf("expected money to be 350, got %d", player.Money)
@@ -149,7 +149,7 @@ func TestProcessor_Apply_HospitalHealScenario(t *testing.T) {
 		SetHP{Amount: 100.0},
 	}
 
-	processor.Apply(player, effects)
+	processor.Apply(testContext(player), effects)
 
 	if player.Money != 100 {
 		t.Errorf("expected money to be 100, got %d", player.Money)
@@ -171,7 +171,7 @@ func TestProcessor_Apply_FuelStationRefuelScenario(t *testing.T) {
 		SetFuel{Amount: 100.0},
 	}
 
-	processor.Apply(player, effects)
+	processor.Apply(testContext(player), effects)
 
 	if player.Money != 75 {
 		t.Errorf("expected money to be 75, got %d", player.Money)

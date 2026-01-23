@@ -63,12 +63,32 @@ Bosses that can be damaged by bombs implement `PhysicalBoss`:
 type PhysicalBoss interface {
     Boss
     GetAABB() types.AABB
-    TakeDamage(damage float32)
-    IsVulnerable() bool           // When can boss take damage?
-    GetVulnerableTimer() float32  // For UI feedback
-    GetContactDamage() float32    // Damage per second on player contact
+    GetDamageable() *components.Damageable  // HP component
+    TakeDamage(damage float32)              // Respects vulnerability
+    IsVulnerable() bool                     // When can boss take damage?
+    GetVulnerableTimer() float32            // For UI feedback
+    GetContactDamage() float32              // Damage per second on player contact
 }
 ```
+
+**Key Design:** `TakeDamage()` checks vulnerability internally—callers don't need to check `IsVulnerable()` first.
+
+### Damageable Component
+
+Bosses use the `components.Damageable` struct for HP storage:
+
+```go
+// components/damageable.go
+type Damageable struct {
+    HP    float32
+    MaxHP float32
+}
+
+func (d *Damageable) TakeDamage(amount float32)  // Just decrements HP
+func (d *Damageable) IsDefeated() bool           // HP <= 0
+```
+
+**Important:** The Damageable component is pure HP data. It does NOT handle vulnerability logic—that's boss-specific and controlled by the boss's state machine.
 
 ### Shared Types
 
@@ -88,6 +108,8 @@ type AOEInfo struct {
 ## State Machine
 
 Bosses use state machines for animation and behavior. States drive visual feedback and vulnerability windows.
+
+**Single Source of Truth:** The boss's state machine is the single source of truth for vulnerability. The Damageable component only stores HP—vulnerability logic lives in the boss.
 
 ### TestBoss State Flow
 
@@ -123,6 +145,8 @@ const (
 )
 
 type TestBoss struct {
+    aabb       types.AABB
+    damageable components.Damageable  // HP component
     state      BossState
     stateTimer float32
     // ...
@@ -138,6 +162,25 @@ func (b *TestBoss) Update(player *entities.Player, dt float32) {
         b.updateSlam(player, dt)
     case StateVulnerable:
         b.updateVulnerable(dt)
+    }
+}
+
+// Vulnerability is controlled by state machine + phase config
+func (b *TestBoss) IsVulnerable() bool {
+    phaseCfg := b.phaseManager.GetCurrentConfig()
+    return phaseCfg.AlwaysVulnerable || b.state == StateVulnerable
+}
+
+// TakeDamage checks vulnerability, then applies damage
+func (b *TestBoss) TakeDamage(damage float32) {
+    if !b.IsVulnerable() {
+        return
+    }
+    b.damageable.TakeDamage(damage)
+
+    // Taking damage ends vulnerability window
+    if b.state == StateVulnerable {
+        b.endVulnerability()
     }
 }
 ```
@@ -379,15 +422,36 @@ func (bfs *BossFightSystem) handleContactDamage(player *entities.Player, dt floa
 
 ### Bomb-Boss Interaction
 
+Bombs damage entities through the `DamageableEntity` interface (defined in `effects/`):
+
 ```go
-func (is *ItemSystem) checkBombBossHit(blastAABB types.AABB, damage float32) {
-    if physicalBoss, ok := is.boss.(bosses.PhysicalBoss); ok {
-        if physicalBoss.IsVulnerable() && blastAABB.Intersects(physicalBoss.GetAABB()) {
-            physicalBoss.TakeDamage(damage)
-        }
-    }
+// effects/effect.go
+type DamageableEntity interface {
+    GetAABB() types.AABB
+    GetDamageable() *components.Damageable
+    TakeDamage(amount float32)  // Entity controls vulnerability check
 }
 ```
+
+Bomb effect iterates damageables from EffectContext:
+
+```go
+// effects/items.go
+func (e Bomb) Apply(ctx *EffectContext) {
+    // Calculate blast AABB...
+
+    // Damage all damageable entities in range
+    for _, entity := range ctx.Damageables {
+        if entity.GetAABB().Intersects(blastAABB) {
+            entity.TakeDamage(e.Damage)  // Boss checks vulnerability internally
+        }
+    }
+
+    // Destroy tiles...
+}
+```
+
+**Key Design:** The bomb calls `entity.TakeDamage()`, not `entity.GetDamageable().TakeDamage()`. This lets the boss control its own vulnerability check and side effects (like ending the vulnerability window).
 
 **Damage Values:**
 - Regular bomb: 10 HP
@@ -523,7 +587,8 @@ func (r *RaylibRenderer) renderGameStateOverlay(state entities.GameState) {
 package my_boss
 
 type MyBoss struct {
-    hp, maxHP  float32
+    aabb       types.AABB
+    damageable components.Damageable  // HP component
     active     bool
     state      MyBossState
     movement   *movement.Grounded
@@ -533,18 +598,37 @@ type MyBoss struct {
 
 func New(roomStartY, worldWidth float32) *MyBoss {
     return &MyBoss{
-        hp:       200,
-        maxHP:    200,
-        movement: movement.NewGrounded(startPos, minX, maxX),
-        attacks:  []attacks.Attack{attacks.NewProjectileAttack(...)},
-        phases:   bosses.NewPhaseManager(myPhaseConfigs),
+        aabb:       types.AABB{X: centerX, Y: floorY, Width: 100, Height: 100},
+        damageable: components.NewDamageable(200, 200),
+        movement:   movement.NewGrounded(startPos, minX, maxX),
+        attacks:    []attacks.Attack{attacks.NewProjectileAttack(...)},
+        phases:     bosses.NewPhaseManager(myPhaseConfigs),
     }
 }
 
-// Implement Boss interface
-func (b *MyBoss) Update(player *entities.Player, dt float32) { ... }
-func (b *MyBoss) GetHP() float32 { return b.hp }
-// ... etc
+// Boss interface - delegate to Damageable
+func (b *MyBoss) GetHP() float32    { return b.damageable.HP }
+func (b *MyBoss) GetMaxHP() float32 { return b.damageable.MaxHP }
+func (b *MyBoss) IsDefeated() bool  { return b.damageable.IsDefeated() }
+
+// PhysicalBoss interface
+func (b *MyBoss) GetAABB() types.AABB                   { return b.aabb }
+func (b *MyBoss) GetDamageable() *components.Damageable { return &b.damageable }
+
+// TakeDamage - boss controls its own vulnerability
+func (b *MyBoss) TakeDamage(damage float32) {
+    if !b.IsVulnerable() {
+        return
+    }
+    b.damageable.TakeDamage(damage)
+    // Add boss-specific side effects here
+}
+
+// IsVulnerable - defined by state machine or phase config
+func (b *MyBoss) IsVulnerable() bool {
+    // Example: vulnerable during StateStunned or if AlwaysVulnerable phase
+    return b.phases.GetCurrentConfig().AlwaysVulnerable || b.state == StateStunned
+}
 ```
 
 ### 2. Create Boss Renderer
