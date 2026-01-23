@@ -33,13 +33,8 @@ var (
 	CargoHoldShopColor  = rl.NewColor(148, 0, 211, 255)   // Dark Violet
 	HeatShieldShopColor = rl.NewColor(255, 69, 0, 255)    // Orange Red
 	DrillShopColor      = rl.NewColor(184, 134, 11, 255)  // Dark Goldenrod
-	TeleportShopColor   = rl.NewColor(138, 43, 226, 255)  // Blue Violet
-	RepairShopColor     = rl.NewColor(34, 139, 34, 255)   // Forest Green
-	RefuelShopColor     = rl.NewColor(255, 165, 0, 255)   // Orange
-	BombShopColor       = rl.NewColor(255, 20, 147, 255)  // Deep Pink
-	BigBombShopColor    = rl.NewColor(220, 20, 60, 255)   // Crimson
-	FloorConcreteColor  = rl.NewColor(100, 100, 100, 255) // Dark Gray
-	FloorLavaColor      = rl.NewColor(255, 100, 0, 255)   // Orange
+	TeleportShopColor  = rl.NewColor(138, 43, 226, 255)  // Blue Violet
+	FloorConcreteColor = rl.NewColor(100, 100, 100, 255) // Dark Gray
 )
 
 type RaylibRenderer struct {
