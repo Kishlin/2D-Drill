@@ -7,34 +7,230 @@ import (
 // GetTestLevelConfig returns a test configuration with an advanced player
 // for easier testing. Use levelNum -1 to load this config.
 func GetTestLevelConfig() *config.GameConfig {
-	// Start with Level 1 as base
-	cfg := GetLevel1Config()
-
-	// Override player config for testing
-	cfg.Player = config.PlayerConfig{
-		StartingMoney: 100000,
-		StartingItems: [5]int{
-			3,    // Teleport
-			5,    // Repair
-			5,    // Refuel
-			10,   // Bomb
-			2000, // Big Bomb
+	return &config.GameConfig{
+		World: config.WorldConfig{
+			Width:       3072,
+			Height:      64 * 800,
+			GroundLevel: 640.0,
+			Seed:        42,
+			PlayerSpawn: config.PlayerSpawn{
+				X: 1536.0,
+				Y: 570.0,
+			},
+			BuildingLayout: config.BuildingLayout{
+				HospitalX:    480.0,
+				FuelStationX: 850.0,
+				MarketX:      1400.0,
+				UpgradeShopX: 1850.0,
+				ItemShopX:    2220.0,
+			},
 		},
-		StartingUpgrades: config.StartingUpgrades{
-			Engine:     5, // Max tier
-			Hull:       3, // Mid-tier
-			FuelTank:   3, // Mid-tier
-			CargoHold:  3, // Mid-tier
-			HeatShield: 3, // Mid-tier
-			Drill:      5, // Max tier
+
+		Player: config.PlayerConfig{
+			StartingMoney: 100000,
+			StartingItems: [5]int{
+				3,    // Teleport
+				5,    // Repair
+				5,    // Refuel
+				10,   // Bomb
+				2000, // Big Bomb
+			},
+			StartingUpgrades: config.StartingUpgrades{
+				Engine:     5,
+				Hull:       3,
+				FuelTank:   3,
+				CargoHold:  3,
+				HeatShield: 3,
+				Drill:      5,
+			},
+		},
+
+		Generation: config.GenerationConfig{
+			Empty: config.TileDistribution{
+				PeakDepth: 0,
+				Sigma:     1000,
+				MaxWeight: 20.0,
+			},
+			Dirt: config.TileDistribution{
+				PeakDepth: 0,
+				Sigma:     500,
+				MaxWeight: 100.0,
+			},
+			DirtHardness: 1.0,
+			Ores: []config.OreConfig{
+				{
+					ID:   "copper",
+					Name: "Copper",
+					Distribution: config.TileDistribution{
+						PeakDepth: -75,
+						Sigma:     120,
+						MaxWeight: 8.0,
+					},
+					Value:    25,
+					Hardness: 1.2,
+					Color:    [4]uint8{184, 115, 51, 255},
+				},
+				{
+					ID:   "iron",
+					Name: "Iron",
+					Distribution: config.TileDistribution{
+						PeakDepth: 70,
+						Sigma:     90,
+						MaxWeight: 5.0,
+					},
+					Value:    75,
+					Hardness: 1.5,
+					Color:    [4]uint8{112, 128, 144, 255},
+				},
+				{
+					ID:   "gold",
+					Name: "Gold",
+					Distribution: config.TileDistribution{
+						PeakDepth: 230,
+						Sigma:     80,
+						MaxWeight: 3.0,
+					},
+					Value:    300,
+					Hardness: 1.8,
+					Color:    [4]uint8{255, 215, 0, 255},
+				},
+				{
+					ID:   "mythril",
+					Name: "Mythril",
+					Distribution: config.TileDistribution{
+						PeakDepth: 360,
+						Sigma:     70,
+						MaxWeight: 2.2,
+					},
+					Value:    1500,
+					Hardness: 2.1,
+					Color:    [4]uint8{0, 191, 255, 255},
+				},
+				{
+					ID:   "platinum",
+					Name: "Platinum",
+					Distribution: config.TileDistribution{
+						PeakDepth: 500,
+						Sigma:     80,
+						MaxWeight: 1.8,
+					},
+					Value:    10000,
+					Hardness: 2.5,
+					Color:    [4]uint8{229, 228, 226, 255},
+				},
+				{
+					ID:   "diamond",
+					Name: "Diamond",
+					Distribution: config.TileDistribution{
+						PeakDepth: 600,
+						Sigma:     180,
+						MaxWeight: 0.15,
+					},
+					Value:    30000,
+					Hardness: 3.0,
+					Color:    [4]uint8{185, 242, 255, 255},
+				},
+			},
+			Hazards: []config.HazardConfig{
+				{
+					ID:   "rock",
+					Name: "Rock",
+					Distribution: config.TileDistribution{
+						PeakDepth: 650.0,
+						Sigma:     200.0,
+						MaxWeight: 15.0,
+					},
+					Drillable:     false,
+					FixedDuration: 0,
+					OnDrillDamage: 0,
+					OnHitDamage:   0,
+					Color:         [4]uint8{80, 80, 80, 255},
+				},
+				{
+					ID:   "lava",
+					Name: "Lava",
+					Distribution: config.TileDistribution{
+						PeakDepth: 750.0,
+						Sigma:     150.0,
+						MaxWeight: 12.0,
+					},
+					Drillable:     true,
+					FixedDuration: 0.3,
+					OnDrillDamage: 100.0,
+					OnHitDamage:   0,
+					Color:         [4]uint8{255, 100, 0, 255},
+				},
+			},
+		},
+
+		Upgrades: config.UpgradeConfig{
+			Engines: []config.UpgradeTier[config.EngineStats]{
+				{Price: 0, Stats: config.EngineStats{MaxSpeed: 450.0, Acceleration: 2500.0, FlyAcceleration: 2500.0, MaxUpwardSpeed: -600.0}},
+				{Price: 500, Stats: config.EngineStats{MaxSpeed: 475.0, Acceleration: 2667.0, FlyAcceleration: 2667.0, MaxUpwardSpeed: -635.0}},
+				{Price: 2000, Stats: config.EngineStats{MaxSpeed: 500.0, Acceleration: 2833.0, FlyAcceleration: 2833.0, MaxUpwardSpeed: -670.0}},
+				{Price: 8000, Stats: config.EngineStats{MaxSpeed: 525.0, Acceleration: 3000.0, FlyAcceleration: 3000.0, MaxUpwardSpeed: -705.0}},
+				{Price: 32000, Stats: config.EngineStats{MaxSpeed: 562.0, Acceleration: 3250.0, FlyAcceleration: 3250.0, MaxUpwardSpeed: -740.0}},
+				{Price: 128000, Stats: config.EngineStats{MaxSpeed: 600.0, Acceleration: 3500.0, FlyAcceleration: 3500.0, MaxUpwardSpeed: -775.0}},
+			},
+			Hulls: []config.UpgradeTier[config.HullStats]{
+				{Price: 0, Stats: config.HullStats{MaxHP: 10.0}},
+				{Price: 750, Stats: config.HullStats{MaxHP: 15.0}},
+				{Price: 3000, Stats: config.HullStats{MaxHP: 20.0}},
+				{Price: 12000, Stats: config.HullStats{MaxHP: 30.0}},
+				{Price: 48000, Stats: config.HullStats{MaxHP: 45.0}},
+				{Price: 192000, Stats: config.HullStats{MaxHP: 75.0}},
+			},
+			FuelTanks: []config.UpgradeTier[config.FuelTankStats]{
+				{Price: 0, Stats: config.FuelTankStats{Capacity: 10.0}},
+				{Price: 400, Stats: config.FuelTankStats{Capacity: 15.0}},
+				{Price: 1600, Stats: config.FuelTankStats{Capacity: 22.0}},
+				{Price: 6400, Stats: config.FuelTankStats{Capacity: 32.0}},
+				{Price: 25600, Stats: config.FuelTankStats{Capacity: 45.0}},
+				{Price: 102400, Stats: config.FuelTankStats{Capacity: 65.0}},
+			},
+			CargoHolds: []config.UpgradeTier[config.CargoHoldStats]{
+				{Price: 0, Stats: config.CargoHoldStats{Capacity: 10}},
+				{Price: 600, Stats: config.CargoHoldStats{Capacity: 14}},
+				{Price: 2400, Stats: config.CargoHoldStats{Capacity: 18}},
+				{Price: 9600, Stats: config.CargoHoldStats{Capacity: 24}},
+				{Price: 38400, Stats: config.CargoHoldStats{Capacity: 31}},
+				{Price: 153600, Stats: config.CargoHoldStats{Capacity: 40}},
+			},
+			HeatShields: []config.UpgradeTier[config.HeatShieldStats]{
+				{Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50.0}},
+				{Price: 800, Stats: config.HeatShieldStats{HeatResistance: 90.0}},
+				{Price: 3200, Stats: config.HeatShieldStats{HeatResistance: 140.0}},
+				{Price: 12800, Stats: config.HeatShieldStats{HeatResistance: 190.0}},
+				{Price: 51200, Stats: config.HeatShieldStats{HeatResistance: 250.0}},
+				{Price: 204800, Stats: config.HeatShieldStats{HeatResistance: 320.0}},
+			},
+			Drills: []config.UpgradeTier[config.DrillStats]{
+				{Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}},
+				{Price: 1000, Stats: config.DrillStats{DrillSpeed: 2.0}},
+				{Price: 4000, Stats: config.DrillStats{DrillSpeed: 3.0}},
+				{Price: 16000, Stats: config.DrillStats{DrillSpeed: 4.0}},
+				{Price: 64000, Stats: config.DrillStats{DrillSpeed: 5.0}},
+				{Price: 256000, Stats: config.DrillStats{DrillSpeed: 6.0}},
+			},
+		},
+
+		Items: config.ItemConfig{
+			Teleport: config.ItemEntry{Price: 1000, Radius: 0},
+			Repair:   config.ItemEntry{Price: 2500, Radius: 0},
+			Refuel:   config.ItemEntry{Price: 500, Radius: 0},
+			Bomb:     config.ItemEntry{Price: 3000, Radius: 2},
+			BigBomb:  config.ItemEntry{Price: 10000, Radius: 4},
+		},
+
+		Level: config.LevelConfig{
+			Number: -1,
+			Name:   "Test Level",
+			BossRoom: &config.BossRoomConfig{
+				BossType:    "test_boss",
+				FloorType:   config.FloorConcrete,
+				RoomHeight:  680.0,
+				FloorHeight: 6.0,
+			},
 		},
 	}
-
-	// Update level metadata
-	cfg.Level = config.LevelConfig{
-		Number: -1,
-		Name:   "Test Level",
-	}
-
-	return cfg
 }
