@@ -500,7 +500,7 @@ func (p *Processor) Apply(ctx *EffectContext, effects []Effect) {
 
 ## UI System (`ui/`)
 
-Unified UI layer handling modal (shops) and instant (market/hospital/fuel) interactions.
+Unified UI layer handling modal (shops, market) and instant (hospital/fuel) interactions.
 
 ### Core Types
 
@@ -537,14 +537,21 @@ func (m *Manager) HasActiveUI() bool
 func (m *Manager) GetActiveUI() UI
 ```
 
-### Modal UIs (UpgradeShopUI, ItemShopUI)
+### Modal UIs (UpgradeShopUI, ItemShopUI, MarketUI)
 
 - Return `NoChange()` to stay open
-- Return `WithEffects(...)` on purchase (stay open)
+- Return `WithEffects(...)` on purchase (stay open, for shops)
+- Return `CloseWithEffects(...)` on action completion (for MarketUI sell)
 - Return `Close()` on Q/Escape
 - Have render state for display
 
-### Instant UIs (MarketUI, HospitalUI, FuelStationUI)
+**MarketUI Specifics:**
+- Opens modal showing ore inventory with prices
+- Press E to sell all ore and close
+- Press Q/Escape to close without selling
+- Uses `firstFrame` flag to skip the E keypress that opened the modal
+
+### Instant UIs (HospitalUI, FuelStationUI)
 
 - Return `CloseWithEffects(...)` immediately
 - Close on first process (no modal)

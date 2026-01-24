@@ -384,6 +384,11 @@ func (r *RaylibRenderer) renderUI(uiType components.InteractableType, state inte
 			itemUI := game.GetUIManager().GetActiveUI().(*ui.ItemShopUI)
 			r.renderItemShopModal(s, itemUI.GetCatalog(), game.GetPlayer())
 		}
+	case components.InteractableMarket:
+		if _, ok := state.(*ui.MarketState); ok {
+			marketUI := game.GetUIManager().GetActiveUI().(*ui.MarketUI)
+			r.renderMarketModal(marketUI.GetOreConfigs(), game.GetPlayer())
+		}
 	}
 }
 
@@ -788,6 +793,115 @@ func (r *RaylibRenderer) renderItemShopModal(uiState *ui.ItemShopState, catalog 
 	// Controls hint at bottom
 	controlsY := modalY + modalHeight - 40
 	controlsText := "[Arrows] Navigate   [E] Buy   [Q] Close"
+	controlsWidth := rl.MeasureText(controlsText, 16)
+	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
+}
+
+// renderMarketModal draws the market modal UI
+func (r *RaylibRenderer) renderMarketModal(oreConfigs []config.OreConfig, player *entities.Player) {
+	// Modal dimensions
+	modalWidth := float32(500)
+	modalHeight := float32(400)
+	modalX := (r.screenWidth - modalWidth) / 2
+	modalY := (r.screenHeight - modalHeight) / 2
+
+	// Draw semi-transparent overlay
+	rl.DrawRectangle(0, 0, int32(r.screenWidth), int32(r.screenHeight), rl.NewColor(0, 0, 0, 150))
+
+	// Draw modal background
+	rl.DrawRectangle(int32(modalX), int32(modalY), int32(modalWidth), int32(modalHeight), rl.NewColor(40, 40, 50, 255))
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: modalX, Y: modalY, Width: modalWidth, Height: modalHeight},
+		3.0,
+		rl.NewColor(100, 100, 120, 255),
+	)
+
+	// Title
+	titleText := "MARKET"
+	titleFontSize := int32(30)
+	titleWidth := rl.MeasureText(titleText, titleFontSize)
+	rl.DrawText(titleText, int32(modalX)+(int32(modalWidth)-titleWidth)/2, int32(modalY)+10, titleFontSize, rl.White)
+
+	// Content area
+	contentY := modalY + 60
+	contentX := modalX + 30
+	lineHeight := float32(28)
+
+	// Check if player has any ore
+	hasOre := false
+	for _, count := range player.OreInventory {
+		if count > 0 {
+			hasOre = true
+			break
+		}
+	}
+
+	if hasOre == false {
+		// No ore message
+		noOreText := "No ore to sell"
+		noOreWidth := rl.MeasureText(noOreText, 24)
+		rl.DrawText(noOreText, int32(modalX)+(int32(modalWidth)-noOreWidth)/2, int32(contentY)+80, 24, rl.LightGray)
+	} else {
+		// Header row
+		headerY := contentY
+		rl.DrawText("Ore", int32(contentX), int32(headerY), 18, rl.LightGray)
+		rl.DrawText("Count", int32(contentX)+150, int32(headerY), 18, rl.LightGray)
+		rl.DrawText("Unit $", int32(contentX)+230, int32(headerY), 18, rl.LightGray)
+		rl.DrawText("Total", int32(contentX)+330, int32(headerY), 18, rl.LightGray)
+
+		// Separator line
+		rl.DrawLine(int32(contentX), int32(headerY)+25, int32(contentX)+int32(modalWidth)-60, int32(headerY)+25, rl.NewColor(80, 80, 90, 255))
+
+		// Ore rows
+		rowY := headerY + 35
+		grandTotal := 0
+
+		for _, oreCfg := range oreConfigs {
+			count := player.OreInventory[oreCfg.ID]
+			if count == 0 {
+				continue
+			}
+
+			lineTotal := oreCfg.Value * count
+			grandTotal += lineTotal
+
+			// Ore color square
+			oreColor := rl.NewColor(oreCfg.Color[0], oreCfg.Color[1], oreCfg.Color[2], oreCfg.Color[3])
+			rl.DrawRectangle(int32(contentX), int32(rowY)+2, 16, 16, oreColor)
+			rl.DrawRectangleLines(int32(contentX), int32(rowY)+2, 16, 16, rl.White)
+
+			// Ore name
+			rl.DrawText(oreCfg.Name, int32(contentX)+24, int32(rowY), 18, rl.White)
+
+			// Count
+			rl.DrawText(fmt.Sprintf("%d", count), int32(contentX)+150, int32(rowY), 18, rl.White)
+
+			// Unit price
+			rl.DrawText(fmt.Sprintf("$%d", oreCfg.Value), int32(contentX)+230, int32(rowY), 18, rl.Yellow)
+
+			// Line total
+			rl.DrawText(fmt.Sprintf("$%d", lineTotal), int32(contentX)+330, int32(rowY), 18, rl.Green)
+
+			rowY += lineHeight
+		}
+
+		// Grand total section
+		totalY := modalY + modalHeight - 100
+
+		// Separator line before total
+		rl.DrawLine(int32(contentX), int32(totalY)-10, int32(contentX)+int32(modalWidth)-60, int32(totalY)-10, rl.NewColor(80, 80, 90, 255))
+
+		// Grand total
+		totalLabel := "TOTAL:"
+		totalValue := fmt.Sprintf("$%d", grandTotal)
+		rl.DrawText(totalLabel, int32(contentX), int32(totalY), 24, rl.White)
+		totalValueWidth := rl.MeasureText(totalValue, 24)
+		rl.DrawText(totalValue, int32(contentX)+int32(modalWidth)-60-totalValueWidth, int32(totalY), 24, rl.Green)
+	}
+
+	// Controls hint at bottom
+	controlsY := modalY + modalHeight - 40
+	controlsText := "[E] Sell All   [Q] Close"
 	controlsWidth := rl.MeasureText(controlsText, 16)
 	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
 }

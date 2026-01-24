@@ -203,37 +203,6 @@ func (p *Player) AddOreByID(oreID string) bool {
 	return true
 }
 
-func (p *Player) SellInventory(oreConfigs []config.OreConfig) {
-	totalValue := 0
-	for oreID, count := range p.OreInventory {
-		if count > 0 {
-			for _, oreCfg := range oreConfigs {
-				if oreCfg.ID == oreID {
-					totalValue += oreCfg.Value * count
-					break
-				}
-			}
-		}
-	}
-	p.Money += totalValue
-	p.OreInventory = make(map[string]int)
-}
-
-func (p *Player) CalculateInventoryValue(oreConfigs []config.OreConfig) int {
-	totalValue := 0
-	for oreID, count := range p.OreInventory {
-		if count > 0 {
-			for _, oreCfg := range oreConfigs {
-				if oreCfg.ID == oreID {
-					totalValue += oreCfg.Value * count
-					break
-				}
-			}
-		}
-	}
-	return totalValue
-}
-
 func (p *Player) AddItem(itemType ItemType) bool {
 	if itemType < 0 || itemType >= 5 {
 		return false

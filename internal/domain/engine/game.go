@@ -127,12 +127,13 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		result := g.uiManager.Process(g.player, inputState)
 		g.effectProcessor.Apply(g.effectContext, result.Effects)
 
-		// If UI closed, resume gameplay
+		// If UI closed, resume gameplay but skip interaction check this frame
+		// to prevent the same key press from reopening the UI
 		if g.uiManager.HasActiveUI() == false {
 			g.player.InShop = false
-		} else {
-			return nil // Still open (modal) - pause gameplay
+			return nil
 		}
+		return nil // Still open (modal) - pause gameplay
 	}
 
 	// 2. Check for new interactions
@@ -199,6 +200,10 @@ func (g *Game) resetUIState(interactionType components.InteractableType) {
 	case components.InteractableItemShop:
 		if itemUI, ok := registeredUI.(*ui.ItemShopUI); ok {
 			itemUI.ResetState()
+		}
+	case components.InteractableMarket:
+		if marketUI, ok := registeredUI.(*ui.MarketUI); ok {
+			marketUI.ResetState()
 		}
 	}
 }

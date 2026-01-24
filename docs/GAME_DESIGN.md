@@ -58,11 +58,11 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - **Up (W)**: Fly/jump upward
 - **Down (S) / Down Arrow**: Drill downward (with player grid alignment)
 - **E**: Interact
-  - At market: Sell entire inventory
+  - At market: Open sell modal (E again to sell, Q to cancel)
   - At fuel station: Refuel tank (if affordable)
   - At hospital: Heal to full HP (if affordable)
-  - At upgrade shop: Buy next upgrade tier (if affordable)
-  - At item shop: Buy consumable item (if affordable)
+  - At upgrade shop: Open modal, navigate with arrows, E to buy, Q to close
+  - At item shop: Open modal, navigate with arrows, E to buy, Q to close
 - **Item Keys** (press once to use if you have items):
   - **T**: Teleport to spawn point
   - **R**: Repair (restore HP to max)
@@ -132,8 +132,12 @@ The player moves toward the tile's center during the animation. The tile is only
 
 ### Currency & Market System
 - **Market Location**: Visible on the surface (green rectangle, ~3 tiles right of spawn)
-- **Selling Ores**: Press E while overlapping with market to sell entire inventory
-- **Instant Transaction**: All ores converted to money immediately, inventory cleared
+- **Selling Ores**: Press E while overlapping market to open modal UI
+  - Modal displays ore inventory with names, counts, unit prices, and line totals
+  - Shows grand total at bottom
+  - Press E to sell all ore and close modal
+  - Press Q/Escape to close without selling
+  - If inventory is empty, displays "No ore to sell" message
 - **Ore Values**:
   | Ore      | Value |
   |----------|-------|

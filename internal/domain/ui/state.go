@@ -198,3 +198,23 @@ func (s *ItemShopState) GetSelectedRow() int {
 func (s *ItemShopState) GetSelectedCol() int {
 	return s.SelectedIndex % ItemShopGridCols
 }
+
+type MarketState struct {
+	firstFrame bool
+}
+
+func NewMarketState() *MarketState {
+	return &MarketState{firstFrame: true}
+}
+
+func (s *MarketState) Reset() {
+	s.firstFrame = true
+}
+
+func (s *MarketState) IsFirstFrame() bool {
+	return s.firstFrame
+}
+
+func (s *MarketState) ClearFirstFrame() {
+	s.firstFrame = false
+}
