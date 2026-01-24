@@ -48,7 +48,7 @@ func RenderBoss(boss bosses.Boss) bool {
 // RenderGeneric provides fallback rendering for any PhysicalBoss
 func RenderGeneric(boss bosses.Boss) {
 	physicalBoss, ok := boss.(bosses.PhysicalBoss)
-	if !ok {
+	if ok == false {
 		return
 	}
 

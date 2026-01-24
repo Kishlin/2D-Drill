@@ -46,7 +46,7 @@ func (w *World) EnsureChunkLoaded(chunkX, chunkY int) {
 			tileX := chunkX*ChunkSize + localX
 			tileY := chunkY*ChunkSize + localY
 
-			if !w.isGridInBounds(tileX, tileY) {
+			if w.isGridInBounds(tileX, tileY) == false {
 				continue
 			}
 

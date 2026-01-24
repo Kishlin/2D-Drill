@@ -23,7 +23,7 @@ func TestGameConfig_Validate_InvalidWorldConfig(t *testing.T) {
 	if err == nil {
 		t.Error("Invalid world config should return error")
 	}
-	if !strings.Contains(err.Error(), "world config") {
+	if strings.Contains(err.Error(), "world config") == false {
 		t.Errorf("Error should mention world config, got: %v", err)
 	}
 }
@@ -36,7 +36,7 @@ func TestGameConfig_Validate_StartingEngineTierExceedsAvailable(t *testing.T) {
 	if err == nil {
 		t.Error("Starting engine tier exceeding available should return error")
 	}
-	if !strings.Contains(err.Error(), "engine tier") {
+	if strings.Contains(err.Error(), "engine tier") == false {
 		t.Errorf("Error should mention engine tier, got: %v", err)
 	}
 }
@@ -49,7 +49,7 @@ func TestGameConfig_Validate_StartingHullTierExceedsAvailable(t *testing.T) {
 	if err == nil {
 		t.Error("Starting hull tier exceeding available should return error")
 	}
-	if !strings.Contains(err.Error(), "hull tier") {
+	if strings.Contains(err.Error(), "hull tier") == false {
 		t.Errorf("Error should mention hull tier, got: %v", err)
 	}
 }
@@ -62,7 +62,7 @@ func TestGameConfig_Validate_StartingFuelTankTierExceedsAvailable(t *testing.T) 
 	if err == nil {
 		t.Error("Starting fuel tank tier exceeding available should return error")
 	}
-	if !strings.Contains(err.Error(), "fuel tank tier") {
+	if strings.Contains(err.Error(), "fuel tank tier") == false {
 		t.Errorf("Error should mention fuel tank tier, got: %v", err)
 	}
 }
@@ -75,7 +75,7 @@ func TestGameConfig_Validate_StartingCargoHoldTierExceedsAvailable(t *testing.T)
 	if err == nil {
 		t.Error("Starting cargo hold tier exceeding available should return error")
 	}
-	if !strings.Contains(err.Error(), "cargo hold tier") {
+	if strings.Contains(err.Error(), "cargo hold tier") == false {
 		t.Errorf("Error should mention cargo hold tier, got: %v", err)
 	}
 }
@@ -88,7 +88,7 @@ func TestGameConfig_Validate_StartingHeatShieldTierExceedsAvailable(t *testing.T
 	if err == nil {
 		t.Error("Starting heat shield tier exceeding available should return error")
 	}
-	if !strings.Contains(err.Error(), "heat shield tier") {
+	if strings.Contains(err.Error(), "heat shield tier") == false {
 		t.Errorf("Error should mention heat shield tier, got: %v", err)
 	}
 }
@@ -101,7 +101,7 @@ func TestGameConfig_Validate_StartingDrillTierExceedsAvailable(t *testing.T) {
 	if err == nil {
 		t.Error("Starting drill tier exceeding available should return error")
 	}
-	if !strings.Contains(err.Error(), "drill tier") {
+	if strings.Contains(err.Error(), "drill tier") == false {
 		t.Errorf("Error should mention drill tier, got: %v", err)
 	}
 }
@@ -114,7 +114,7 @@ func TestGameConfig_Validate_NoOres(t *testing.T) {
 	if err == nil {
 		t.Error("Config with no ores should return error")
 	}
-	if !strings.Contains(err.Error(), "at least one ore") {
+	if strings.Contains(err.Error(), "at least one ore") == false {
 		t.Errorf("Error should mention ore requirement, got: %v", err)
 	}
 }
@@ -130,7 +130,7 @@ func TestGameConfig_Validate_DuplicateOreIDs(t *testing.T) {
 	if err == nil {
 		t.Error("Config with duplicate ore IDs should return error")
 	}
-	if !strings.Contains(err.Error(), "duplicate ore ID") {
+	if strings.Contains(err.Error(), "duplicate ore ID") == false {
 		t.Errorf("Error should mention duplicate ore ID, got: %v", err)
 	}
 }
@@ -146,7 +146,7 @@ func TestGameConfig_Validate_DuplicateHazardIDs(t *testing.T) {
 	if err == nil {
 		t.Error("Config with duplicate hazard IDs should return error")
 	}
-	if !strings.Contains(err.Error(), "duplicate hazard ID") {
+	if strings.Contains(err.Error(), "duplicate hazard ID") == false {
 		t.Errorf("Error should mention duplicate hazard ID, got: %v", err)
 	}
 }
@@ -272,7 +272,7 @@ func TestGameConfig_Validate_MissingBossType(t *testing.T) {
 	if err == nil {
 		t.Error("Config with empty boss type should return error")
 	}
-	if !strings.Contains(err.Error(), "boss type") {
+	if strings.Contains(err.Error(), "boss type") == false {
 		t.Errorf("Error should mention boss type, got: %v", err)
 	}
 }

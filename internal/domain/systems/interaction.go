@@ -9,7 +9,7 @@ import (
 // DetectInteraction checks if the player is pressing interact and overlapping with a building
 // Returns the interactable type if an interaction should occur, nil otherwise
 func DetectInteraction(player *entities.Player, buildings []*entities.Building, inputState input.InputState) *components.InteractableType {
-	if !inputState.Interact {
+	if inputState.Interact == false {
 		return nil
 	}
 

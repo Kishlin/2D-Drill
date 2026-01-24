@@ -26,7 +26,7 @@ func TestPhaseManager_TransitionsToPhase1(t *testing.T) {
 	// HP drops below 66%
 	changed := pm.Update(65.0)
 
-	if !changed {
+	if changed == false {
 		t.Error("expected phase change")
 	}
 
@@ -81,7 +81,7 @@ func TestPhaseManager_GetCurrentConfig(t *testing.T) {
 		t.Errorf("expected speed 80, got %f", cfg.MovementSpeed)
 	}
 
-	if !cfg.AlwaysVulnerable {
+	if cfg.AlwaysVulnerable == false {
 		t.Error("expected always vulnerable in phase 0")
 	}
 
@@ -104,7 +104,7 @@ func TestPhaseManager_IsAlwaysVulnerable(t *testing.T) {
 	}
 	pm := NewPhaseManager(100.0, phases)
 
-	if !pm.IsAlwaysVulnerable() {
+	if pm.IsAlwaysVulnerable() == false {
 		t.Error("expected always vulnerable in phase 0")
 	}
 

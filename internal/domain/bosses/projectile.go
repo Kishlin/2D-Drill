@@ -20,7 +20,7 @@ func NewProjectile(x, y, width, height float32, velocity types.Vec2, damage floa
 }
 
 func (p *Projectile) Update(dt float32) {
-	if !p.Active {
+	if p.Active == false {
 		return
 	}
 	p.AABB.X += p.Velocity.X * dt

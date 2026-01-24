@@ -31,7 +31,7 @@ func NewOreTileByID(oreID string) *Tile {
 }
 
 func NewHazardTileByID(hazardID string, hazardCfg *config.HazardConfig) *Tile {
-	if hazardCfg != nil && !hazardCfg.Drillable {
+	if hazardCfg != nil && hazardCfg.Drillable == false {
 		return &Tile{Type: TileTypeRock, HazardID: hazardID}
 	}
 	return &Tile{Type: TileTypeLava, HazardID: hazardID}

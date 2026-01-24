@@ -38,7 +38,7 @@ func (a *ProjectileAttack) Update(bossAABB, playerAABB types.AABB, dt float32) [
 	}
 
 	// Check if ready to fire
-	if !a.IsReady() {
+	if a.IsReady() == false {
 		return nil
 	}
 

@@ -120,7 +120,7 @@ func TestResolveCollisionsY_GroundLanding(t *testing.T) {
 
 	newAABB, newVel, onGround := physics.ResolveCollisionsY(aabb, velocity, collisions)
 
-	if !onGround {
+	if onGround == false {
 		t.Error("Expected OnGround to be true")
 	}
 	if newVel.Y != 0 {

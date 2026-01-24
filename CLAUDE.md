@@ -66,6 +66,10 @@ Read these docs on-demand when you need details:
 - **Unified upgrade catalog** — Single `Catalog` type handles all upgrade types
 - **Damage through entity** — Player uses `player.DealDamage()`, bosses control own vulnerability via state machine
 
+## Code Style
+
+- **Explicit false booleans** — Use `if myVar == false` instead of `if !myVar`
+
 ## Special Levels
 
 - Level 1: Production level

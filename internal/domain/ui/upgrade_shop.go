@@ -61,7 +61,7 @@ func (u *UpgradeShopUI) tryPurchase(player *entities.Player) []effects.Effect {
 	}
 
 	entry := u.catalog.GetEntry(u.state.ActiveTab, u.state.SelectedTier)
-	if entry == nil || !player.CanAfford(entry.Price) {
+	if entry == nil || player.CanAfford(entry.Price) == false {
 		return nil
 	}
 

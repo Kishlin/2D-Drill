@@ -16,7 +16,7 @@ func TestProjectileAttack_IsReadyInitially(t *testing.T) {
 	}
 	attack := NewProjectileAttack(cfg)
 
-	if !attack.IsReady() {
+	if attack.IsReady() == false {
 		t.Error("expected attack to be ready initially")
 	}
 }
@@ -101,7 +101,7 @@ func TestProjectileAttack_ProjectileProperties(t *testing.T) {
 		t.Errorf("expected size 16x16, got %fx%f", proj.AABB.Width, proj.AABB.Height)
 	}
 
-	if !proj.Active {
+	if proj.Active == false {
 		t.Error("expected projectile to be active")
 	}
 }

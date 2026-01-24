@@ -35,7 +35,7 @@ func (m *Manager) OpenUI(t components.InteractableType) bool {
 }
 
 func (m *Manager) Process(player *entities.Player, inputState input.InputState) Result {
-	if !m.isActive || m.activeUI == nil {
+	if m.isActive == false || m.activeUI == nil {
 		return NoChange()
 	}
 

@@ -29,7 +29,7 @@ func TestPlayer_AddOreByID_SingleType(t *testing.T) {
 
 	success := player.AddOreByID("copper")
 
-	if !success {
+	if success == false {
 		t.Errorf("Expected AddOreByID to succeed")
 	}
 	if player.OreInventory["copper"] != 1 {
@@ -104,7 +104,7 @@ func TestPlayer_AddOreByID_CargoCapacity(t *testing.T) {
 
 	// Fill cargo to capacity
 	for i := 0; i < 10; i++ {
-		if !player.AddOreByID("copper") {
+		if player.AddOreByID("copper") == false {
 			t.Errorf("AddOreByID should succeed at position %d", i)
 		}
 	}

@@ -123,7 +123,7 @@ func TestIntegration_EmptyTileCollision(t *testing.T) {
 		}
 	}
 
-	if !foundEmpty {
+	if foundEmpty == false {
 		t.Log("Note: No empty tiles found in sample (20% chance, might be RNG)")
 	}
 }
@@ -142,18 +142,18 @@ func TestIntegration_DrillingOre(t *testing.T) {
 				pixelY := float32(y*64 + 32)
 
 				// Verify it's solid
-				if !tile.IsSolid() {
+				if tile.IsSolid() == false {
 					t.Error("Ore tile should be solid")
 				}
 
 				// Verify it's drillable
-				if !tile.IsDrillable() {
+				if tile.IsDrillable() == false {
 					t.Error("Ore tile should be drillable")
 				}
 
 				// Drill the tile
 				_, success := world.DrillTile(pixelX, pixelY)
-				if !success {
+				if success == false {
 					t.Error("Should successfully drill ore tile")
 				}
 
@@ -172,7 +172,7 @@ func TestIntegration_DrillingOre(t *testing.T) {
 		}
 	}
 
-	if !foundOre {
+	if foundOre == false {
 		t.Error("Expected to find at least one ore tile in sample")
 	}
 }

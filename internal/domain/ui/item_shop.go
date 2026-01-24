@@ -54,7 +54,7 @@ func (u *ItemShopUI) tryPurchase(player *entities.Player) []effects.Effect {
 	}
 
 	price := catalogEntry.Price
-	if !player.CanAfford(price) {
+	if player.CanAfford(price) == false {
 		return nil
 	}
 

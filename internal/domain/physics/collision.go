@@ -31,7 +31,7 @@ func CheckCollisions(aabb types.AABB, w *world.World) []TileCollision {
 		for y := minY; y <= maxY; y++ {
 			tile := w.GetTileAtGrid(x, y)
 
-			if tile == nil || !tile.IsSolid() {
+			if tile == nil || tile.IsSolid() == false {
 				continue
 			}
 

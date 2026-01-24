@@ -145,7 +145,7 @@ func (p *Player) Refuel() bool {
 	litersNeeded := fuelCapacity - p.Fuel
 	cost := int(math.Ceil(float64(litersNeeded)))
 
-	if !p.CanAfford(cost) {
+	if p.CanAfford(cost) == false {
 		return false
 	}
 
@@ -165,7 +165,7 @@ func (p *Player) Heal() bool {
 
 	cost := int(math.Ceil(float64(hpNeeded) * 2.0))
 
-	if !p.CanAfford(cost) {
+	if p.CanAfford(cost) == false {
 		return false
 	}
 

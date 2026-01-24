@@ -28,10 +28,10 @@ func TestVerticalDrilling_StartsAnimation(t *testing.T) {
 	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
 	// Animation should be active
-	if !player.IsDrilling {
+	if player.IsDrilling == false {
 		t.Error("Drilling animation should be active after ProcessDrilling")
 	}
-	if !drillingSystem.animation.Active {
+	if drillingSystem.animation.Active == false {
 		t.Error("Internal animation state should be active")
 	}
 	if drillingSystem.animation.Duration <= 0 {
@@ -145,7 +145,7 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 	inputState := input.InputState{Left: true}
 	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	if !player.IsDrilling {
+	if player.IsDrilling == false {
 		t.Error("Drilling animation should be active")
 	}
 
@@ -206,7 +206,7 @@ func TestDrilling_AnimationProgress(t *testing.T) {
 	inputState := input.InputState{Right: true}
 	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	if !player.IsDrilling {
+	if player.IsDrilling == false {
 		t.Error("Drilling animation should be active")
 	}
 
@@ -323,7 +323,7 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 	inputState := input.InputState{Drill: true}
 	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 
-	if !player.IsDrilling {
+	if player.IsDrilling == false {
 		t.Error("Should start drilling")
 	}
 

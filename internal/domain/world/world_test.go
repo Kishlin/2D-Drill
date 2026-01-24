@@ -46,7 +46,7 @@ func TestEnsureChunkLoaded_OnlyOnce(t *testing.T) {
 
 	// First load
 	world.EnsureChunkLoaded(0, 0)
-	if !world.loadedChunks[[2]int{0, 0}] {
+	if world.loadedChunks[[2]int{0, 0}] == false {
 		t.Error("Chunk should be marked as loaded")
 	}
 
@@ -98,7 +98,7 @@ func TestGetTileAtGrid_TriggersLoad(t *testing.T) {
 	_ = world.GetTileAtGrid(80, 80)
 
 	// Chunk should now be loaded
-	if !world.loadedChunks[[2]int{5, 5}] {
+	if world.loadedChunks[[2]int{5, 5}] == false {
 		t.Error("GetTileAtGrid should trigger chunk load")
 	}
 }
@@ -120,7 +120,7 @@ func TestUpdateChunksAroundPlayer_Loads3x3(t *testing.T) {
 	}
 
 	for _, chunk := range expectedChunks {
-		if !world.loadedChunks[chunk] {
+		if world.loadedChunks[chunk] == false {
 			t.Errorf("Chunk %v should be loaded", chunk)
 		}
 	}
@@ -165,7 +165,7 @@ func TestGetTileAt_PixelToGrid(t *testing.T) {
 	tile := world.GetTileAt(128, 192)
 
 	// Should trigger chunk load and return tile
-	if !world.loadedChunks[[2]int{0, 0}] {
+	if world.loadedChunks[[2]int{0, 0}] == false {
 		t.Error("GetTileAt should trigger chunk load")
 	}
 
@@ -185,13 +185,13 @@ func TestDrillTile_RemovesFromSparseMap(t *testing.T) {
 	pixelY := float32(640) // Ground level
 
 	tileBefore := world.GetTileAt(pixelX, pixelY)
-	if tileBefore == nil || !tileBefore.IsDrillable() {
+	if tileBefore == nil || tileBefore.IsDrillable() == false {
 		t.Skip("Ground tile not drillable, skipping test")
 	}
 
 	// Drill the tile
 	_, success := world.DrillTile(pixelX, pixelY)
-	if !success {
+	if success == false {
 		t.Error("Should successfully drill drillable tile")
 	}
 
@@ -215,7 +215,7 @@ func TestNukeTileAtGrid_RemovesRock(t *testing.T) {
 
 	// Nuke the tile (use bomb)
 	tile, success := world.NukeTileAtGrid(gridX, gridY)
-	if !success {
+	if success == false {
 		t.Error("Should successfully nuke rock tile")
 	}
 
@@ -240,7 +240,7 @@ func TestNukeTileAtGrid_RemovesLava(t *testing.T) {
 
 	// Nuke the tile
 	tile, success := world.NukeTileAtGrid(gridX, gridY)
-	if !success {
+	if success == false {
 		t.Error("Should successfully nuke lava tile")
 	}
 
@@ -276,7 +276,7 @@ func TestNukeTileAtGrid_BypassesDrillability(t *testing.T) {
 
 	// NukeTileAtGrid should succeed (bypasses drillability)
 	_, nukeSuccess := world.NukeTileAtGrid(gridX, gridY)
-	if !nukeSuccess {
+	if nukeSuccess == false {
 		t.Error("Should be able to nuke rock tile (bypasses drillability)")
 	}
 
@@ -312,7 +312,7 @@ func TestNukeTileAtGrid_RemovesDirt(t *testing.T) {
 
 	// Nuke the dirt tile
 	tile, success := world.NukeTileAtGrid(gridX, gridY)
-	if !success {
+	if success == false {
 		t.Error("Should be able to nuke dirt tile")
 	}
 

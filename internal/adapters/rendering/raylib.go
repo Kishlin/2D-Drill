@@ -772,7 +772,7 @@ func (r *RaylibRenderer) renderItemShopModal(uiState *ui.ItemShopState, catalog 
 		price := selectedEntry.Price
 		priceText := fmt.Sprintf("Price: $%d", price)
 		priceColor := rl.Yellow
-		if !player.CanAfford(price) {
+		if player.CanAfford(price) == false {
 			priceColor = rl.Red
 		}
 		rl.DrawText(priceText, int32(detailsX)+10, int32(detailsY)+160, 20, priceColor)
@@ -807,7 +807,7 @@ func (r *RaylibRenderer) renderBoss(boss bosses.Boss) {
 }
 
 func (r *RaylibRenderer) renderBossHPBar(boss bosses.Boss) {
-	if boss == nil || !boss.IsActive() {
+	if boss == nil || boss.IsActive() == false {
 		return
 	}
 
@@ -875,7 +875,7 @@ func (r *RaylibRenderer) renderProjectiles(boss bosses.Boss) {
 
 	projectiles := boss.GetProjectiles()
 	for _, proj := range projectiles {
-		if !proj.Active {
+		if proj.Active == false {
 			continue
 		}
 

@@ -49,11 +49,11 @@ func NewBossFightSystem(boss bosses.Boss, bossRoomCfg config.BossRoomConfig, wor
 func (s *BossFightSystem) Update(player *entities.Player, dt float32) entities.GameState {
 	playerInRoom := s.IsPlayerInBossRoom(player)
 
-	if playerInRoom && !s.wasPlayerInRoom {
+	if playerInRoom && s.wasPlayerInRoom == false {
 		s.boss.Activate()
 	}
 
-	if !playerInRoom && s.wasPlayerInRoom {
+	if playerInRoom == false && s.wasPlayerInRoom {
 		s.boss.Deactivate()
 	}
 
@@ -106,7 +106,7 @@ func (s *BossFightSystem) handleProjectileCollisions(player *entities.Player) {
 
 func (s *BossFightSystem) handleContactDamage(player *entities.Player, dt float32) {
 	physicalBoss, ok := s.boss.(bosses.PhysicalBoss)
-	if !ok {
+	if ok == false {
 		return
 	}
 

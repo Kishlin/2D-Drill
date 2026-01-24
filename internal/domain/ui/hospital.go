@@ -21,7 +21,7 @@ func (u *HospitalUI) Process(player *entities.Player, inputState input.InputStat
 	}
 
 	cost := int(math.Ceil(float64(hpNeeded) * 2.0))
-	if !player.CanAfford(cost) {
+	if player.CanAfford(cost) == false {
 		return Close()
 	}
 

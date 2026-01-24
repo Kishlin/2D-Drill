@@ -140,7 +140,7 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 }
 
 func (b *TestBoss) Update(player *entities.Player, dt float32) {
-	if !b.active || b.damageable.IsDefeated() {
+	if b.active == false || b.damageable.IsDefeated() {
 		return
 	}
 
@@ -281,7 +281,7 @@ func (b *TestBoss) onPhaseChange() {
 func (b *TestBoss) updateProjectiles(dt float32, player *entities.Player) {
 	activeProjectiles := make([]*bosses.Projectile, 0, len(b.projectiles))
 	for _, proj := range b.projectiles {
-		if !proj.Active {
+		if proj.Active == false {
 			continue
 		}
 		proj.Update(dt)
@@ -335,7 +335,7 @@ func (b *TestBoss) GetContactDamage() float32 {
 }
 
 func (b *TestBoss) TakeDamage(damage float32) {
-	if !b.IsVulnerable() {
+	if b.IsVulnerable() == false {
 		return
 	}
 

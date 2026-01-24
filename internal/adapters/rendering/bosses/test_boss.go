@@ -21,7 +21,7 @@ func (r *TestBossRenderer) CanRender(boss bosses.Boss) bool {
 
 func (r *TestBossRenderer) Render(boss bosses.Boss) {
 	tb, ok := boss.(*test_boss.TestBoss)
-	if !ok {
+	if ok == false {
 		return
 	}
 

@@ -128,7 +128,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		g.effectProcessor.Apply(g.effectContext, result.Effects)
 
 		// If UI closed, resume gameplay
-		if !g.uiManager.HasActiveUI() {
+		if g.uiManager.HasActiveUI() == false {
 			g.player.InShop = false
 		} else {
 			return nil // Still open (modal) - pause gameplay

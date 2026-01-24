@@ -21,7 +21,7 @@ func (u *FuelStationUI) Process(player *entities.Player, inputState input.InputS
 	}
 
 	cost := int(math.Ceil(float64(fuelNeeded)))
-	if !player.CanAfford(cost) {
+	if player.CanAfford(cost) == false {
 		return Close()
 	}
 

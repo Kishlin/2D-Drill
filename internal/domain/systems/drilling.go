@@ -89,7 +89,7 @@ func (ds *DrillingSystem) processVerticalDrilling(player *entities.Player) {
 
 	// Check tile directly below player
 	tile := ds.world.GetTileAt(playerCenterX, playerBottomY)
-	if tile == nil || !tile.IsDrillable() {
+	if tile == nil || tile.IsDrillable() == false {
 		return
 	}
 
