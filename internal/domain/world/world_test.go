@@ -8,8 +8,8 @@ import (
 )
 
 // Test helper - creates minimal world config for tests
-func testWorldConfig(width, height, groundLevel float32, seed int64) *config.WorldConfig {
-	return &config.WorldConfig{
+func testWorldConfig(width, height, groundLevel float32, seed int64) config.WorldConfig {
+	return config.WorldConfig{
 		Width:       width,
 		Height:      height,
 		GroundLevel: groundLevel,
@@ -38,7 +38,7 @@ func testGenConfig() config.GenerationConfig {
 }
 
 func testWorld(width, height, groundLevel float32, seed int64) *World {
-	return NewWorldFromConfig(testWorldConfig(width, height, groundLevel, seed), testGenConfig())
+	return NewWorldFromConfig(testWorldConfig(width, height, groundLevel, seed), testGenConfig(), testBossRoomConfig())
 }
 
 func TestEnsureChunkLoaded_OnlyOnce(t *testing.T) {

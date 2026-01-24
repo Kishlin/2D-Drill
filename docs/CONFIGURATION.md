@@ -39,8 +39,13 @@ type GameConfig struct {
     Generation GenerationConfig // Ore/hazard distributions, colors, values
     Upgrades   UpgradeConfig    // 6 upgrade types with price/stats per tier
     Items      ItemConfig       // 5 items with prices and effects
-    Level      LevelConfig      // Level number and name
-    BossRoom   *BossRoomConfig  // Optional boss room configuration
+    Level      LevelConfig      // Level number, name, and boss room config
+}
+
+type LevelConfig struct {
+    Number   int
+    Name     string
+    BossRoom BossRoomConfig  // Required boss room configuration
 }
 
 func (c *GameConfig) Validate() error {
@@ -48,6 +53,7 @@ func (c *GameConfig) Validate() error {
     // Checks starting tiers don't exceed available tiers
     // Ensures at least one ore exists
     // Validates ore/hazard ID uniqueness
+    // Validates boss room config (BossType required, RoomHeight > 0, FloorHeight >= 1)
 }
 ```
 
@@ -298,7 +304,16 @@ func GetLevel1Config() *config.GameConfig {
         Generation: config.GenerationConfig{...},
         Upgrades:   config.UpgradeConfig{...},
         Items:      config.ItemConfig{...},
-        Level:      config.LevelConfig{Number: 1, Name: "Level 1"},
+        Level: config.LevelConfig{
+            Number: 1,
+            Name:   "Level 1",
+            BossRoom: config.BossRoomConfig{
+                BossType:    "test_boss",
+                FloorType:   config.FloorConcrete,
+                RoomHeight:  680.0,
+                FloorHeight: 6.0,
+            },
+        },
     }
 }
 ```

@@ -11,7 +11,7 @@ import (
 
 // Test helper - creates minimal world for collision tests
 func testWorld() *world.World {
-	worldCfg := &config.WorldConfig{
+	worldCfg := config.WorldConfig{
 		Width:       1280,
 		Height:      720,
 		GroundLevel: 640,
@@ -28,7 +28,13 @@ func testWorld() *world.World {
 		Ores:         []config.OreConfig{{ID: "copper", Name: "Copper", Value: 25, Hardness: 1.2, Distribution: config.TileDistribution{PeakDepth: -75, Sigma: 120, MaxWeight: 8}, Color: [4]uint8{184, 115, 51, 255}}},
 		Hazards:      []config.HazardConfig{},
 	}
-	return world.NewWorldFromConfig(worldCfg, genCfg)
+	bossRoomCfg := config.BossRoomConfig{
+		BossType:    "test_boss",
+		FloorType:   config.FloorConcrete,
+		RoomHeight:  680.0,
+		FloorHeight: 6.0,
+	}
+	return world.NewWorldFromConfig(worldCfg, genCfg, bossRoomCfg)
 }
 
 func TestGetOccupiedTileRange(t *testing.T) {

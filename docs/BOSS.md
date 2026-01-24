@@ -675,7 +675,7 @@ func createBossByType(bossType string, roomStartY, worldWidth float32) (bosses.B
 ### 4. Configure in Level
 
 ```go
-BossRoom: &config.BossRoomConfig{
+BossRoom: config.BossRoomConfig{
     BossType:    "my_boss",
     FloorType:   config.FloorConcrete,
     RoomHeight:  680.0,

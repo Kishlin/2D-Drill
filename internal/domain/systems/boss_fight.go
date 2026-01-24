@@ -14,12 +14,12 @@ type BossFightSystem struct {
 	floorStartY     float32 // Top of floor area in pixels
 	floorEndY       float32 // Bottom of world in pixels
 	floorType       config.FloorType
-	bossRoomCfg     *config.BossRoomConfig
+	bossRoomCfg     config.BossRoomConfig
 	wasPlayerInRoom bool // Track if player was in room last frame
 }
 
-func NewBossFightSystem(boss bosses.Boss, bossRoomCfg *config.BossRoomConfig, worldHeight float32) *BossFightSystem {
-	if boss == nil || bossRoomCfg == nil {
+func NewBossFightSystem(boss bosses.Boss, bossRoomCfg config.BossRoomConfig, worldHeight float32) *BossFightSystem {
+	if boss == nil {
 		return nil
 	}
 

@@ -37,7 +37,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 	worldCfg := gameCfg.World
 
 	// Create the world from config
-	w := world.NewWorldFromConfigWithBoss(&worldCfg, gameCfg.Generation, gameCfg.Level.BossRoom)
+	w := world.NewWorldFromConfig(worldCfg, gameCfg.Generation, gameCfg.Level.BossRoom)
 
 	// Use configured player spawn position
 	spawnX := worldCfg.PlayerSpawn.X
@@ -75,24 +75,20 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 	uiManager.Register(components.InteractableUpgradeShop, ui.NewUpgradeShopUI(upgradeCatalog))
 	uiManager.Register(components.InteractableItemShop, ui.NewItemShopUI(itemCatalog))
 
-	// Create boss and boss fight system if configured
-	var boss bosses.Boss
-	var bossFightSystem *systems.BossFightSystem
+	// Create boss and boss fight system
 	var damageables []effects.DamageableEntity
-	if gameCfg.Level.BossRoom != nil {
-		var err error
-		boss, err = createBossByType(
-			gameCfg.Level.BossRoom.BossType,
-			worldCfg.Height-gameCfg.Level.BossRoom.RoomHeight-gameCfg.Level.BossRoom.FloorHeight*world.TileSize,
-			worldCfg.Width,
-		)
-		if err == nil && boss != nil {
-			bossFightSystem = systems.NewBossFightSystem(boss, gameCfg.Level.BossRoom, worldCfg.Height)
-			// Add physical boss to damageables list
-			if physicalBoss, ok := boss.(effects.DamageableEntity); ok {
-				damageables = append(damageables, physicalBoss)
-			}
-		}
+	boss, err := createBossByType(
+		gameCfg.Level.BossRoom.BossType,
+		worldCfg.Height-gameCfg.Level.BossRoom.RoomHeight-gameCfg.Level.BossRoom.FloorHeight*world.TileSize,
+		worldCfg.Width,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create boss: %v", err))
+	}
+	bossFightSystem := systems.NewBossFightSystem(boss, gameCfg.Level.BossRoom, worldCfg.Height)
+	// Add physical boss to damageables list
+	if physicalBoss, ok := boss.(effects.DamageableEntity); ok {
+		damageables = append(damageables, physicalBoss)
 	}
 
 	// Create effect context

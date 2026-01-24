@@ -249,7 +249,7 @@ func BenchmarkChunkGeneration(b *testing.B) {
 		},
 		Hazards: []config.HazardConfig{},
 	}
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

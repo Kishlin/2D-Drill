@@ -14,40 +14,26 @@ type ChunkGenerator struct {
 	seed           int64
 	groundTileY    int
 	genCfg         config.GenerationConfig
-	bossRoomConfig *config.BossRoomConfig
+	bossRoomConfig config.BossRoomConfig
 	bossRoomStartY int // Starting tile Y of boss room (in pixels / TileSize)
 	floorStartY    int // Starting tile Y of floor area
 	floorEndY      int // Ending tile Y of floor area (world bottom)
 }
 
-func NewChunkGeneratorFromConfig(seed int64, groundLevel float32, genCfg config.GenerationConfig) *ChunkGenerator {
+func NewChunkGeneratorFromConfig(seed int64, groundLevel, worldHeight float32, genCfg config.GenerationConfig, bossRoomCfg config.BossRoomConfig) *ChunkGenerator {
+	worldHeightTiles := int(worldHeight / TileSize)
+	floorHeightTiles := int(bossRoomCfg.FloorHeight)
+	roomHeightTiles := int(bossRoomCfg.RoomHeight / TileSize)
+
 	return &ChunkGenerator{
 		seed:           seed,
 		groundTileY:    int(groundLevel / TileSize),
 		genCfg:         genCfg,
-		bossRoomConfig: nil,
-	}
-}
-
-func NewChunkGeneratorFromConfigWithBoss(seed int64, groundLevel, worldHeight float32, genCfg config.GenerationConfig, bossRoomCfg *config.BossRoomConfig) *ChunkGenerator {
-	cg := &ChunkGenerator{
-		seed:           seed,
-		groundTileY:    int(groundLevel / TileSize),
-		genCfg:         genCfg,
 		bossRoomConfig: bossRoomCfg,
+		floorEndY:      worldHeightTiles,
+		floorStartY:    worldHeightTiles - floorHeightTiles,
+		bossRoomStartY: worldHeightTiles - floorHeightTiles - roomHeightTiles,
 	}
-
-	if bossRoomCfg != nil {
-		worldHeightTiles := int(worldHeight / TileSize)
-		floorHeightTiles := int(bossRoomCfg.FloorHeight)
-		roomHeightTiles := int(bossRoomCfg.RoomHeight / TileSize)
-
-		cg.floorEndY = worldHeightTiles
-		cg.floorStartY = cg.floorEndY - floorHeightTiles
-		cg.bossRoomStartY = cg.floorStartY - roomHeightTiles
-	}
-
-	return cg
 }
 
 // TileWeights holds spawn weights for all tile types at a given depth
@@ -89,16 +75,10 @@ func (cg *ChunkGenerator) GenerateTile(tileX, tileY int) *entities.Tile {
 }
 
 func (cg *ChunkGenerator) isBossRoomTile(tileY int) bool {
-	if cg.bossRoomConfig == nil {
-		return false
-	}
 	return tileY >= cg.bossRoomStartY && tileY < cg.floorStartY
 }
 
 func (cg *ChunkGenerator) isFloorTile(tileY int) bool {
-	if cg.bossRoomConfig == nil {
-		return false
-	}
 	return tileY >= cg.floorStartY && tileY < cg.floorEndY
 }
 
@@ -235,6 +215,6 @@ func clamp(value, min, max float32) float32 {
 }
 
 // GetGenerationConfig returns the generator's configuration (for systems that need ore/hazard info)
-func (cg *ChunkGenerator) GetGenerationConfig() *config.GenerationConfig {
-	return &cg.genCfg
+func (cg *ChunkGenerator) GetGenerationConfig() config.GenerationConfig {
+	return cg.genCfg
 }

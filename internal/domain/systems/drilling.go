@@ -38,7 +38,7 @@ type DrillingAnimation struct {
 
 type DrillingSystem struct {
 	world     *world.World
-	genCfg    *config.GenerationConfig
+	genCfg    config.GenerationConfig
 	animation DrillingAnimation
 }
 
@@ -50,7 +50,7 @@ func NewDrillingSystem(w *world.World) *DrillingSystem {
 }
 
 // NewDrillingSystemWithConfig creates a drilling system with explicit configuration
-func NewDrillingSystemWithConfig(w *world.World, genCfg *config.GenerationConfig) *DrillingSystem {
+func NewDrillingSystemWithConfig(w *world.World, genCfg config.GenerationConfig) *DrillingSystem {
 	return &DrillingSystem{
 		world:  w,
 		genCfg: genCfg,

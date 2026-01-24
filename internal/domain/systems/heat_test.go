@@ -34,14 +34,20 @@ func testHeatPlayer(heatResistance float32) *entities.Player {
 
 // Test helper - creates a test world with standard dimensions for heat tests
 func testHeatWorld() *world.World {
-	worldCfg := &config.WorldConfig{
+	worldCfg := config.WorldConfig{
 		Width:       1280,
 		Height:      testWorldHeight,
 		GroundLevel: testGroundLevel,
 		Seed:        12345,
 	}
 	genCfg := config.GenerationConfig{}
-	return world.NewWorldFromConfig(worldCfg, genCfg)
+	bossRoomCfg := config.BossRoomConfig{
+		BossType:    "test_boss",
+		FloorType:   config.FloorConcrete,
+		RoomHeight:  680.0,
+		FloorHeight: 6.0,
+	}
+	return world.NewWorldFromConfig(worldCfg, genCfg, bossRoomCfg)
 }
 
 // TemperatureTests

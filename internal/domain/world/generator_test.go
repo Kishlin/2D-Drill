@@ -9,7 +9,7 @@ import (
 
 func TestGaussianWeight_AtPeak(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Test each ore at its peak depth
 	for _, oreCfg := range genCfg.Ores {
@@ -27,7 +27,7 @@ func TestGaussianWeight_AtPeak(t *testing.T) {
 
 func TestGaussianWeight_Symmetry(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Test with gold ore
 	goldCfg := genCfg.GetOreByID("gold")
@@ -48,7 +48,7 @@ func TestGaussianWeight_Symmetry(t *testing.T) {
 
 func TestGaussianWeight_FarFromPeak(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Test with diamond ore (peaks deep)
 	diamondCfg := genCfg.GetOreByID("diamond")
@@ -66,7 +66,7 @@ func TestGaussianWeight_FarFromPeak(t *testing.T) {
 
 func TestCalculateAllTileWeights_MultipleOres(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Get gold's peak depth
 	goldCfg := genCfg.GetOreByID("gold")
@@ -90,8 +90,8 @@ func TestCalculateAllTileWeights_MultipleOres(t *testing.T) {
 
 func TestGenerateTile_Deterministic(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen1 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
-	gen2 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
+	gen1 := NewChunkGeneratorFromConfig(12345, 640, 64000, genCfg, testBossRoomConfig())
+	gen2 := NewChunkGeneratorFromConfig(12345, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Same seed + coords = same tile
 	for i := 0; i < 10; i++ {
@@ -111,7 +111,7 @@ func TestGenerateTile_Deterministic(t *testing.T) {
 
 func TestGenerateTile_GroundLevel(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 	groundTileY := 10 // 640 / 64 = 10
 
 	// Test multiple X coordinates at ground level
@@ -126,7 +126,7 @@ func TestGenerateTile_GroundLevel(t *testing.T) {
 
 func TestGenerateTile_NoOreAtGroundLevel(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 	groundTileY := 10
 
 	// Ground level should never generate ore
@@ -168,7 +168,7 @@ func TestHashCoordinates_Unique(t *testing.T) {
 
 func TestCalculateAllTileWeights_RockAtShallowDepth(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// At shallow depth (~tile 50, ~40% depth), rock should have minimal weight
 	weights := gen.calculateAllTileWeights(50)
@@ -180,7 +180,7 @@ func TestCalculateAllTileWeights_RockAtShallowDepth(t *testing.T) {
 
 func TestCalculateAllTileWeights_HazardsAtDeepDepth(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// At very deep depth (~tile 800, ~80%+ depth), hazards should have significant weight
 	weights := gen.calculateAllTileWeights(800)
@@ -197,7 +197,7 @@ func TestCalculateAllTileWeights_HazardsAtDeepDepth(t *testing.T) {
 
 func TestGenerateTile_NoHazardsAtSurface(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Generate 100 tiles at shallow depth (near ground)
 	hazardCount := 0
@@ -216,7 +216,7 @@ func TestGenerateTile_NoHazardsAtSurface(t *testing.T) {
 
 func TestGenerateTile_HazardsAtDeepDepth(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Generate 100 tiles at very deep depth (80%+)
 	hazardCount := 0
@@ -235,7 +235,7 @@ func TestGenerateTile_HazardsAtDeepDepth(t *testing.T) {
 
 func TestGenerateTile_RockAndLavaAreDistinct(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	rockCount := 0
 	lavaCount := 0
@@ -264,8 +264,8 @@ func TestGenerateTile_RockAndLavaAreDistinct(t *testing.T) {
 
 func TestGenerateTile_HazardDeterministic(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen1 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
-	gen2 := NewChunkGeneratorFromConfig(12345, 640, genCfg)
+	gen1 := NewChunkGeneratorFromConfig(12345, 640, 64000, genCfg, testBossRoomConfig())
+	gen2 := NewChunkGeneratorFromConfig(12345, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Same seed + coords = same hazard type
 	for i := 0; i < 10; i++ {
@@ -285,7 +285,7 @@ func TestGenerateTile_HazardDeterministic(t *testing.T) {
 
 func TestNewChunkGeneratorFromConfig(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 
 	// Should be able to generate tiles
 	tile := gen.GenerateTile(10, 15)
@@ -293,15 +293,16 @@ func TestNewChunkGeneratorFromConfig(t *testing.T) {
 		t.Error("Generator should create tiles")
 	}
 
-	// Should have access to config
-	if gen.GetGenerationConfig() == nil {
+	// Should have access to config - verify by checking a field
+	cfg := gen.GetGenerationConfig()
+	if cfg.DirtHardness == 0 && len(cfg.Ores) == 0 {
 		t.Error("Generator should have config accessible")
 	}
 }
 
 func TestSumAllWeights(t *testing.T) {
 	genCfg := testGeneratorConfig()
-	gen := NewChunkGeneratorFromConfig(42, 640, genCfg)
+	gen := NewChunkGeneratorFromConfig(42, 640, 64000, genCfg, testBossRoomConfig())
 	weights := gen.calculateAllTileWeights(50)
 
 	total := gen.sumAllWeights(weights)
@@ -321,6 +322,15 @@ func TestSumAllWeights(t *testing.T) {
 }
 
 // Test helpers
+
+func testBossRoomConfig() config.BossRoomConfig {
+	return config.BossRoomConfig{
+		BossType:    "test_boss",
+		FloorType:   config.FloorConcrete,
+		RoomHeight:  680.0,
+		FloorHeight: 6.0,
+	}
+}
 
 func testGeneratorConfig() config.GenerationConfig {
 	return config.GenerationConfig{

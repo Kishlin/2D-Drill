@@ -148,7 +148,7 @@ func GetBossTestLevelConfig() *config.GameConfig {
 		Level: config.LevelConfig{
 			Number: -2,
 			Name:   "Boss Test Level",
-			BossRoom: &config.BossRoomConfig{
+			BossRoom: config.BossRoomConfig{
 				BossType:    "test_boss",
 				FloorType:   config.FloorConcrete,
 				RoomHeight:  680.0,

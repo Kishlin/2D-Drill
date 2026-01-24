@@ -16,20 +16,11 @@ type World struct {
 	Generator    *ChunkGenerator // Exported for systems that need generation config
 	loadedChunks map[[2]int]bool
 	seed         int64
-	config       *config.WorldConfig
+	config       config.WorldConfig
 }
 
-func NewWorldFromConfig(worldCfg *config.WorldConfig, genCfg config.GenerationConfig) *World {
-	return NewWorldFromConfigWithBoss(worldCfg, genCfg, nil)
-}
-
-func NewWorldFromConfigWithBoss(worldCfg *config.WorldConfig, genCfg config.GenerationConfig, bossRoomCfg *config.BossRoomConfig) *World {
-	var generator *ChunkGenerator
-	if bossRoomCfg != nil {
-		generator = NewChunkGeneratorFromConfigWithBoss(worldCfg.Seed, worldCfg.GroundLevel, worldCfg.Height, genCfg, bossRoomCfg)
-	} else {
-		generator = NewChunkGeneratorFromConfig(worldCfg.Seed, worldCfg.GroundLevel, genCfg)
-	}
+func NewWorldFromConfig(worldCfg config.WorldConfig, genCfg config.GenerationConfig, bossRoomCfg config.BossRoomConfig) *World {
+	generator := NewChunkGeneratorFromConfig(worldCfg.Seed, worldCfg.GroundLevel, worldCfg.Height, genCfg, bossRoomCfg)
 
 	return &World{
 		Width:        worldCfg.Width,

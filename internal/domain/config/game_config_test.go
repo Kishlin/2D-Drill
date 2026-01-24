@@ -254,6 +254,25 @@ func validGameConfig() *config.GameConfig {
 		Level: config.LevelConfig{
 			Number: 1,
 			Name:   "Test Level",
+			BossRoom: config.BossRoomConfig{
+				BossType:    "test_boss",
+				FloorType:   config.FloorConcrete,
+				RoomHeight:  680.0,
+				FloorHeight: 6.0,
+			},
 		},
+	}
+}
+
+func TestGameConfig_Validate_MissingBossType(t *testing.T) {
+	cfg := validGameConfig()
+	cfg.Level.BossRoom.BossType = ""
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("Config with empty boss type should return error")
+	}
+	if !strings.Contains(err.Error(), "boss type") {
+		t.Errorf("Error should mention boss type, got: %v", err)
 	}
 }

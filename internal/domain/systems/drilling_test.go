@@ -14,7 +14,7 @@ func TestVerticalDrilling_StartsAnimation(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place dirt tile below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -44,7 +44,7 @@ func TestVerticalDrilling_DirtDuration(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place dirt at ground level
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -81,7 +81,7 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 		player2 := testPlayer()
 		player2.OnGround = true
 		genCfg := testGenerationConfig()
-		ds := NewDrillingSystemWithConfig(w2, &genCfg)
+		ds := NewDrillingSystemWithConfig(w2, genCfg)
 
 		playerCenterX := player2.AABB.X + player2.AABB.Width/2
 		playerBottomY := player2.AABB.Y + player2.AABB.Height
@@ -104,7 +104,7 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 func TestDrilling_DepthAffectsDuration(t *testing.T) {
 	w := testWorld()
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	depthTests := []struct {
 		tileGridY int
@@ -133,7 +133,7 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place ore tile to the left
 	playerCenterY := player.AABB.Y + player.AABB.Height/2
@@ -174,7 +174,7 @@ func TestDrilling_DoesNotStartOnNonDrillableTile(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place empty tile below player (no tile at all)
 	// This should prevent drilling from starting
@@ -192,7 +192,7 @@ func TestDrilling_AnimationProgress(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place ore to the right
 	playerCenterY := player.AABB.Y + player.AABB.Height/2
@@ -235,7 +235,7 @@ func TestDrilling_TileRemovedOnCompletion(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place gold ore below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -268,7 +268,7 @@ func TestDrilling_DoesNotCollectDirt(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place dirt below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -310,7 +310,7 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place ore below and to the right
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -343,7 +343,7 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 func TestDrilling_LavaTileDrillsQuickly(t *testing.T) {
 	w := testWorld()
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Test at various depths
 	depths := []int{50, 200, 500, 800}
@@ -368,7 +368,7 @@ func TestDrilling_LavaTileDrillsQuicklyAtAnyDepth(t *testing.T) {
 		player := testPlayer()
 		player.OnGround = true
 		genCfg := testGenerationConfig()
-		ds := NewDrillingSystemWithConfig(w2, &genCfg)
+		ds := NewDrillingSystemWithConfig(w2, genCfg)
 
 		tileY := float32(tileGridY) * world.TileSize
 		lavaTile := entities.NewHazardTileByID("lava", nil)
@@ -385,7 +385,7 @@ func TestDrilling_RockTileBlocksDrilling(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place rock tile below player (rock is not drillable)
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -410,7 +410,7 @@ func TestDrilling_LavaDealsDamage(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place lava tile below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -438,7 +438,7 @@ func TestDrilling_LavaTileRemovedAfterDrilling(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, &genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
 
 	// Place lava tile below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -466,8 +466,8 @@ func TestDrilling_LavaTileRemovedAfterDrilling(t *testing.T) {
 
 // Test helpers
 
-func testWorldConfig() *config.WorldConfig {
-	return &config.WorldConfig{
+func testWorldConfig() config.WorldConfig {
+	return config.WorldConfig{
 		Width:       7680,
 		Height:      64000,
 		GroundLevel: 640,
@@ -476,6 +476,15 @@ func testWorldConfig() *config.WorldConfig {
 		BuildingLayout: config.BuildingLayout{
 			HospitalX: 0, FuelStationX: 0, MarketX: 0, UpgradeShopX: 0, ItemShopX: 0,
 		},
+	}
+}
+
+func testBossRoomConfig() config.BossRoomConfig {
+	return config.BossRoomConfig{
+		BossType:    "test_boss",
+		FloorType:   config.FloorConcrete,
+		RoomHeight:  680.0,
+		FloorHeight: 6.0,
 	}
 }
 
@@ -500,7 +509,7 @@ func testGenerationConfig() config.GenerationConfig {
 }
 
 func testWorld() *world.World {
-	return world.NewWorldFromConfig(testWorldConfig(), testGenerationConfig())
+	return world.NewWorldFromConfig(testWorldConfig(), testGenerationConfig(), testBossRoomConfig())
 }
 
 func testPlayer() *entities.Player {

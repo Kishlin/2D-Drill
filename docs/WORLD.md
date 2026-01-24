@@ -351,11 +351,9 @@ func (g *ChunkGenerator) generateTile(gridX, gridY int) *entities.Tile {
 The generator uses seeded random for reproducibility:
 
 ```go
-func NewChunkGeneratorFromConfig(config *GenerationConfig, seed int64) *ChunkGenerator {
-    return &ChunkGenerator{
-        config: config,
-        rand:   rand.New(rand.NewSource(seed)),
-    }
+func NewChunkGeneratorFromConfig(seed int64, groundLevel, worldHeight float32, genCfg GenerationConfig, bossRoomCfg BossRoomConfig) *ChunkGenerator {
+    // Calculates boss room and floor tile boundaries
+    // Returns configured generator
 }
 ```
 

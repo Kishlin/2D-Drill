@@ -5,7 +5,7 @@ import "fmt"
 type LevelConfig struct {
 	Number   int
 	Name     string
-	BossRoom *BossRoomConfig // Optional boss room configuration
+	BossRoom BossRoomConfig
 }
 
 type GameConfig struct {
@@ -71,14 +71,15 @@ func (c *GameConfig) Validate() error {
 		hazardIDs[hazard.ID] = true
 	}
 
-	// Validate boss room config if present
-	if c.Level.BossRoom != nil {
-		if c.Level.BossRoom.RoomHeight <= 0 {
-			return fmt.Errorf("boss room height must be positive")
-		}
-		if c.Level.BossRoom.FloorHeight < 1 {
-			return fmt.Errorf("boss room floor height must be at least 1 tile")
-		}
+	// Validate boss room config (required for all levels)
+	if c.Level.BossRoom.BossType == "" {
+		return fmt.Errorf("boss room must have a boss type")
+	}
+	if c.Level.BossRoom.RoomHeight <= 0 {
+		return fmt.Errorf("boss room height must be positive")
+	}
+	if c.Level.BossRoom.FloorHeight < 1 {
+		return fmt.Errorf("boss room floor height must be at least 1 tile")
 	}
 
 	return nil
