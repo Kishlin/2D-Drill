@@ -394,6 +394,11 @@ func (r *RaylibRenderer) renderUI(uiType components.InteractableType, state inte
 			hospitalUI := game.GetUIManager().GetActiveUI().(*ui.HospitalUI)
 			r.renderHospitalModal(s, hospitalUI, game.GetPlayer())
 		}
+	case components.InteractableFuelStation:
+		if s, ok := state.(*ui.FuelStationState); ok {
+			fuelStationUI := game.GetUIManager().GetActiveUI().(*ui.FuelStationUI)
+			r.renderFuelStationModal(s, fuelStationUI, game.GetPlayer())
+		}
 	}
 }
 
@@ -1038,6 +1043,137 @@ func (r *RaylibRenderer) renderHospitalModal(uiState *ui.HospitalState, hospital
 	// Controls hint at bottom
 	controlsY := modalY + modalHeight - 40
 	controlsText := "[W/S] Navigate   [E] Heal   [Q] Close"
+	controlsWidth := rl.MeasureText(controlsText, 16)
+	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
+}
+
+// renderFuelStationModal draws the fuel station modal UI
+func (r *RaylibRenderer) renderFuelStationModal(uiState *ui.FuelStationState, fuelStationUI *ui.FuelStationUI, player *entities.Player) {
+	// Modal dimensions
+	modalWidth := float32(400)
+	modalHeight := float32(350)
+	modalX := (r.screenWidth - modalWidth) / 2
+	modalY := (r.screenHeight - modalHeight) / 2
+
+	// Draw semi-transparent overlay
+	rl.DrawRectangle(0, 0, int32(r.screenWidth), int32(r.screenHeight), rl.NewColor(0, 0, 0, 150))
+
+	// Draw modal background
+	rl.DrawRectangle(int32(modalX), int32(modalY), int32(modalWidth), int32(modalHeight), rl.NewColor(40, 40, 50, 255))
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: modalX, Y: modalY, Width: modalWidth, Height: modalHeight},
+		3.0,
+		rl.NewColor(100, 100, 120, 255),
+	)
+
+	// Title
+	titleText := "FUEL STATION"
+	titleFontSize := int32(30)
+	titleWidth := rl.MeasureText(titleText, titleFontSize)
+	rl.DrawText(titleText, int32(modalX)+(int32(modalWidth)-titleWidth)/2, int32(modalY)+10, titleFontSize, rl.White)
+
+	// Player status line
+	statusY := modalY + 50
+	statusText := fmt.Sprintf("Fuel: %.1f / %.0f L   Money: $%d", player.Fuel, player.FuelCapacity(), player.Money)
+	statusWidth := rl.MeasureText(statusText, 18)
+	rl.DrawText(statusText, int32(modalX)+(int32(modalWidth)-statusWidth)/2, int32(statusY), 18, rl.LightGray)
+
+	// Check if tank is full
+	fuelNeeded := player.FuelCapacity() - player.Fuel
+	isTankFull := fuelNeeded <= 0
+
+	// Content area
+	contentY := statusY + 40
+	optionHeight := float32(45)
+	optionPadding := float32(8)
+
+	if isTankFull {
+		// Full tank message
+		fullTankText := "Tank is full"
+		fullTankWidth := rl.MeasureText(fullTankText, 24)
+		rl.DrawText(fullTankText, int32(modalX)+(int32(modalWidth)-fullTankWidth)/2, int32(contentY)+60, 24, rl.Green)
+	} else {
+		// Draw 4 refuel options
+		for i := 0; i < ui.FuelStationOptionCount; i++ {
+			optionY := contentY + float32(i)*(optionHeight+optionPadding)
+			isSelected := uiState.SelectedIndex == i
+
+			fuelAmount := fuelStationUI.GetFuelAmount(i, player)
+			cost := fuelStationUI.GetCost(fuelAmount)
+			canAfford := player.CanAfford(cost) && fuelAmount > 0
+			label := fuelStationUI.GetOptionLabel(i)
+
+			// Option background
+			bgColor := rl.NewColor(50, 50, 60, 255)
+			if canAfford == false {
+				bgColor = rl.NewColor(40, 40, 45, 255)
+			}
+			if isSelected && canAfford {
+				bgColor = rl.NewColor(60, 70, 80, 255)
+			}
+			rl.DrawRectangle(int32(modalX+20), int32(optionY), int32(modalWidth-40), int32(optionHeight), bgColor)
+
+			// Selection border
+			if isSelected {
+				borderColor := rl.Yellow
+				if canAfford == false {
+					borderColor = rl.NewColor(100, 100, 100, 255)
+				}
+				rl.DrawRectangleLinesEx(
+					rl.Rectangle{X: modalX + 20, Y: optionY, Width: modalWidth - 40, Height: optionHeight},
+					2.0,
+					borderColor,
+				)
+			}
+
+			// Option label (left side)
+			labelColor := rl.White
+			if canAfford == false {
+				labelColor = rl.Gray
+			}
+			rl.DrawText(label, int32(modalX+30), int32(optionY+8), 18, labelColor)
+
+			// Fuel amount and cost (below label)
+			// Show for all options except when truly N/A (options 0-2 with 0 fuel)
+			// Option 3 (Max Affordable) always shows, even if 0
+			showFuelAmount := fuelAmount > 0 || i == 3
+			if showFuelAmount {
+				// Show decimals when: options 2-3 always, or options 0-1 when capped below nominal
+				var detailText string
+				needsDecimals := i >= 2 || (i == 0 && fuelAmount < 1) || (i == 1 && fuelAmount < 10)
+				if needsDecimals {
+					detailText = fmt.Sprintf("+%.1f L", fuelAmount)
+				} else {
+					detailText = fmt.Sprintf("+%.0f L", fuelAmount)
+				}
+				detailColor := rl.NewColor(100, 180, 255, 255) // Blue tint for fuel
+				if canAfford == false || fuelAmount == 0 {
+					detailColor = rl.NewColor(60, 90, 120, 255)
+				}
+				rl.DrawText(detailText, int32(modalX+30), int32(optionY+28), 14, detailColor)
+
+				// Cost (right side)
+				costText := fmt.Sprintf("$%d", cost)
+				costWidth := rl.MeasureText(costText, 18)
+				costColor := rl.Yellow
+				if canAfford == false || fuelAmount == 0 {
+					costColor = rl.NewColor(200, 100, 100, 255)
+				}
+				if isSelected && canAfford && fuelAmount > 0 {
+					costColor = rl.Green
+				}
+				rl.DrawText(costText, int32(modalX+modalWidth-40)-costWidth, int32(optionY+14), 18, costColor)
+			} else {
+				// No refuel needed for this option
+				detailText := "N/A"
+				rl.DrawText(detailText, int32(modalX+30), int32(optionY+28), 14, rl.Gray)
+			}
+		}
+	}
+
+	// Controls hint at bottom
+	controlsY := modalY + modalHeight - 40
+	controlsText := "[W/S] Navigate   [E] Refuel   [Q] Close"
 	controlsWidth := rl.MeasureText(controlsText, 16)
 	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
 }

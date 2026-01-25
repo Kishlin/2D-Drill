@@ -59,7 +59,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **Down (S) / Down Arrow**: Drill downward (with player grid alignment)
 - **E**: Interact
   - At market: Open sell modal (E again to sell, Q to cancel)
-  - At fuel station: Refuel tank (if affordable)
+  - At fuel station: Open refuel modal (W/S to navigate, E to refuel, Q to close)
   - At hospital: Open heal modal (W/S to navigate, E to heal, Q to close)
   - At upgrade shop: Open modal, navigate with arrows, E to buy, Q to close
   - At item shop: Open modal, navigate with arrows, E to buy, Q to close
@@ -157,6 +157,25 @@ Fuel is a limited resource that creates time pressure for each expedition. Base 
 **Consumption Rates:**
 - Active movement (moving/drilling): 0.333 L/sec
 - Idle (standing still): 0.0833 L/sec
+
+**Refueling System:**
+- **Fuel Station Location**: Visible on the surface (orange rectangle)
+- **Interaction**: Press E while overlapping fuel station to open refuel modal
+- **Modal Navigation**: W/S to navigate options, E to refuel, Q to close
+- **Refuel Cost**: $1 per liter (rounded up)
+
+**Refuel Options:**
+| Option | Fuel Added | Cost | Behavior |
+|--------|------------|------|----------|
+| Refuel 1L | min(1, fuelNeeded) | $1 | Stays open (repeatable) |
+| Refuel 10L | min(10, fuelNeeded) | $10 max | Stays open (repeatable) |
+| Full Tank | fuelNeeded | ceil(fuelNeeded) | Closes after |
+| Max Affordable | min(fuelNeeded, floor(money)) | varies | Closes after |
+
+**Display Details:**
+- Fixed options (1L, 10L) show whole numbers unless capped below nominal
+- Variable options (Full, Max) show one decimal place (e.g., "+11.3 L")
+- Max Affordable shows "+0.0 L for $0" when broke (greyed out)
 
 **Future Mechanics** (not yet implemented):
 - Game over or limitations when fuel reaches zero

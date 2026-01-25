@@ -259,3 +259,44 @@ func (s *HospitalState) IsFirstFrame() bool {
 func (s *HospitalState) ClearFirstFrame() {
 	s.firstFrame = false
 }
+
+const FuelStationOptionCount = 4
+
+type FuelStationState struct {
+	SelectedIndex int
+	firstFrame    bool
+}
+
+func NewFuelStationState() *FuelStationState {
+	return &FuelStationState{
+		SelectedIndex: 0,
+		firstFrame:    true,
+	}
+}
+
+func (s *FuelStationState) Reset() {
+	s.SelectedIndex = 0
+	s.firstFrame = true
+}
+
+func (s *FuelStationState) NavigateUp() {
+	s.SelectedIndex--
+	if s.SelectedIndex < 0 {
+		s.SelectedIndex = FuelStationOptionCount - 1
+	}
+}
+
+func (s *FuelStationState) NavigateDown() {
+	s.SelectedIndex++
+	if s.SelectedIndex >= FuelStationOptionCount {
+		s.SelectedIndex = 0
+	}
+}
+
+func (s *FuelStationState) IsFirstFrame() bool {
+	return s.firstFrame
+}
+
+func (s *FuelStationState) ClearFirstFrame() {
+	s.firstFrame = false
+}

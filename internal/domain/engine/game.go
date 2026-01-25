@@ -209,6 +209,10 @@ func (g *Game) resetUIState(interactionType components.InteractableType) {
 		if hospitalUI, ok := registeredUI.(*ui.HospitalUI); ok {
 			hospitalUI.ResetState()
 		}
+	case components.InteractableFuelStation:
+		if fuelStationUI, ok := registeredUI.(*ui.FuelStationUI); ok {
+			fuelStationUI.ResetState()
+		}
 	}
 }
 

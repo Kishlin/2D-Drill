@@ -562,11 +562,16 @@ func (m *Manager) GetActiveUI() UI
 - Shows "+0.0 HP for $0" for Max Affordable when broke (greyed out)
 - Uses `firstFrame` flag to skip the E keypress that opened the modal
 
-### Instant UIs (FuelStationUI)
-
-- Return `CloseWithEffects(...)` immediately
-- Close on first process (no modal)
-- No render state needed
+**FuelStationUI Specifics:**
+- Opens modal with 4 refuel options (vertical list)
+- Navigate with W/S (up/down), wraps around
+- Options: Refuel 1L, Refuel 10L, Full Tank, Max Affordable
+- Cost: $1 per liter (rounded up)
+- Options 0-1 (fixed amounts): Stay open after purchase for repeated refueling
+- Options 2-3 (full/max): Close after purchase
+- Displays decimals for fractional fuel amounts (options 2-3 and when capped)
+- Shows "+0.0 L for $0" for Max Affordable when broke (greyed out)
+- Uses `firstFrame` flag to skip the E keypress that opened the modal
 
 ---
 
