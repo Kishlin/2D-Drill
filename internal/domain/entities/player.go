@@ -18,7 +18,7 @@ type Player struct {
 	Velocity      types.Vec2     // Pixels per second
 	OnGround      bool           // Collision state
 	IsDrilling    bool           // Drilling animation state
-	InShop        bool           // Shop UI is open, pauses gameplay
+	InUI          bool           // UI overlay is open, pauses gameplay
 	OreInventory  map[string]int // Ore counts keyed by ore ID (e.g., "copper", "gold")
 	ItemInventory [5]int         // Item counts indexed by ItemType
 	Money         int            // Player's currency from selling ores

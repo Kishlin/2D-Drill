@@ -9,7 +9,7 @@ import (
 
 // UpdatePhysics applies physics using axis-separated AABB collision
 func UpdatePhysics(player *entities.Player, w *world.World, inputState input.InputState, dt float32) {
-	if player.IsDrilling || player.InShop {
+	if player.IsDrilling || player.InUI {
 		return
 	}
 

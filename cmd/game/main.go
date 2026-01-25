@@ -59,8 +59,8 @@ func main() {
 
 		renderer.Render(game, inputState)
 
-		// Only check for window close if not in shop (Escape key should close shop, not game)
-		if game.GetPlayer().InShop == false && renderer.WindowShouldClose() {
+		// Only check for window close if not in UI (Escape key should close UI, not game)
+		if game.GetPlayer().InUI == false && renderer.WindowShouldClose() {
 			break
 		}
 	}

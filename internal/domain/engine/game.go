@@ -130,7 +130,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		// If UI closed, resume gameplay but skip interaction check this frame
 		// to prevent the same key press from reopening the UI
 		if g.uiManager.HasActiveUI() == false {
-			g.player.InShop = false
+			g.player.InUI = false
 			return nil
 		}
 		return nil // Still open (modal) - pause gameplay
@@ -148,7 +148,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
 			// If still open after first process, it's modal - pause
 			if g.uiManager.HasActiveUI() {
-				g.player.InShop = true
+				g.player.InUI = true
 				return nil
 			}
 			// Otherwise it was instant, continue with gameplay
