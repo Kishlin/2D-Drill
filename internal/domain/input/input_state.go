@@ -18,6 +18,7 @@ type InputState struct {
 	PrevTab     bool // Z key for previous tab in shop
 	NextTab     bool // X key for next tab in shop
 	CloseShop   bool // Q or Escape key to close shop
+	Inventory   bool // I key for inventory
 
 	// Discrete navigation (for UI, single press)
 	NavLeft  bool // Left arrow or A key (discrete)
@@ -41,6 +42,7 @@ func NewInputState() InputState {
 		PrevTab:     false,
 		NextTab:     false,
 		CloseShop:   false,
+		Inventory:   false,
 		NavLeft:     false,
 		NavRight:    false,
 		NavUp:       false,

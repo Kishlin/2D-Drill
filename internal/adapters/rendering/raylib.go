@@ -152,7 +152,12 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	// Game state overlay (victory/defeat screens)
 	r.renderGameStateOverlay(game)
 
-	// Render active UI if it has render state (modal UIs only)
+	// Render inventory UI if active
+	if game.GetInventoryUI().IsActive() {
+		r.renderInventoryModal(game.GetInventoryUI(), game)
+	}
+
+	// Render active building UI if it has render state (modal UIs only)
 	if game.GetUIManager().HasActiveUI() {
 		activeUI := game.GetUIManager().GetActiveUI()
 		if state := activeUI.GetRenderState(); state != nil {
@@ -1342,4 +1347,160 @@ func (r *RaylibRenderer) renderDefeatScreen() {
 		20,
 		rl.White,
 	)
+}
+
+// renderInventoryModal draws the inventory modal UI
+func (r *RaylibRenderer) renderInventoryModal(inventoryUI *ui.InventoryUI, game *engine.Game) {
+	player := game.GetPlayer()
+
+	// Modal dimensions
+	modalWidth := float32(600)
+	modalHeight := float32(500)
+	modalX := (r.screenWidth - modalWidth) / 2
+	modalY := (r.screenHeight - modalHeight) / 2
+
+	// Draw semi-transparent overlay
+	rl.DrawRectangle(0, 0, int32(r.screenWidth), int32(r.screenHeight), rl.NewColor(0, 0, 0, 150))
+
+	// Draw modal background
+	rl.DrawRectangle(int32(modalX), int32(modalY), int32(modalWidth), int32(modalHeight), rl.NewColor(40, 40, 50, 255))
+	rl.DrawRectangleLinesEx(
+		rl.Rectangle{X: modalX, Y: modalY, Width: modalWidth, Height: modalHeight},
+		3.0,
+		rl.NewColor(100, 100, 120, 255),
+	)
+
+	// Title
+	titleText := "INVENTORY"
+	titleFontSize := int32(30)
+	titleWidth := rl.MeasureText(titleText, titleFontSize)
+	rl.DrawText(titleText, int32(modalX)+(int32(modalWidth)-titleWidth)/2, int32(modalY)+10, titleFontSize, rl.White)
+
+	// Money section
+	moneyY := modalY + 55
+	moneyText := fmt.Sprintf("Money: $%d", player.Money)
+	rl.DrawText(moneyText, int32(modalX)+30, int32(moneyY), 22, rl.Yellow)
+
+	// Two-column layout: Ores on left, Upgrades on right
+	leftColX := modalX + 30
+	rightColX := modalX + modalWidth/2 + 15
+	sectionY := moneyY + 40
+	lineHeight := float32(26)
+
+	// Left column: ORE
+	rl.DrawText("ORE", int32(leftColX), int32(sectionY), 20, rl.LightGray)
+
+	// Right column: UPGRADES
+	rl.DrawText("UPGRADES", int32(rightColX), int32(sectionY), 20, rl.LightGray)
+
+	// Separator line
+	rl.DrawLine(int32(leftColX), int32(sectionY)+25, int32(modalX)+int32(modalWidth)-30, int32(sectionY)+25, rl.NewColor(80, 80, 90, 255))
+
+	rowY := sectionY + 35
+	oreConfigs := inventoryUI.GetOreConfigs()
+	totalOre := player.GetTotalOreCount()
+
+	// Draw ores (left column) and upgrades (right column) side by side
+	upgradeTypes := []upgrades.UpgradeType{
+		upgrades.TypeEngine,
+		upgrades.TypeHull,
+		upgrades.TypeFuelTank,
+		upgrades.TypeCargoHold,
+		upgrades.TypeHeatShield,
+		upgrades.TypeDrill,
+	}
+
+	maxRows := len(oreConfigs)
+	if len(upgradeTypes) > maxRows {
+		maxRows = len(upgradeTypes)
+	}
+
+	for i := 0; i < maxRows; i++ {
+		currentRowY := rowY + float32(i)*lineHeight
+
+		// Left column: Ore
+		if i < len(oreConfigs) {
+			oreCfg := oreConfigs[i]
+			count := player.OreInventory[oreCfg.ID]
+
+			// Ore color square
+			oreColor := rl.NewColor(oreCfg.Color[0], oreCfg.Color[1], oreCfg.Color[2], oreCfg.Color[3])
+			rl.DrawRectangle(int32(leftColX), int32(currentRowY)+2, 16, 16, oreColor)
+			rl.DrawRectangleLines(int32(leftColX), int32(currentRowY)+2, 16, 16, rl.White)
+
+			// Ore name and count
+			oreText := fmt.Sprintf("%s: %d", oreCfg.Name, count)
+			textColor := rl.White
+			if count == 0 {
+				textColor = rl.Gray
+			}
+			rl.DrawText(oreText, int32(leftColX)+24, int32(currentRowY), 18, textColor)
+		}
+
+		// Right column: Upgrade
+		if i < len(upgradeTypes) {
+			upgradeType := upgradeTypes[i]
+			typeName := upgradeType.ShortName()
+			currentTier := player.GetUpgradeTier(upgradeType)
+
+			// Use tier names like the upgrade shop
+			tierNames := []string{"Base", "Mk1", "Mk2", "Mk3", "Mk4", "Mk5"}
+			tierName := "?"
+			if currentTier >= 0 && currentTier < len(tierNames) {
+				tierName = tierNames[currentTier]
+			}
+
+			upgradeText := fmt.Sprintf("%s: %s", typeName, tierName)
+			rl.DrawText(upgradeText, int32(rightColX), int32(currentRowY), 18, rl.White)
+		}
+	}
+
+	// Cargo capacity (below ores)
+	cargoY := rowY + float32(len(oreConfigs))*lineHeight + 5
+	cargoText := fmt.Sprintf("Cargo: %d / %d", totalOre, player.CargoCapacity())
+	cargoColor := rl.White
+	if totalOre >= player.CargoCapacity() {
+		cargoColor = rl.Red
+	} else if totalOre > player.CargoCapacity()*3/4 {
+		cargoColor = rl.Orange
+	}
+	rl.DrawText(cargoText, int32(leftColX), int32(cargoY), 18, cargoColor)
+
+	// Items section
+	itemSectionY := cargoY + 40
+	rl.DrawText("ITEMS", int32(leftColX), int32(itemSectionY), 20, rl.LightGray)
+	rl.DrawLine(int32(leftColX), int32(itemSectionY)+25, int32(modalX)+int32(modalWidth)-30, int32(itemSectionY)+25, rl.NewColor(80, 80, 90, 255))
+
+	itemRowY := itemSectionY + 35
+	itemTypes := []entities.ItemType{
+		entities.ItemTeleport,
+		entities.ItemRepair,
+		entities.ItemRefuel,
+		entities.ItemBomb,
+		entities.ItemBigBomb,
+	}
+
+	for i, itemType := range itemTypes {
+		// Calculate column position (2 columns)
+		col := i % 2
+		row := i / 2
+		itemX := leftColX + float32(col)*(modalWidth/2-15)
+		currentRowY := itemRowY + float32(row)*lineHeight
+
+		itemName := entities.ItemNames[itemType]
+		count := player.ItemInventory[itemType]
+
+		itemText := fmt.Sprintf("%s: %d", itemName, count)
+		textColor := rl.White
+		if count == 0 {
+			textColor = rl.Gray
+		}
+		rl.DrawText(itemText, int32(itemX), int32(currentRowY), 18, textColor)
+	}
+
+	// Controls hint at bottom
+	controlsY := modalY + modalHeight - 40
+	controlsText := "[I] Close   [Q] Close   [Move] Close"
+	controlsWidth := rl.MeasureText(controlsText, 16)
+	rl.DrawText(controlsText, int32(modalX)+(int32(modalWidth)-controlsWidth)/2, int32(controlsY), 16, rl.LightGray)
 }

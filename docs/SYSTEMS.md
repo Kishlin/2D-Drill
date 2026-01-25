@@ -10,13 +10,16 @@ Systems are stateful orchestrators that coordinate domain logic each frame. They
 
 **System Update Order** (in `engine/game.go`):
 1. Chunk loading (proactive around player)
-2. UI Manager (modal pause if active)
-3. Building interactions (E key detection)
-4. Physics (movement, collision, damage)
-5. Fuel consumption
-6. Drilling animation
-7. Item usage
-8. Boss fight
+2. Inventory UI (I key modal, if active)
+3. UI Manager (building modals, if active)
+4. Inventory open check (I key when no UI active)
+5. Building interactions (E key detection)
+6. Heat damage
+7. Physics (movement, collision, damage)
+8. Fuel consumption
+9. Drilling animation
+10. Item usage
+11. Boss fight
 
 ---
 
@@ -572,6 +575,54 @@ func (m *Manager) GetActiveUI() UI
 - Displays decimals for fractional fuel amounts (options 2-3 and when capped)
 - Shows "+0.0 L for $0" for Max Affordable when broke (greyed out)
 - Uses `firstFrame` flag to skip the E keypress that opened the modal
+
+### Inventory UI (`ui/inventory.go`)
+
+The Inventory UI is a player-triggered modal (I key) that displays current resources. Unlike building UIs, it's handled directly by `Game` rather than the UI Manager.
+
+```go
+type InventoryUI struct {
+    oreConfigs []config.OreConfig
+    state      *InventoryState
+    active     bool
+}
+
+func (u *InventoryUI) Process(inputState input.InputState) bool  // Returns true if closed
+func (u *InventoryUI) Open()
+func (u *InventoryUI) IsActive() bool
+func (u *InventoryUI) GetRenderState() *InventoryState
+func (u *InventoryUI) GetOreConfigs() []config.OreConfig
+```
+
+**Close Conditions:**
+- `CloseShop` input (Q or Escape)
+- `HasMovementInput()` (any WASD/Arrow key)
+- `Inventory` input (I key toggle, after first frame)
+
+**Game Integration:**
+```go
+// In Game.Update(), before building UI processing:
+if g.inventoryUI.IsActive() {
+    closed := g.inventoryUI.Process(inputState)
+    if closed {
+        g.player.InUI = false
+    }
+    return nil  // Pause gameplay while open
+}
+
+// Check for I key to open (when no UI active)
+if inputState.Inventory {
+    g.inventoryUI.Open()
+    g.player.InUI = true
+    return nil
+}
+```
+
+**Display Contents:**
+- Money (top)
+- Two columns: Ores (left) with colored squares, Upgrades (right) with tier names
+- Cargo capacity below ores
+- Items section (2-column grid)
 
 ---
 

@@ -69,6 +69,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
   - **F**: Refuel (fill fuel tank to max)
   - **B**: Bomb (destroy tiles in small radius)
   - **G**: Big Bomb (destroy tiles in larger radius)
+- **I**: Open inventory (view resources, upgrades, items)
 
 ### Vehicle Mechanics
 - Gravity pulls vehicle downward
@@ -684,6 +685,28 @@ Boss rooms can have different floor mechanics configured per level:
 - **Top-right**: Depth indicator, Currency
 - **Bottom**: Cargo capacity/inventory preview
 - **Minimap**: (future) Small overview of nearby area
+
+### Inventory (I Key)
+
+Press **I** anywhere to open a read-only inventory modal showing your current resources:
+
+**Layout:**
+- **Money**: Current balance displayed at top
+- **Two-column display**:
+  - Left column: All ore types with colored squares, names, and counts
+  - Right column: All upgrade types with current tier (Base, Mk1-Mk5)
+- **Cargo capacity**: Shows current ore count vs maximum
+- **Items section**: All consumable items with counts
+
+**Controls:**
+- **I**: Toggle close (after opening)
+- **Q** or **Escape**: Close
+- **Any movement key** (WASD/Arrows): Close immediately
+
+**Design Notes:**
+- Read-only display (no purchasing or actions)
+- Separate from building UIs (can open anywhere, not just at buildings)
+- Closes on movement to avoid interrupting gameplay
 
 ### Shop Interface
 - Grid of upgrade cards

@@ -31,6 +31,7 @@ func (a *RaylibInputAdapter) ReadInput() input.InputState {
 		PrevTab:     rl.IsKeyPressed(rl.KeyZ),
 		NextTab:     rl.IsKeyPressed(rl.KeyX),
 		CloseShop:   rl.IsKeyPressed(rl.KeyQ) || rl.IsKeyPressed(rl.KeyEscape),
+		Inventory:   rl.IsKeyPressed(rl.KeyI),
 
 		// Discrete navigation (for UI)
 		NavLeft:  rl.IsKeyPressed(rl.KeyLeft) || rl.IsKeyPressed(rl.KeyA),

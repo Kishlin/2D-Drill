@@ -24,6 +24,7 @@ type Game struct {
 	itemCatalog     *entities.ItemCatalog
 	drillingSystem  *systems.DrillingSystem
 	uiManager       *ui.Manager
+	inventoryUI     *ui.InventoryUI
 	effectProcessor *effects.Processor
 	effectContext   *effects.EffectContext
 	damageables     []effects.DamageableEntity
@@ -75,6 +76,9 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 	uiManager.Register(components.InteractableUpgradeShop, ui.NewUpgradeShopUI(upgradeCatalog))
 	uiManager.Register(components.InteractableItemShop, ui.NewItemShopUI(itemCatalog))
 
+	// Create inventory UI (separate from building UIs)
+	inventoryUI := ui.NewInventoryUI(gameCfg.Generation.Ores)
+
 	// Create boss and boss fight system
 	var damageables []effects.DamageableEntity
 	boss, err := createBossByType(
@@ -106,6 +110,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		itemCatalog:     itemCatalog,
 		drillingSystem:  systems.NewDrillingSystem(w),
 		uiManager:       uiManager,
+		inventoryUI:     inventoryUI,
 		effectProcessor: effects.NewProcessor(),
 		effectContext:   effectContext,
 		damageables:     damageables,
@@ -122,7 +127,17 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	playerY := g.player.AABB.Y + g.player.AABB.Height/2
 	g.world.UpdateChunksAroundPlayer(playerX, playerY)
 
-	// 1. If a UI is active, process it
+	// 1a. If inventory UI is active, process it
+	if g.inventoryUI.IsActive() {
+		closed := g.inventoryUI.Process(inputState)
+		if closed {
+			g.player.InUI = false
+			return nil
+		}
+		return nil // Still open (modal) - pause gameplay
+	}
+
+	// 1b. If a building UI is active, process it
 	if g.uiManager.HasActiveUI() {
 		result := g.uiManager.Process(g.player, inputState)
 		g.effectProcessor.Apply(g.effectContext, result.Effects)
@@ -136,7 +151,14 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		return nil // Still open (modal) - pause gameplay
 	}
 
-	// 2. Check for new interactions
+	// 2a. Check for inventory key press (when no UI is active)
+	if inputState.Inventory {
+		g.inventoryUI.Open()
+		g.player.InUI = true
+		return nil
+	}
+
+	// 2b. Check for new building interactions
 	if interactionType := systems.DetectInteraction(g.player, g.buildings, inputState); interactionType != nil {
 		// Reset UI state for modal UIs before opening
 		g.resetUIState(*interactionType)
@@ -238,6 +260,10 @@ func (g *Game) GetItemCatalog() *entities.ItemCatalog {
 
 func (g *Game) GetUIManager() *ui.Manager {
 	return g.uiManager
+}
+
+func (g *Game) GetInventoryUI() *ui.InventoryUI {
+	return g.inventoryUI
 }
 
 func (g *Game) GetConfig() *config.GameConfig {

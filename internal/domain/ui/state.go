@@ -300,3 +300,23 @@ func (s *FuelStationState) IsFirstFrame() bool {
 func (s *FuelStationState) ClearFirstFrame() {
 	s.firstFrame = false
 }
+
+type InventoryState struct {
+	firstFrame bool
+}
+
+func NewInventoryState() *InventoryState {
+	return &InventoryState{firstFrame: true}
+}
+
+func (s *InventoryState) Reset() {
+	s.firstFrame = true
+}
+
+func (s *InventoryState) IsFirstFrame() bool {
+	return s.firstFrame
+}
+
+func (s *InventoryState) ClearFirstFrame() {
+	s.firstFrame = false
+}
