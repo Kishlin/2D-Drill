@@ -60,7 +60,7 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 - **E**: Interact
   - At market: Open sell modal (E again to sell, Q to cancel)
   - At fuel station: Refuel tank (if affordable)
-  - At hospital: Heal to full HP (if affordable)
+  - At hospital: Open heal modal (W/S to navigate, E to heal, Q to close)
   - At upgrade shop: Open modal, navigate with arrows, E to buy, Q to close
   - At item shop: Open modal, navigate with arrows, E to buy, Q to close
 - **Item Keys** (press once to use if you have items):
@@ -179,19 +179,32 @@ Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Takin
 
 **Healing System:**
 - **Hospital Location**: Visible on the surface (crimson rectangle, 5 tiles left of fuel station)
-- **Interaction**: Press E while overlapping hospital to heal
-- **Healing Cost**: $2 per hit point needed (rounded up)
-  - 0 HP needed (already max) = $0 (no transaction)
-  - 10 HP needed (at 0 HP) = $20
-  - 2.8 HP needed (at 7.2 HP) = $6 (ceil of 5.6)
-  - 0.1 HP needed (at 9.9 HP) = $1 (ceil of 0.2)
-- **Instant Heal**: HP immediately restored to max (10.0) on successful transaction
-- **Rejection**: Cannot heal if insufficient money (healing prevented, no partial transaction)
+- **Interaction**: Press E while overlapping hospital to open healing modal
+- **Modal Navigation**: W/S to navigate options, E to heal, Q to close
+- **Healing Cost**: $2 per hit point (rounded up)
+
+**Healing Options:**
+| Option | HP Restored | Cost | Behavior |
+|--------|-------------|------|----------|
+| Restore 1 HP | min(1, hpNeeded) | $2 | Stays open (repeatable) |
+| Restore 10 HP | min(10, hpNeeded) | $20 max | Stays open (repeatable) |
+| Restore All HP | hpNeeded | ceil(hpNeeded × 2) | Closes after |
+| Max Affordable | min(hpNeeded, floor(money/2)) | varies | Closes after |
+
+**Display Details:**
+- Fixed options (1 HP, 10 HP) show whole numbers unless capped below nominal
+- Variable options (All, Max) show one decimal place (e.g., "+11.3 HP")
+- Max Affordable shows "+0.0 HP for $0" when broke (greyed out)
+- Unaffordable options are greyed with red cost text
+- Selected affordable option shows green cost text
+
+**Edge Cases:**
+- At full HP: Shows "Already at full health" message
+- Insufficient funds: Options greyed out, can still close with Q
 
 **Future Mechanics** (not yet implemented):
 - Game over when HP reaches 0
 - Invulnerability frames after respawn
-- Multiple healing tiers (partial vs full healing)
 - Healing over time consumables
 
 ## World

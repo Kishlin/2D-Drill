@@ -218,3 +218,44 @@ func (s *MarketState) IsFirstFrame() bool {
 func (s *MarketState) ClearFirstFrame() {
 	s.firstFrame = false
 }
+
+const HospitalOptionCount = 4
+
+type HospitalState struct {
+	SelectedIndex int
+	firstFrame    bool
+}
+
+func NewHospitalState() *HospitalState {
+	return &HospitalState{
+		SelectedIndex: 0,
+		firstFrame:    true,
+	}
+}
+
+func (s *HospitalState) Reset() {
+	s.SelectedIndex = 0
+	s.firstFrame = true
+}
+
+func (s *HospitalState) NavigateUp() {
+	s.SelectedIndex--
+	if s.SelectedIndex < 0 {
+		s.SelectedIndex = HospitalOptionCount - 1
+	}
+}
+
+func (s *HospitalState) NavigateDown() {
+	s.SelectedIndex++
+	if s.SelectedIndex >= HospitalOptionCount {
+		s.SelectedIndex = 0
+	}
+}
+
+func (s *HospitalState) IsFirstFrame() bool {
+	return s.firstFrame
+}
+
+func (s *HospitalState) ClearFirstFrame() {
+	s.firstFrame = false
+}

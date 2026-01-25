@@ -537,11 +537,11 @@ func (m *Manager) HasActiveUI() bool
 func (m *Manager) GetActiveUI() UI
 ```
 
-### Modal UIs (UpgradeShopUI, ItemShopUI, MarketUI)
+### Modal UIs (UpgradeShopUI, ItemShopUI, MarketUI, HospitalUI)
 
 - Return `NoChange()` to stay open
-- Return `WithEffects(...)` on purchase (stay open, for shops)
-- Return `CloseWithEffects(...)` on action completion (for MarketUI sell)
+- Return `WithEffects(...)` on purchase (stay open, for repeated purchases)
+- Return `CloseWithEffects(...)` on action completion
 - Return `Close()` on Q/Escape
 - Have render state for display
 
@@ -551,7 +551,18 @@ func (m *Manager) GetActiveUI() UI
 - Press Q/Escape to close without selling
 - Uses `firstFrame` flag to skip the E keypress that opened the modal
 
-### Instant UIs (HospitalUI, FuelStationUI)
+**HospitalUI Specifics:**
+- Opens modal with 4 healing options (vertical list)
+- Navigate with W/S (up/down), wraps around
+- Options: Restore 1 HP, Restore 10 HP, Restore All HP, Max Affordable
+- Cost: $2 per HP (rounded up)
+- Options 0-1 (fixed amounts): Stay open after purchase for repeated healing
+- Options 2-3 (full/max): Close after purchase
+- Displays decimals for fractional HP amounts (options 2-3 and when capped)
+- Shows "+0.0 HP for $0" for Max Affordable when broke (greyed out)
+- Uses `firstFrame` flag to skip the E keypress that opened the modal
+
+### Instant UIs (FuelStationUI)
 
 - Return `CloseWithEffects(...)` immediately
 - Close on first process (no modal)

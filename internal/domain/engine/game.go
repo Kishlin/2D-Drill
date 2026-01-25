@@ -205,6 +205,10 @@ func (g *Game) resetUIState(interactionType components.InteractableType) {
 		if marketUI, ok := registeredUI.(*ui.MarketUI); ok {
 			marketUI.ResetState()
 		}
+	case components.InteractableHospital:
+		if hospitalUI, ok := registeredUI.(*ui.HospitalUI); ok {
+			hospitalUI.ResetState()
+		}
 	}
 }
 
