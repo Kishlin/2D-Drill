@@ -44,7 +44,7 @@ func (u *HospitalUI) Process(player *entities.Player, inputState input.InputStat
 	if inputState.Interact {
 		healAmount := u.GetHealAmount(u.state.SelectedIndex, player)
 		if healAmount <= 0 {
-			return NoChange()
+			return Close()
 		}
 
 		cost := u.GetCost(healAmount)

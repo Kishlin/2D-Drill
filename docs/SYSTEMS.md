@@ -561,6 +561,7 @@ func (m *Manager) GetActiveUI() UI
 - Cost: $2 per HP (rounded up)
 - Options 0-1 (fixed amounts): Stay open after purchase for repeated healing
 - Options 2-3 (full/max): Close after purchase
+- At full HP: Shows "Already at full health" message, E to close
 - Displays decimals for fractional HP amounts (options 2-3 and when capped)
 - Shows "+0.0 HP for $0" for Max Affordable when broke (greyed out)
 - Uses `firstFrame` flag to skip the E keypress that opened the modal
@@ -572,6 +573,7 @@ func (m *Manager) GetActiveUI() UI
 - Cost: $1 per liter (rounded up)
 - Options 0-1 (fixed amounts): Stay open after purchase for repeated refueling
 - Options 2-3 (full/max): Close after purchase
+- At full tank: Shows "Already at full fuel" message, E to close
 - Displays decimals for fractional fuel amounts (options 2-3 and when capped)
 - Shows "+0.0 L for $0" for Max Affordable when broke (greyed out)
 - Uses `firstFrame` flag to skip the E keypress that opened the modal

@@ -44,7 +44,7 @@ func (u *FuelStationUI) Process(player *entities.Player, inputState input.InputS
 	if inputState.Interact {
 		fuelAmount := u.GetFuelAmount(u.state.SelectedIndex, player)
 		if fuelAmount <= 0 {
-			return NoChange()
+			return Close()
 		}
 
 		cost := u.GetCost(fuelAmount)

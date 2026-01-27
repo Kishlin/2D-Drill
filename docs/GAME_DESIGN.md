@@ -178,6 +178,10 @@ Fuel is a limited resource that creates time pressure for each expedition. Base 
 - Variable options (Full, Max) show one decimal place (e.g., "+11.3 L")
 - Max Affordable shows "+0.0 L for $0" when broke (greyed out)
 
+**Edge Cases:**
+- At full tank: Shows "Already at full fuel" message, press E to close
+- Insufficient funds: Options greyed out, can still close with Q
+
 **Future Mechanics** (not yet implemented):
 - Game over or limitations when fuel reaches zero
 - Fuel efficiency upgrades
@@ -219,7 +223,7 @@ Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Takin
 - Selected affordable option shows green cost text
 
 **Edge Cases:**
-- At full HP: Shows "Already at full health" message
+- At full HP: Shows "Already at full health" message, press E to close
 - Insufficient funds: Options greyed out, can still close with Q
 
 **Future Mechanics** (not yet implemented):
