@@ -92,15 +92,22 @@ A 2D vertical mining game inspired by Motherload. Players control a small drilli
 
 Both vertical and horizontal drilling feature smooth variable-duration animations based on tile hardness and depth:
 
-**Duration Formula:** `duration = baseTime × hardness × depthFactor / drillSpeed`
+**Duration Formula:**
+```
+baseDuration = minDrillingDuration × hardness × depthFactor
+effectiveSpeed = speedAtSurface + (speedAtMaxDepth - speedAtSurface) × depthFactor
+duration = max(baseDuration / effectiveSpeed, floorDrillingDuration)
+```
 
 Where:
-- **baseTime**: 1.0 second constant
+- **minDrillingDuration**: 1.0 second (from config)
 - **hardness**: per-tile value (Dirt 1.0, Copper 1.2, Iron 1.5, Gold 1.8, Mythril 2.1, Platinum 2.5, Diamond 3.0)
 - **depthFactor**: scales 1.0 at surface → 24.0 at max depth
-- **drillSpeed**: from drill upgrades (1.0 → 6.0)
+- **speedAtSurface**: from drill upgrades (1.0 → 1.5 across tiers)
+- **speedAtMaxDepth**: from drill upgrades (1.0 → 6.0 across tiers)
+- **floorDrillingDuration**: 0.5 second minimum (from config)
 
-**Lava Exception:** Fixed 0.3s duration regardless of depth (damage is the penalty).
+**Hazard Exception:** Drillable hazards (e.g., lava) use fixed duration from config, ignoring depth formula.
 
 The player moves toward the tile's center during the animation. The tile is only removed when the animation completes, then ore is collected.
 
@@ -243,8 +250,8 @@ Players start with 10 hit points (upgradeable to 75 HP via Hull upgrades). Takin
 - **Empty**: No collision, can move through (air pockets, caves)
 - **Dirt**: Solid, drillable, no value (filler)
 - **Ore**: Solid, drillable, contains valuable resources
-- **Rock**: Solid, impenetrable obstacle (cannot be drilled, only bombed)
-- **Lava**: Solid, drillable hazard (fast 0.3s animation, deals damage on completion)
+- **Hazard (Rock)**: Solid, non-drillable (can only be bombed)
+- **Hazard (Lava)**: Solid, drillable hazard (fast 0.3s fixed duration, deals heat-scaled damage on completion)
 
 ### Ore Types & Distribution
 
@@ -326,10 +333,14 @@ Hazard tiles are impenetrable and drillable obstacles that appear at deeper dept
 
 **Lava Tiles (Drillable Hazards):**
 - **Appearance**: Red-orange blocks
-- **Drillability**: Drillable with fixed 0.3-second duration (from `HazardHardness` map, depth-independent)
+- **Drillability**: Drillable with fixed 0.3-second duration (from FixedDuration config, depth-independent)
 - **Depth**: Appear starting ~60-65% depth, more common at 80%+
-- **Damage**: Deals 100 damage on drilling completion (reduced to 50 with Mk5 heat shield)
-- **Damage Formula**: `damage = 100 - (currentHeatResistance / 320.0 * 50)`
+- **On-Drill Effect**: `HazardEffectHeatDamage` with configurable parameters
+- **Damage Formula**: `damage = baseDamage - (resistance / maxResistance) * baseDamage * maxDamageReduction`
+  - Default: 100 base damage, 320 max resistance, 0.5 max reduction
+  - 0°C resistance → 100 damage
+  - 160°C resistance → 75 damage
+  - 320°C resistance → 50 damage
 - **Strategy**: Use heat shield upgrades to reduce damage before drilling lava-rich areas
 
 **Why Hazards Matter:**
@@ -440,24 +451,24 @@ Increases heat resistance, allowing safe mining at greater depths. Heat shield i
 
 ### Drill Upgrades
 
-Improves drilling speed via a depth-scaled divisor. At surface, only 10% of the upgrade applies; at max depth, 100% applies. This design ensures upgrades feel impactful deep underground without trivializing surface drilling.
+Improves drilling speed via depth-interpolated speed multipliers. Each tier has separate values for surface and max-depth speed. This design ensures upgrades feel impactful deep underground without trivializing surface drilling.
 
-| Tier | Drill Speed | Cost | Effect at Surface | Effect at Max Depth |
-|------|-------------|------|-------------------|---------------------|
-| Base | 1.0x | - | 1.0s → 1.0s | 24s → 24s |
-| Mk1 | 2.0x | $125 | 1.0s → 0.91s | 24s → 12s |
-| Mk2 | 3.0x | $350 | 1.0s → 0.83s | 24s → 8s |
-| Mk3 | 4.0x | $875 | 1.0s → 0.77s | 24s → 6s |
-| Mk4 | 5.0x | $2,000 | 1.0s → 0.71s | 24s → 4.8s |
-| Mk5 | 6.0x | $6,500 | 1.0s → 0.67s | 24s → 4s |
+| Tier | Surface Speed | Max Depth Speed | Cost |
+|------|---------------|-----------------|------|
+| Base | 1.0x | 1.0x | - |
+| Mk1 | 1.1x | 2.0x | $1,000 |
+| Mk2 | 1.2x | 3.0x | $4,000 |
+| Mk3 | 1.3x | 4.0x | $16,000 |
+| Mk4 | 1.4x | 5.0x | $64,000 |
+| Mk5 | 1.5x | 6.0x | $256,000 |
 
-**Formula:** `effectiveDivisor = 1 + (drillSpeed - 1) * (0.1 + 0.9 * depthFactor)`
+**Formula:** `effectiveSpeed = speedAtSurface + (speedAtMaxDepth - speedAtSurface) × depthFactor`
 
 **Design Rationale:**
-- Depth-scaled divisor prevents trivializing surface drilling
+- Depth-interpolated speed prevents trivializing surface drilling
 - Strong improvement at depth (24s → 4s with Mk5) makes deep mining viable
 - Gentle improvement at surface (1.0s → 0.67s) maintains early game challenge
-- Pricing balanced between Engine and Hull tiers
+- High pricing makes drill upgrades a late-game investment
 
 ### Upgrade Shops
 
@@ -491,8 +502,8 @@ Consumable items provide tactical advantages during deep mining expeditions. Ite
 | **Teleport** | T | $500 | Instantly return to spawn point at ground level | Emergency escape from danger (deep heat, low fuel) |
 | **Repair Kit** | R | $200 | Instantly restore HP to maximum | Heal without visiting hospital |
 | **Fuel Can** | F | $100 | Instantly fill fuel tank to maximum | Extend expedition range |
-| **Bomb** | B | $300 | Destroy tiles in 2-tile radius circle (~13 tiles) | Quickly excavate around obstacle |
-| **Big Bomb** | G | $800 | Destroy tiles in 4-tile radius circle (~49 tiles) | Clear large areas, create escape routes |
+| **Bomb** | B | $3,000 | Destroy tiles in 2-tile radius, deal 10 HP to entities | Quickly excavate, damage bosses |
+| **Big Bomb** | G | $10,000 | Destroy tiles in 4-tile radius, deal 25 HP to entities | Clear large areas, significant boss damage |
 
 ### Item Mechanics
 
@@ -591,7 +602,7 @@ The camera clamps at the world bottom to prevent viewing or nuking below the flo
 - Some future bosses may have 0 contact damage (passable)
 
 **Interaction:**
-- Bombs deal damage to vulnerable bosses (10 HP per bomb, 25 HP per big bomb)
+- Bombs deal damage to vulnerable bosses (damage values from ItemConfig)
 - Damage only applies during vulnerability windows
 - Boss dies when HP reaches 0
 - Victory screen appears on boss defeat

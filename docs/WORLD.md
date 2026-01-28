@@ -110,10 +110,16 @@ const (
     TileTypeEmpty  TileType = iota  // Air, no collision
     TileTypeDirt                     // Solid, drillable, no value
     TileTypeOre                      // Solid, drillable, valuable
-    TileTypeRock                     // Solid, NOT drillable (bomb only)
-    TileTypeLava                     // Solid, drillable, deals damage
+    TileTypeHazard                   // Solid, drillability stored on tile
     TileTypeFloor                    // Solid, indestructible (boss room)
 )
+
+type Tile struct {
+    Type      TileType
+    OreID     string  // Only for TileTypeOre
+    HazardID  string  // Only for TileTypeHazard
+    Drillable bool    // Only meaningful for TileTypeHazard
+}
 ```
 
 ### Tile Properties
@@ -123,8 +129,7 @@ const (
 | Empty | No | N/A | No | Air pockets, caves |
 | Dirt | Yes | Yes | No | Filler terrain |
 | Ore | Yes | Yes | Yes | Contains valuable resources |
-| Rock | Yes | **No** | No | Only destroyed by bombs |
-| Lava | Yes | Yes | No | Deals damage on drill completion |
+| Hazard | Yes | Config | No | Effect applied on drill (e.g., rock, lava) |
 | Floor | Yes | **No** | No | Indestructible boss room floor |
 
 ### Tile Methods
@@ -136,8 +141,10 @@ func (t *Tile) IsSolid() bool {
 
 func (t *Tile) IsDrillable() bool {
     switch t.Type {
-    case TileTypeDirt, TileTypeOre, TileTypeLava:
+    case TileTypeDirt, TileTypeOre:
         return true
+    case TileTypeHazard:
+        return t.Drillable  // Stored on tile from config
     default:
         return false
     }
@@ -243,13 +250,22 @@ Hazard tiles create obstacles and damage zones at deep depths:
 
 ```go
 type HazardConfig struct {
-    ID            string           // Unique identifier (e.g., "rock", "lava")
-    Name          string           // Display name
-    Drillable     bool             // false = impenetrable (rock)
-    FixedDuration float32          // If drillable: fixed drill time (0 = depth formula)
-    OnDrillDamage float32          // Damage dealt when drilling completes
-    Distribution  TileDistribution // Gaussian spawn parameters
-    Color         [4]uint8         // RGBA for rendering
+    ID            string              // Unique identifier (e.g., "rock", "lava")
+    Name          string              // Display name
+    Drillable     bool                // false = impenetrable (rock)
+    FixedDuration float32             // Required if Drillable=true: fixed drill time
+    OnDrillEffect HazardEffectConfig  // Effect applied on drill completion
+    Distribution  TileDistribution    // Gaussian spawn parameters
+    Color         [4]uint8            // RGBA for rendering
+}
+
+type HazardEffectConfig struct {
+    Type               HazardEffectType  // none, damage, heat_damage, money
+    Damage             float32           // For "damage" type
+    BaseDamage         float32           // For "heat_damage" type
+    MaxHeatResistance  float32           // For "heat_damage" - resistance for max reduction
+    MaxDamageReduction float32           // For "heat_damage" - max reduction (0.5 = 50%)
+    MoneyAmount        int               // For "money" type
 }
 ```
 
@@ -270,9 +286,12 @@ type HazardConfig struct {
 
 ### Lava Mechanics
 
-- **Fast Drill**: Fixed 0.3 second duration (depth-independent)
-- **Damage on Completion**: 100 HP base damage
-- **Heat Shield Reduction**: `damage = 100 - (resistance / 320.0 * 50)`
+- **Fast Drill**: Fixed 0.3 second duration (depth-independent via FixedDuration)
+- **On-Drill Effect**: `HazardEffectHeatDamage` with configurable parameters:
+  - BaseDamage: 100 HP
+  - MaxHeatResistance: 320°C (max resistance for full reduction)
+  - MaxDamageReduction: 0.5 (50% reduction at max resistance)
+- **Heat Shield Reduction Formula**: `finalDamage = baseDamage - (resistance / maxResistance) * baseDamage * maxReduction`
   - 0°C resistance: 100 damage
   - 160°C (Mk2): ~75 damage
   - 320°C (Mk5): 50 damage

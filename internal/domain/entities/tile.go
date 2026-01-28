@@ -8,18 +8,18 @@ import (
 type TileType int
 
 const (
-	TileTypeEmpty TileType = iota // Air/empty space
-	TileTypeDirt                  // Solid dirt (drillable)
-	TileTypeOre                   // Solid ore (drillable, contains ore)
-	TileTypeRock                  // Solid rock (impenetrable, not drillable)
-	TileTypeLava                  // Lava (drillable, deals damage on completion)
-	TileTypeFloor                 // Floor (solid, not drillable, not nukeable)
+	TileTypeEmpty  TileType = iota // Air/empty space
+	TileTypeDirt                   // Solid dirt (drillable)
+	TileTypeOre                    // Solid ore (drillable, contains ore)
+	TileTypeHazard                 // Hazard tile (drillability from config)
+	TileTypeFloor                  // Floor (solid, not drillable, not nukeable)
 )
 
 type Tile struct {
-	Type     TileType
-	OreID    string // Only meaningful if Type == TileTypeOre (e.g., "copper", "gold")
-	HazardID string // Only meaningful if Type == TileTypeRock or TileTypeLava (e.g., "rock", "lava")
+	Type      TileType
+	OreID     string // Only meaningful if Type == TileTypeOre (e.g., "copper", "gold")
+	HazardID  string // Only meaningful if Type == TileTypeHazard (e.g., "rock", "lava")
+	Drillable bool   // Only meaningful if Type == TileTypeHazard
 }
 
 func NewTile(tileType TileType) *Tile {
@@ -31,10 +31,11 @@ func NewOreTileByID(oreID string) *Tile {
 }
 
 func NewHazardTileByID(hazardID string, hazardCfg *config.HazardConfig) *Tile {
-	if hazardCfg != nil && hazardCfg.Drillable == false {
-		return &Tile{Type: TileTypeRock, HazardID: hazardID}
+	drillable := true
+	if hazardCfg != nil {
+		drillable = hazardCfg.Drillable
 	}
-	return &Tile{Type: TileTypeLava, HazardID: hazardID}
+	return &Tile{Type: TileTypeHazard, HazardID: hazardID, Drillable: drillable}
 }
 
 func (t *Tile) IsSolid() bool {
@@ -42,9 +43,14 @@ func (t *Tile) IsSolid() bool {
 }
 
 func (t *Tile) IsDrillable() bool {
-	// Rock and Floor are NOT drillable
-	// Lava IS drillable (deals damage on completion)
-	return t.Type == TileTypeDirt || t.Type == TileTypeOre || t.Type == TileTypeLava
+	switch t.Type {
+	case TileTypeDirt, TileTypeOre:
+		return true
+	case TileTypeHazard:
+		return t.Drillable
+	default:
+		return false
+	}
 }
 
 func (t *Tile) GetAABB(gridX, gridY int, tileSize float32) types.AABB {

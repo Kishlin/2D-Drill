@@ -108,7 +108,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		buildings:       buildings,
 		upgradeCatalog:  upgradeCatalog,
 		itemCatalog:     itemCatalog,
-		drillingSystem:  systems.NewDrillingSystem(w),
+		drillingSystem:  systems.NewDrillingSystemWithConfig(w, gameCfg.Generation, gameCfg.Drilling),
 		uiManager:       uiManager,
 		inventoryUI:     inventoryUI,
 		effectProcessor: effects.NewProcessor(),
@@ -187,7 +187,10 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	systems.ConsumeFuel(g.player, inputState, dt)
 
 	// 6. Drilling animation (vertical + horizontal)
-	g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
+	drillEffects := g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
+	if len(drillEffects) > 0 {
+		g.effectProcessor.Apply(g.effectContext, drillEffects)
+	}
 
 	// Skip interactions if drilling animation is active
 	if g.player.IsDrilling {

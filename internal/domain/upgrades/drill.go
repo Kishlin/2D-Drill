@@ -3,9 +3,10 @@ package upgrades
 import "github.com/Kishlin/drill-game/internal/domain/config"
 
 type Drill struct {
-	tier       int
-	name       string
-	drillSpeed float32
+	tier            int
+	name            string
+	speedAtSurface  float32
+	speedAtMaxDepth float32
 }
 
 func (d Drill) Tier() int {
@@ -20,14 +21,19 @@ func (d Drill) Type() UpgradeType {
 	return TypeDrill
 }
 
-func (d Drill) DrillSpeed() float32 {
-	return d.drillSpeed
+func (d Drill) SpeedAtSurface() float32 {
+	return d.speedAtSurface
+}
+
+func (d Drill) SpeedAtMaxDepth() float32 {
+	return d.speedAtMaxDepth
 }
 
 func NewDrillFromConfig(tier int, name string, stats config.DrillStats) Drill {
 	return Drill{
-		tier:       tier,
-		name:       name,
-		drillSpeed: stats.DrillSpeed,
+		tier:            tier,
+		name:            name,
+		speedAtSurface:  stats.SpeedAtSurface,
+		speedAtMaxDepth: stats.SpeedAtMaxDepth,
 	}
 }

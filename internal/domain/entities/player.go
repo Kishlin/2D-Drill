@@ -88,7 +88,8 @@ func (p *Player) CargoCapacity() int    { return p.cargoHold.Capacity() }
 func (p *Player) HeatResistance() float32 { return p.heatShield.HeatResistance() }
 
 // Drilling stats
-func (p *Player) DrillSpeed() float32 { return p.drill.DrillSpeed() }
+func (p *Player) DrillSpeedAtSurface() float32  { return p.drill.SpeedAtSurface() }
+func (p *Player) DrillSpeedAtMaxDepth() float32 { return p.drill.SpeedAtMaxDepth() }
 
 // Upgrade management
 func (p *Player) GetUpgrade(t upgrades.UpgradeType) upgrades.Upgrade {

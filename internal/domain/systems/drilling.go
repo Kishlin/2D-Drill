@@ -2,16 +2,11 @@ package systems
 
 import (
 	"github.com/Kishlin/drill-game/internal/domain/config"
+	"github.com/Kishlin/drill-game/internal/domain/effects"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
-)
-
-const (
-	minDrillingDuration   = 1.0  // seconds (at ground level)
-	maxDrillingDuration   = 24.0 // seconds (at max depth)
-	floorDrillingDuration = 0.5  // seconds (absolute minimum, safety clamp)
 )
 
 type DrillDirection int
@@ -39,46 +34,42 @@ type DrillingAnimation struct {
 type DrillingSystem struct {
 	world     *world.World
 	genCfg    config.GenerationConfig
+	drillCfg  config.DrillingConfig
 	animation DrillingAnimation
 }
 
-func NewDrillingSystem(w *world.World) *DrillingSystem {
+func NewDrillingSystemWithConfig(w *world.World, genCfg config.GenerationConfig, drillCfg config.DrillingConfig) *DrillingSystem {
 	return &DrillingSystem{
-		world:  w,
-		genCfg: w.Generator.GetGenerationConfig(),
-	}
-}
-
-// NewDrillingSystemWithConfig creates a drilling system with explicit configuration
-func NewDrillingSystemWithConfig(w *world.World, genCfg config.GenerationConfig) *DrillingSystem {
-	return &DrillingSystem{
-		world:  w,
-		genCfg: genCfg,
+		world:    w,
+		genCfg:   genCfg,
+		drillCfg: drillCfg,
 	}
 }
 
 // ProcessDrilling handles vertical and horizontal drilling with animation
+// Returns effects to be applied (e.g., damage from hazard tiles)
 func (ds *DrillingSystem) ProcessDrilling(
 	player *entities.Player,
 	inputState input.InputState,
 	dt float32,
-) {
+) []effects.Effect {
 	// Update animation if in progress
 	if ds.animation.Active {
-		ds.updateDrillAnimation(player, dt)
-		return
+		return ds.updateDrillAnimation(player, dt)
 	}
 
 	// Handle vertical drilling (S/Down key)
 	if inputState.Drill && player.OnGround {
 		ds.processVerticalDrilling(player)
-		return
+		return nil
 	}
 
 	// Handle horizontal drilling (Left/Right when grounded)
 	if player.OnGround {
 		ds.processHorizontalDrilling(player, inputState)
 	}
+
+	return nil
 }
 
 // processVerticalDrilling handles downward drilling (starts animation)
@@ -180,16 +171,16 @@ func (ds *DrillingSystem) startDrillAnimation(
 		depthFactor = 1
 	}
 
-	// Apply depth-scaled drill divisor
-	// At surface (depthFactor=0): only 10% of upgrade applies
-	// At max depth (depthFactor=1): 100% of upgrade applies
-	drillSpeed := player.DrillSpeed()
-	effectiveDivisor := 1 + (drillSpeed-1)*(0.1+0.9*depthFactor)
-	duration := baseDuration / effectiveDivisor
+	// Apply depth-interpolated drill speed
+	// Speed interpolates from SpeedAtSurface (depthFactor=0) to SpeedAtMaxDepth (depthFactor=1)
+	speedAtSurface := player.DrillSpeedAtSurface()
+	speedAtMaxDepth := player.DrillSpeedAtMaxDepth()
+	effectiveSpeed := speedAtSurface + (speedAtMaxDepth-speedAtSurface)*depthFactor
+	duration := baseDuration / effectiveSpeed
 
 	// Apply floor clamp
-	if duration < floorDrillingDuration {
-		duration = floorDrillingDuration
+	if duration < ds.drillCfg.FloorDrillingDuration {
+		duration = ds.drillCfg.FloorDrillingDuration
 	}
 
 	ds.animation = DrillingAnimation{
@@ -212,7 +203,7 @@ func (ds *DrillingSystem) startDrillAnimation(
 	player.Velocity = types.Vec2{}
 }
 
-func (ds *DrillingSystem) updateDrillAnimation(player *entities.Player, dt float32) {
+func (ds *DrillingSystem) updateDrillAnimation(player *entities.Player, dt float32) []effects.Effect {
 	ds.animation.Elapsed += dt
 
 	// Calculate progress (0.0 to 1.0)
@@ -227,18 +218,24 @@ func (ds *DrillingSystem) updateDrillAnimation(player *entities.Player, dt float
 
 	// On completion
 	if progress >= 1.0 {
-		ds.finishDrillAnimation(player)
+		return ds.finishDrillAnimation(player)
 	}
+
+	return nil
 }
 
-func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) {
+func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) []effects.Effect {
+	var result []effects.Effect
+
 	// Remove tile via grid coordinates
 	if dugTile, success := ds.world.DrillTileAtGrid(ds.animation.TargetGridX, ds.animation.TargetGridY); success {
 		ds.collectOreIfPresent(player, dugTile)
 
-		// Apply damage if drilling through lava
-		if dugTile.Type == entities.TileTypeLava {
-			ds.applyLavaDamage(player, dugTile)
+		// Create on-drill effect if drilling a hazard tile
+		if dugTile.Type == entities.TileTypeHazard {
+			if effect := ds.createOnDrillEffect(dugTile); effect != nil {
+				result = append(result, effect)
+			}
 		}
 	}
 
@@ -249,6 +246,8 @@ func (ds *DrillingSystem) finishDrillAnimation(player *entities.Player) {
 
 	// Zero player velocity to prevent physics residue
 	player.Velocity = types.Vec2{}
+
+	return result
 }
 
 // collectOreIfPresent adds ore to player inventory if the dug tile is ore
@@ -260,44 +259,53 @@ func (ds *DrillingSystem) collectOreIfPresent(player *entities.Player, dugTile *
 	}
 }
 
-// applyLavaDamage calculates and applies damage when player drills through lava
-// Damage is reduced linearly based on heat resistance
-// Base damage comes from config, reduced to 50% at max heat resistance (320°C)
-func (ds *DrillingSystem) applyLavaDamage(player *entities.Player, tile *entities.Tile) {
-	const (
-		maxHeatResistance  = 320.0
-		maxDamageReduction = 0.5 // 50% reduction at max resistance
-	)
-
-	// Get base damage from config
-	baseDamage := float32(100.0) // Default
-	if hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID); hazardCfg != nil {
-		baseDamage = hazardCfg.OnDrillDamage
+// createOnDrillEffect creates the appropriate effect for a hazard tile based on config
+func (ds *DrillingSystem) createOnDrillEffect(tile *entities.Tile) effects.Effect {
+	hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID)
+	if hazardCfg == nil {
+		return nil
 	}
 
-	currentHeatResistance := player.HeatResistance()
-
-	// Linear reduction: 100% damage at 0 resistance, 50% damage at max resistance
-	damageReduction := (currentHeatResistance / maxHeatResistance) * baseDamage * maxDamageReduction
-	damage := baseDamage - damageReduction
-
-	player.DealDamage(damage)
+	switch hazardCfg.OnDrillEffect.Type {
+	case config.HazardEffectDamage:
+		return effects.HazardDamage{
+			Damage: hazardCfg.OnDrillEffect.Damage,
+		}
+	case config.HazardEffectHeatDamage:
+		return effects.HazardHeatDamage{
+			BaseDamage:         hazardCfg.OnDrillEffect.BaseDamage,
+			MaxHeatResistance:  hazardCfg.OnDrillEffect.MaxHeatResistance,
+			MaxDamageReduction: hazardCfg.OnDrillEffect.MaxDamageReduction,
+		}
+	case config.HazardEffectMoney:
+		return effects.HazardMoney{
+			Amount: hazardCfg.OnDrillEffect.MoneyAmount,
+		}
+	case config.HazardEffectNone:
+		return nil
+	default:
+		return nil
+	}
 }
 
 // calculateDrillingDuration computes the time to drill a tile based on hardness and depth
 func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entities.Tile) float32 {
-	// Lava tiles use fixed duration (depth-independent) since damage is the penalty
-	if tile.Type == entities.TileTypeLava {
-		if hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID); hazardCfg != nil && hazardCfg.FixedDuration > 0 {
-			return hazardCfg.FixedDuration
+	// Hazard tiles use fixed duration (depth-independent) since effects are the penalty
+	if tile.Type == entities.TileTypeHazard {
+		hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID)
+		if hazardCfg == nil {
+			panic("missing hazard config for hazard ID: " + tile.HazardID)
 		}
-		return 0.3 // Default lava duration
+		if hazardCfg.FixedDuration <= 0 {
+			panic("hazard config missing FixedDuration for hazard ID: " + tile.HazardID)
+		}
+		return hazardCfg.FixedDuration
 	}
 
 	hardness := ds.getHardness(tile)
 	depthFactor := ds.calculateDepthFactor(tileY)
 
-	return minDrillingDuration * hardness * depthFactor
+	return ds.drillCfg.MinDrillingDuration * hardness * depthFactor
 }
 
 // getHardness returns the hardness value for a tile based on its type
@@ -315,7 +323,7 @@ func (ds *DrillingSystem) getHardness(tile *entities.Tile) float32 {
 	}
 }
 
-// calculateDepthFactor returns a multiplier based on depth (1.0 at surface → 24.0 at max depth)
+// calculateDepthFactor returns a multiplier based on depth (1.0 at surface → MaxDrillingDuration at max depth)
 func (ds *DrillingSystem) calculateDepthFactor(tileY float32) float32 {
 	groundLevel := ds.world.GroundLevel
 	depthBelowGround := tileY - groundLevel
@@ -333,8 +341,8 @@ func (ds *DrillingSystem) calculateDepthFactor(tileY float32) float32 {
 		normalizedDepth = 1.0
 	}
 
-	// Linear interpolation from 1.0 to maxDrillingDuration
-	depthFactor := 1.0 + normalizedDepth*(maxDrillingDuration-1.0)
+	// Linear interpolation from 1.0 to MaxDrillingDuration
+	depthFactor := 1.0 + normalizedDepth*(ds.drillCfg.MaxDrillingDuration-1.0)
 
 	return depthFactor
 }

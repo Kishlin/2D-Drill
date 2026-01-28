@@ -203,7 +203,7 @@ func TestGenerateTile_NoHazardsAtSurface(t *testing.T) {
 	hazardCount := 0
 	for i := 0; i < 100; i++ {
 		tile := gen.GenerateTile(i, 15) // Just 5 tiles below ground level (tile 10)
-		if tile.Type == entities.TileTypeRock || tile.Type == entities.TileTypeLava {
+		if tile.Type == entities.TileTypeHazard {
 			hazardCount++
 		}
 	}
@@ -222,7 +222,7 @@ func TestGenerateTile_HazardsAtDeepDepth(t *testing.T) {
 	hazardCount := 0
 	for i := 0; i < 100; i++ {
 		tile := gen.GenerateTile(i, 800) // ~80% depth
-		if tile.Type == entities.TileTypeRock || tile.Type == entities.TileTypeLava {
+		if tile.Type == entities.TileTypeHazard {
 			hazardCount++
 		}
 	}
@@ -243,9 +243,9 @@ func TestGenerateTile_RockAndLavaAreDistinct(t *testing.T) {
 	// At deep depth, collect both rock and lava statistics
 	for i := 0; i < 500; i++ {
 		tile := gen.GenerateTile(i, 800)
-		if tile.Type == entities.TileTypeRock {
+		if tile.Type == entities.TileTypeHazard && tile.Drillable == false {
 			rockCount++
-		} else if tile.Type == entities.TileTypeLava {
+		} else if tile.Type == entities.TileTypeHazard {
 			lavaCount++
 		}
 	}
@@ -273,11 +273,10 @@ func TestGenerateTile_HazardDeterministic(t *testing.T) {
 		tile1 := gen1.GenerateTile(x, y)
 		tile2 := gen2.GenerateTile(x, y)
 
-		if (tile1.Type == entities.TileTypeRock || tile1.Type == entities.TileTypeLava) &&
-			(tile2.Type == entities.TileTypeRock || tile2.Type == entities.TileTypeLava) {
-			if tile1.Type != tile2.Type {
-				t.Errorf("Hazard type should be deterministic at (%d,%d): %v vs %v",
-					x, y, tile1.Type, tile2.Type)
+		if tile1.Type == entities.TileTypeHazard && tile2.Type == entities.TileTypeHazard {
+			if tile1.HazardID != tile2.HazardID {
+				t.Errorf("Hazard ID should be deterministic at (%d,%d): %v vs %v",
+					x, y, tile1.HazardID, tile2.HazardID)
 			}
 		}
 	}
@@ -343,8 +342,8 @@ func testGeneratorConfig() config.GenerationConfig {
 			{ID: "diamond", Name: "Diamond", Value: 500, Hardness: 2.5, Distribution: config.TileDistribution{PeakDepth: 600, Sigma: 100, MaxWeight: 2}, Color: [4]uint8{185, 242, 255, 255}},
 		},
 		Hazards: []config.HazardConfig{
-			{ID: "rock", Name: "Rock", Drillable: false, Distribution: config.TileDistribution{PeakDepth: 650, Sigma: 200, MaxWeight: 15}, Color: [4]uint8{80, 80, 80, 255}},
-			{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillDamage: 100, Distribution: config.TileDistribution{PeakDepth: 750, Sigma: 150, MaxWeight: 12}, Color: [4]uint8{255, 100, 0, 255}},
+			{ID: "rock", Name: "Rock", Drillable: false, Distribution: config.TileDistribution{PeakDepth: 650, Sigma: 200, MaxWeight: 15}, OnDrillEffect: config.HazardEffectConfig{Type: config.HazardEffectNone}, Color: [4]uint8{80, 80, 80, 255}},
+			{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillEffect: config.HazardEffectConfig{Type: config.HazardEffectHeatDamage, BaseDamage: 100, MaxHeatResistance: 320, MaxDamageReduction: 0.5}, Distribution: config.TileDistribution{PeakDepth: 750, Sigma: 150, MaxWeight: 12}, Color: [4]uint8{255, 100, 0, 255}},
 		},
 	}
 }

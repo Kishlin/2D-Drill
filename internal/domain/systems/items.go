@@ -21,10 +21,10 @@ func DetectItemUsage(player *entities.Player, inputState input.InputState, itemC
 		result = append(result, effects.Refuel{})
 	}
 	if inputState.UseBomb && player.UseItem(entities.ItemBomb) {
-		result = append(result, effects.Bomb{Radius: itemCfg.Bomb.Radius, Damage: 10.0})
+		result = append(result, effects.Bomb{Radius: itemCfg.Bomb.Radius, Damage: itemCfg.Bomb.Damage})
 	}
 	if inputState.UseBigBomb && player.UseItem(entities.ItemBigBomb) {
-		result = append(result, effects.Bomb{Radius: itemCfg.BigBomb.Radius, Damage: 25.0})
+		result = append(result, effects.Bomb{Radius: itemCfg.BigBomb.Radius, Damage: itemCfg.BigBomb.Damage})
 	}
 
 	return result

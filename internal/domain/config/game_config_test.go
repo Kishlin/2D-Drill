@@ -195,7 +195,7 @@ func TestGameConfig_Validate_MultipleHazardsUniqueIDs(t *testing.T) {
 	cfg := validGameConfig()
 	cfg.Generation.Hazards = []config.HazardConfig{
 		{ID: "rock", Name: "Rock", Drillable: false, Distribution: config.TileDistribution{PeakDepth: 500, Sigma: 100, MaxWeight: 10}},
-		{ID: "lava", Name: "Lava", Drillable: true, OnDrillDamage: 100, Distribution: config.TileDistribution{PeakDepth: 600, Sigma: 100, MaxWeight: 8}},
+		{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillEffect: config.HazardEffectConfig{Type: config.HazardEffectHeatDamage, BaseDamage: 100, MaxHeatResistance: 320, MaxDamageReduction: 0.5}, Distribution: config.TileDistribution{PeakDepth: 600, Sigma: 100, MaxWeight: 8}},
 	}
 
 	err := cfg.Validate()
@@ -242,14 +242,14 @@ func validGameConfig() *config.GameConfig {
 			FuelTanks:   []config.UpgradeTier[config.FuelTankStats]{{Name: "Base", Price: 0, Stats: config.FuelTankStats{Capacity: 10}}},
 			CargoHolds:  []config.UpgradeTier[config.CargoHoldStats]{{Name: "Base", Price: 0, Stats: config.CargoHoldStats{Capacity: 10}}},
 			HeatShields: []config.UpgradeTier[config.HeatShieldStats]{{Name: "Base", Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50}}},
-			Drills:      []config.UpgradeTier[config.DrillStats]{{Name: "Base", Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}}},
+			Drills:      []config.UpgradeTier[config.DrillStats]{{Name: "Base", Price: 0, Stats: config.DrillStats{SpeedAtSurface: 1.0, SpeedAtMaxDepth: 1.0}}},
 		},
 		Items: config.ItemConfig{
-			Teleport: config.ItemEntry{Price: 500, Radius: 0},
-			Repair:   config.ItemEntry{Price: 200, Radius: 0},
-			Refuel:   config.ItemEntry{Price: 100, Radius: 0},
-			Bomb:     config.ItemEntry{Price: 300, Radius: 1},
-			BigBomb:  config.ItemEntry{Price: 800, Radius: 2},
+			Teleport: config.ItemEntry{Price: 500, Radius: 0, Damage: 0},
+			Repair:   config.ItemEntry{Price: 200, Radius: 0, Damage: 0},
+			Refuel:   config.ItemEntry{Price: 100, Radius: 0, Damage: 0},
+			Bomb:     config.ItemEntry{Price: 300, Radius: 1, Damage: 10.0},
+			BigBomb:  config.ItemEntry{Price: 800, Radius: 2, Damage: 25.0},
 		},
 		Level: config.LevelConfig{
 			Number: 1,
@@ -260,6 +260,11 @@ func validGameConfig() *config.GameConfig {
 				RoomHeight:  680.0,
 				FloorHeight: 6.0,
 			},
+		},
+		Drilling: config.DrillingConfig{
+			MinDrillingDuration:   1.0,
+			MaxDrillingDuration:   24.0,
+			FloorDrillingDuration: 0.5,
 		},
 	}
 }

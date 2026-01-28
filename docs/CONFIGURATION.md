@@ -23,7 +23,8 @@ internal/domain/config/
 ├── upgrade_config.go    # UpgradeConfig (6 upgrade type tiers)
 ├── item_config.go       # ItemConfig (5 items with prices/effects)
 ├── boss_room_config.go  # BossRoomConfig (boss type, floor, dimensions)
-└── component_stats.go   # EngineStats, HullStats, etc.
+├── drilling_config.go   # DrillingConfig (duration parameters)
+└── component_stats.go   # EngineStats, HullStats, DrillStats, etc.
 ```
 
 ---
@@ -40,6 +41,7 @@ type GameConfig struct {
     Upgrades   UpgradeConfig    // 6 upgrade types with price/stats per tier
     Items      ItemConfig       // 5 items with prices and effects
     Level      LevelConfig      // Level number, name, and boss room config
+    Drilling   DrillingConfig   // Drilling duration parameters
 }
 
 type LevelConfig struct {
@@ -53,7 +55,9 @@ func (c *GameConfig) Validate() error {
     // Checks starting tiers don't exceed available tiers
     // Ensures at least one ore exists
     // Validates ore/hazard ID uniqueness
+    // Validates drillable hazards have FixedDuration > 0
     // Validates boss room config (BossType required, RoomHeight > 0, FloorHeight >= 1)
+    // Validates drilling config durations are positive
 }
 ```
 
@@ -137,13 +141,31 @@ type OreConfig struct {
 
 ```go
 type HazardConfig struct {
-    ID            string           // Unique identifier
-    Name          string           // Display name
-    Drillable     bool             // false = impenetrable
-    FixedDuration float32          // Fixed drill time (0 = use depth formula)
-    OnDrillDamage float32          // Damage on drill completion
-    Distribution  TileDistribution // Gaussian spawn parameters
-    Color         [4]uint8         // RGBA for rendering
+    ID            string              // Unique identifier
+    Name          string              // Display name
+    Drillable     bool                // false = impenetrable (e.g., rock)
+    FixedDuration float32             // Fixed drill time (required if Drillable=true)
+    OnDrillEffect HazardEffectConfig  // Effect applied on drill completion
+    Distribution  TileDistribution    // Gaussian spawn parameters
+    Color         [4]uint8            // RGBA for rendering
+}
+
+type HazardEffectType string
+
+const (
+    HazardEffectNone       HazardEffectType = "none"        // No effect
+    HazardEffectDamage     HazardEffectType = "damage"      // Flat damage
+    HazardEffectHeatDamage HazardEffectType = "heat_damage" // Resistance-scaled damage
+    HazardEffectMoney      HazardEffectType = "money"       // Gives money
+)
+
+type HazardEffectConfig struct {
+    Type               HazardEffectType
+    Damage             float32  // For "damage" type
+    BaseDamage         float32  // For "heat_damage" type
+    MaxHeatResistance  float32  // For "heat_damage" - max resistance for full reduction
+    MaxDamageReduction float32  // For "heat_damage" - max reduction factor (e.g., 0.5 = 50%)
+    MoneyAmount        int      // For "money" type
 }
 ```
 
@@ -209,7 +231,20 @@ type HeatShieldStats struct {
 }
 
 type DrillStats struct {
-    DrillSpeed float32
+    SpeedAtSurface  float32  // Speed multiplier at ground level
+    SpeedAtMaxDepth float32  // Speed multiplier at max depth
+}
+```
+
+---
+
+## DrillingConfig
+
+```go
+type DrillingConfig struct {
+    MinDrillingDuration   float32  // Base duration at ground level (default 1.0s)
+    MaxDrillingDuration   float32  // Depth factor at max depth (default 24.0)
+    FloorDrillingDuration float32  // Absolute minimum duration (default 0.5s)
 }
 ```
 
@@ -218,14 +253,18 @@ type DrillStats struct {
 ## ItemConfig
 
 ```go
+type ItemEntry struct {
+    Price  int      // Purchase price
+    Radius int      // Blast radius (bombs only)
+    Damage float32  // Damage to entities (bombs only)
+}
+
 type ItemConfig struct {
-    TeleportPrice int
-    RepairPrice   int
-    RefuelPrice   int
-    BombPrice     int
-    BigBombPrice  int
-    BombRadius    int  // Tiles
-    BigBombRadius int  // Tiles
+    Teleport ItemEntry
+    Repair   ItemEntry
+    Refuel   ItemEntry
+    Bomb     ItemEntry
+    BigBomb  ItemEntry
 }
 ```
 
@@ -435,24 +474,26 @@ renderer.NewWithConfig    → receives GenerationConfig (ore/hazard colors)
 
 ### Drill Upgrades
 
-| Tier | Drill Speed | Cost | Effect at Surface | Effect at Max Depth |
-|------|-------------|------|-------------------|---------------------|
-| Base | 1.0x | - | 1.0s → 1.0s | 24s → 24s |
-| Mk1 | 2.0x | $125 | 1.0s → 0.91s | 24s → 12s |
-| Mk2 | 3.0x | $350 | 1.0s → 0.83s | 24s → 8s |
-| Mk3 | 4.0x | $875 | 1.0s → 0.77s | 24s → 6s |
-| Mk4 | 5.0x | $2,000 | 1.0s → 0.71s | 24s → 4.8s |
-| Mk5 | 6.0x | $6,500 | 1.0s → 0.67s | 24s → 4s |
+| Tier | Surface Speed | Max Depth Speed | Cost |
+|------|---------------|-----------------|------|
+| Base | 1.0x | 1.0x | - |
+| Mk1 | 1.1x | 2.0x | $1,000 |
+| Mk2 | 1.2x | 3.0x | $4,000 |
+| Mk3 | 1.3x | 4.0x | $16,000 |
+| Mk4 | 1.4x | 5.0x | $64,000 |
+| Mk5 | 1.5x | 6.0x | $256,000 |
+
+**Note:** Drill speed interpolates between surface and max depth values based on current depth. Upgraded drills provide minimal benefit at surface but significant benefit at max depth.
 
 ### Item Prices
 
-| Item | Key | Price | Effect |
-|------|-----|-------|--------|
-| Teleport | T | $500 | Return to spawn |
-| Repair Kit | R | $200 | Restore HP to max |
-| Fuel Can | F | $100 | Fill fuel to max |
-| Bomb | B | $300 | Destroy tiles (2-tile radius) |
-| Big Bomb | G | $800 | Destroy tiles (4-tile radius) |
+| Item | Key | Price | Radius | Damage | Effect |
+|------|-----|-------|--------|--------|--------|
+| Teleport | T | $500 | - | - | Return to spawn |
+| Repair Kit | R | $200 | - | - | Restore HP to max |
+| Fuel Can | F | $100 | - | - | Fill fuel to max |
+| Bomb | B | $3,000 | 2 tiles | 10 HP | Destroy tiles, damage entities |
+| Big Bomb | G | $10,000 | 4 tiles | 25 HP | Destroy tiles, damage entities |
 
 ### Fuel Consumption
 

@@ -15,6 +15,7 @@ type GameConfig struct {
 	Upgrades   UpgradeConfig
 	Items      ItemConfig
 	Level      LevelConfig
+	Drilling   DrillingConfig
 }
 
 func (c *GameConfig) Validate() error {
@@ -62,13 +63,17 @@ func (c *GameConfig) Validate() error {
 		oreIDs[ore.ID] = true
 	}
 
-	// Validate hazard IDs are unique
+	// Validate hazard IDs are unique and drillable hazards have FixedDuration
 	hazardIDs := make(map[string]bool)
 	for _, hazard := range c.Generation.Hazards {
 		if hazardIDs[hazard.ID] {
 			return fmt.Errorf("duplicate hazard ID: %s", hazard.ID)
 		}
 		hazardIDs[hazard.ID] = true
+
+		if hazard.Drillable && hazard.FixedDuration <= 0 {
+			return fmt.Errorf("drillable hazard %s must have positive FixedDuration", hazard.ID)
+		}
 	}
 
 	// Validate boss room config (required for all levels)
@@ -80,6 +85,17 @@ func (c *GameConfig) Validate() error {
 	}
 	if c.Level.BossRoom.FloorHeight < 1 {
 		return fmt.Errorf("boss room floor height must be at least 1 tile")
+	}
+
+	// Validate drilling config
+	if c.Drilling.MinDrillingDuration <= 0 {
+		return fmt.Errorf("drilling min duration must be positive")
+	}
+	if c.Drilling.MaxDrillingDuration <= 0 {
+		return fmt.Errorf("drilling max duration must be positive")
+	}
+	if c.Drilling.FloorDrillingDuration <= 0 {
+		return fmt.Errorf("drilling floor duration must be positive")
 	}
 
 	return nil

@@ -142,9 +142,11 @@ func GetTestLevelConfig() *config.GameConfig {
 					},
 					Drillable:     false,
 					FixedDuration: 0,
-					OnDrillDamage: 0,
-					OnHitDamage:   0,
-					Color:         [4]uint8{80, 80, 80, 255},
+					OnDrillEffect: config.HazardEffectConfig{
+						Type: config.HazardEffectNone,
+					},
+					OnHitDamage: 0,
+					Color:       [4]uint8{80, 80, 80, 255},
 				},
 				{
 					ID:   "lava",
@@ -156,9 +158,14 @@ func GetTestLevelConfig() *config.GameConfig {
 					},
 					Drillable:     true,
 					FixedDuration: 0.3,
-					OnDrillDamage: 100.0,
-					OnHitDamage:   0,
-					Color:         [4]uint8{255, 100, 0, 255},
+					OnDrillEffect: config.HazardEffectConfig{
+						Type:               config.HazardEffectHeatDamage,
+						BaseDamage:         100.0,
+						MaxHeatResistance:  320.0,
+						MaxDamageReduction: 0.5,
+					},
+					OnHitDamage: 0,
+					Color:       [4]uint8{255, 100, 0, 255},
 				},
 			},
 		},
@@ -205,21 +212,21 @@ func GetTestLevelConfig() *config.GameConfig {
 				{Price: 204800, Stats: config.HeatShieldStats{HeatResistance: 320.0}},
 			},
 			Drills: []config.UpgradeTier[config.DrillStats]{
-				{Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}},
-				{Price: 1000, Stats: config.DrillStats{DrillSpeed: 2.0}},
-				{Price: 4000, Stats: config.DrillStats{DrillSpeed: 3.0}},
-				{Price: 16000, Stats: config.DrillStats{DrillSpeed: 4.0}},
-				{Price: 64000, Stats: config.DrillStats{DrillSpeed: 5.0}},
-				{Price: 256000, Stats: config.DrillStats{DrillSpeed: 6.0}},
+				{Price: 0, Stats: config.DrillStats{SpeedAtSurface: 1.0, SpeedAtMaxDepth: 1.0}},
+				{Price: 1000, Stats: config.DrillStats{SpeedAtSurface: 1.1, SpeedAtMaxDepth: 2.0}},
+				{Price: 4000, Stats: config.DrillStats{SpeedAtSurface: 1.2, SpeedAtMaxDepth: 3.0}},
+				{Price: 16000, Stats: config.DrillStats{SpeedAtSurface: 1.3, SpeedAtMaxDepth: 4.0}},
+				{Price: 64000, Stats: config.DrillStats{SpeedAtSurface: 1.4, SpeedAtMaxDepth: 5.0}},
+				{Price: 256000, Stats: config.DrillStats{SpeedAtSurface: 1.5, SpeedAtMaxDepth: 6.0}},
 			},
 		},
 
 		Items: config.ItemConfig{
-			Teleport: config.ItemEntry{Price: 1000, Radius: 0},
-			Repair:   config.ItemEntry{Price: 2500, Radius: 0},
-			Refuel:   config.ItemEntry{Price: 500, Radius: 0},
-			Bomb:     config.ItemEntry{Price: 3000, Radius: 2},
-			BigBomb:  config.ItemEntry{Price: 10000, Radius: 4},
+			Teleport: config.ItemEntry{Price: 1000, Radius: 0, Damage: 0},
+			Repair:   config.ItemEntry{Price: 2500, Radius: 0, Damage: 0},
+			Refuel:   config.ItemEntry{Price: 500, Radius: 0, Damage: 0},
+			Bomb:     config.ItemEntry{Price: 3000, Radius: 2, Damage: 10.0},
+			BigBomb:  config.ItemEntry{Price: 10000, Radius: 4, Damage: 25.0},
 		},
 
 		Level: config.LevelConfig{
@@ -231,6 +238,12 @@ func GetTestLevelConfig() *config.GameConfig {
 				RoomHeight:  680.0,
 				FloorHeight: 6.0,
 			},
+		},
+
+		Drilling: config.DrillingConfig{
+			MinDrillingDuration:   1.0,
+			MaxDrillingDuration:   24.0,
+			FloorDrillingDuration: 0.5,
 		},
 	}
 }

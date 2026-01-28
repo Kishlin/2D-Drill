@@ -31,8 +31,8 @@ func testGenConfig() config.GenerationConfig {
 			{ID: "gold", Name: "Gold", Value: 300, Hardness: 1.8, Distribution: config.TileDistribution{PeakDepth: 230, Sigma: 80, MaxWeight: 3}, Color: [4]uint8{255, 215, 0, 255}},
 		},
 		Hazards: []config.HazardConfig{
-			{ID: "rock", Name: "Rock", Drillable: false, Distribution: config.TileDistribution{PeakDepth: 650, Sigma: 200, MaxWeight: 15}, Color: [4]uint8{80, 80, 80, 255}},
-			{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillDamage: 100, Distribution: config.TileDistribution{PeakDepth: 750, Sigma: 150, MaxWeight: 12}, Color: [4]uint8{255, 100, 0, 255}},
+			{ID: "rock", Name: "Rock", Drillable: false, Distribution: config.TileDistribution{PeakDepth: 650, Sigma: 200, MaxWeight: 15}, OnDrillEffect: config.HazardEffectConfig{Type: config.HazardEffectNone}, Color: [4]uint8{80, 80, 80, 255}},
+			{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillEffect: config.HazardEffectConfig{Type: config.HazardEffectHeatDamage, BaseDamage: 100, MaxHeatResistance: 320, MaxDamageReduction: 0.5}, Distribution: config.TileDistribution{PeakDepth: 750, Sigma: 150, MaxWeight: 12}, Color: [4]uint8{255, 100, 0, 255}},
 		},
 	}
 }
@@ -220,8 +220,8 @@ func TestNukeTileAtGrid_RemovesRock(t *testing.T) {
 	}
 
 	// Should return the removed rock tile
-	if tile == nil || tile.Type != entities.TileTypeRock {
-		t.Error("Should return rock tile")
+	if tile == nil || tile.Type != entities.TileTypeHazard || tile.HazardID != "rock" {
+		t.Error("Should return rock hazard tile")
 	}
 
 	// Tile should now be removed
@@ -244,7 +244,7 @@ func TestNukeTileAtGrid_RemovesLava(t *testing.T) {
 		t.Error("Should successfully nuke lava tile")
 	}
 
-	if tile == nil || tile.Type != entities.TileTypeLava {
+	if tile == nil || tile.Type != entities.TileTypeHazard {
 		t.Error("Should return lava tile")
 	}
 

@@ -302,7 +302,8 @@ player.CargoCapacity()   // int
 player.HeatResistance()  // float32
 
 // Drilling stats
-player.DrillSpeed()      // float32
+player.DrillSpeedAtSurface()  // float32
+player.DrillSpeedAtMaxDepth() // float32
 ```
 
 **Upgrade Management** — Generic accessors for shop/catalog:

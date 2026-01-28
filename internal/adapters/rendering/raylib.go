@@ -277,7 +277,7 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 			} else {
 				color = rl.Magenta // Error color for unknown ore
 			}
-		case entities.TileTypeRock, entities.TileTypeLava:
+		case entities.TileTypeHazard:
 			if hazardColor, ok := r.hazardColors[tile.HazardID]; ok {
 				color = hazardColor
 			} else {
@@ -637,7 +637,8 @@ func (r *RaylibRenderer) renderUpgradeStats(catalog *upgrades.Catalog, upgradeTy
 		}
 	case upgrades.TypeDrill:
 		if d, ok := entry.Upgrade.(upgrades.Drill); ok {
-			rl.DrawText(fmt.Sprintf("Drill Speed: %.1fx", d.DrillSpeed()), x, y, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Surface Speed: %.1fx", d.SpeedAtSurface()), x, y, fontSize, rl.LightGray)
+			rl.DrawText(fmt.Sprintf("Depth Speed: %.1fx", d.SpeedAtMaxDepth()), x, y+lineHeight, fontSize, rl.LightGray)
 		}
 	}
 }

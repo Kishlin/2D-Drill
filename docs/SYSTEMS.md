@@ -96,27 +96,33 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
 ## Drilling System (`systems/drilling.go`)
 
-Handles both vertical and horizontal drilling with variable animation duration based on tile hardness and depth.
+Handles both vertical and horizontal drilling with variable animation duration based on tile hardness and depth. Returns effects to be applied by the caller for hazard tiles.
 
 ### Duration Formula
 
 ```
-duration = baseTime × hardness × depthFactor / drillSpeed
+baseDuration = minDrillingDuration × hardness × depthFactor
+effectiveSpeed = speedAtSurface + (speedAtMaxDepth - speedAtSurface) × depthFactor
+duration = max(baseDuration / effectiveSpeed, floorDrillingDuration)
 ```
 
 Where:
-- `baseTime`: 1.0 second constant
-- `hardness`: per-tile-type value (Dirt 1.0, Copper 1.2, Diamond 3.0, Lava 0.3)
-- `depthFactor`: scales 1.0 at surface → 24.0 at max depth
-- `drillSpeed`: from drill upgrades (1.0 → 6.0)
+- `minDrillingDuration`: from DrillingConfig (default 1.0 second)
+- `hardness`: per-tile-type value (Dirt 1.0, Copper 1.2, Diamond 3.0)
+- `depthFactor`: scales 1.0 at surface → maxDrillingDuration at max depth
+- `speedAtSurface`: from drill upgrades (1.0 → 1.5 across tiers)
+- `speedAtMaxDepth`: from drill upgrades (1.0 → 6.0 across tiers)
+- `floorDrillingDuration`: from DrillingConfig (default 0.5 seconds)
 
-**Lava Exception:** Fixed 0.3s duration regardless of depth (damage is the penalty).
+**Hazard Exception:** Drillable hazards (e.g., lava) use `FixedDuration` from config, ignoring depth formula.
 
 ### Animation State
 
 ```go
 type DrillingSystem struct {
     world     *world.World
+    genCfg    config.GenerationConfig
+    drillCfg  config.DrillingConfig
     animation DrillingAnimation
 }
 
@@ -133,6 +139,8 @@ type DrillingAnimation struct {
     Duration    float32        // Variable duration (1.0-24+ seconds)
     Tile        *entities.Tile
 }
+
+func NewDrillingSystemWithConfig(w *world.World, genCfg config.GenerationConfig, drillCfg config.DrillingConfig) *DrillingSystem
 ```
 
 ### Vertical Drilling (S/Down Key)
@@ -172,37 +180,56 @@ if inputState.Left {
 }
 ```
 
-### Lava Tile Drilling
+### Hazard Tile Effects
 
-Lava tiles are special hazards with fixed duration and damage on completion:
+Hazard tiles can have configurable on-drill effects via `HazardEffectConfig`:
 
 ```go
-// Lava uses fixed duration from HazardHardness (0.3s), depth-independent
-if tile.Type == entities.TileTypeLava {
-    return entities.HazardHardness[entities.HazardLava]  // 0.3s fixed
-}
+type HazardEffectType string
 
-// On completion, apply damage scaling with heat shield
-if dugTile.Type == entities.TileTypeLava {
-    baseDamage := 100.0
-    damageReduction := (player.HeatResistance() / 320.0) * 50.0  // Stat facade
-    finalDamage := baseDamage - damageReduction
-    player.DealDamage(finalDamage)
+const (
+    HazardEffectNone       HazardEffectType = "none"       // Rock - no effect
+    HazardEffectDamage     HazardEffectType = "damage"     // Flat damage
+    HazardEffectHeatDamage HazardEffectType = "heat_damage" // Lava - resistance-scaled
+    HazardEffectMoney      HazardEffectType = "money"      // Bonus money
+)
+```
+
+**Heat Damage Formula** (e.g., lava):
+```go
+damageReduction := (resistance / maxHeatResistance) * baseDamage * maxDamageReduction
+finalDamage := baseDamage - damageReduction
+// With 320 max resistance and 0.5 max reduction:
+// 0 resistance → 100 damage
+// 160 resistance → 75 damage
+// 320 resistance → 50 damage
+```
+
+ProcessDrilling returns effects for hazard tiles:
+```go
+func (ds *DrillingSystem) ProcessDrilling(player, inputState, dt) []effects.Effect {
+    // On hazard drill completion, creates and returns appropriate effect
+    if dugTile.Type == entities.TileTypeHazard {
+        effect := ds.createOnDrillEffect(dugTile)  // HazardDamage, HazardHeatDamage, or HazardMoney
+        return []effects.Effect{effect}
+    }
 }
 ```
 
 ### Drill Upgrade Scaling
 
-Drill upgrades apply a depth-scaled divisor. At surface, only 10% applies; at max depth, 100% applies:
+Drill upgrades use depth-interpolated speed. Speed interpolates from surface value to max-depth value:
 
 ```go
 depthFactor := depthBelowGround / maxDepth
 
-// effectiveDivisor ranges from ~1 at surface to drillSpeed at max depth
-drillSpeed := player.DrillSpeed()  // Stat facade method
-effectiveDivisor := 1 + (drillSpeed-1)*(0.1+0.9*depthFactor)
-duration := baseDuration / effectiveDivisor
+speedAtSurface := player.DrillSpeedAtSurface()
+speedAtMaxDepth := player.DrillSpeedAtMaxDepth()
+effectiveSpeed := speedAtSurface + (speedAtMaxDepth-speedAtSurface)*depthFactor
+duration := baseDuration / effectiveSpeed
 ```
+
+This means upgraded drills provide minimal benefit at surface but significant benefit at depth.
 
 ### Animation Update (Each Frame)
 
@@ -377,12 +404,13 @@ Upgrades are accessed through the Player's stat facade methods:
 
 ```go
 // Read stats directly (preferred)
-player.MaxSpeed()       // from Engine
-player.MaxHP()          // from Hull
-player.FuelCapacity()   // from FuelTank
-player.CargoCapacity()  // from CargoHold
-player.HeatResistance() // from HeatShield
-player.DrillSpeed()     // from Drill
+player.MaxSpeed()           // from Engine
+player.MaxHP()              // from Hull
+player.FuelCapacity()       // from FuelTank
+player.CargoCapacity()      // from CargoHold
+player.HeatResistance()     // from HeatShield
+player.DrillSpeedAtSurface()  // from Drill
+player.DrillSpeedAtMaxDepth() // from Drill
 
 // Generic upgrade access (for shop/catalog)
 player.GetUpgrade(upgrades.TypeEngine)
@@ -484,6 +512,33 @@ func (e Bomb) Apply(ctx *EffectContext) {
     }
     // Destroy tiles in circular radius
     ctx.World.NukeTileAtGrid(...)
+}
+```
+
+**Hazard Effects** (`effects/hazard.go`):
+```go
+type HazardDamage struct { Damage float32 }
+func (e HazardDamage) Apply(ctx *EffectContext) {
+    ctx.Player.DealDamage(e.Damage)
+}
+
+type HazardHeatDamage struct {
+    BaseDamage         float32
+    MaxHeatResistance  float32
+    MaxDamageReduction float32
+}
+func (e HazardHeatDamage) Apply(ctx *EffectContext) {
+    resistance := ctx.Player.HeatResistance()
+    reductionFactor := resistance / e.MaxHeatResistance
+    if reductionFactor > 1 { reductionFactor = 1 }
+    damageReduction := reductionFactor * e.BaseDamage * e.MaxDamageReduction
+    finalDamage := e.BaseDamage - damageReduction
+    ctx.Player.DealDamage(finalDamage)
+}
+
+type HazardMoney struct { Amount int }
+func (e HazardMoney) Apply(ctx *EffectContext) {
+    ctx.Player.Money += e.Amount
 }
 ```
 
@@ -673,10 +728,10 @@ func DetectItemUsage(player *entities.Player, inputState input.InputState, itemC
         result = append(result, effects.Refuel{})
     }
     if inputState.UseBomb && player.UseItem(entities.ItemBomb) {
-        result = append(result, effects.Bomb{Radius: itemCfg.Bomb.Radius, Damage: 10.0})
+        result = append(result, effects.Bomb{Radius: itemCfg.Bomb.Radius, Damage: itemCfg.Bomb.Damage})
     }
     if inputState.UseBigBomb && player.UseItem(entities.ItemBigBomb) {
-        result = append(result, effects.Bomb{Radius: itemCfg.BigBomb.Radius, Damage: 25.0})
+        result = append(result, effects.Bomb{Radius: itemCfg.BigBomb.Radius, Damage: itemCfg.BigBomb.Damage})
     }
 
     return result
@@ -687,9 +742,9 @@ Item effects are defined in `effects/items.go` (see Effects System above).
 
 ### Bomb Damage
 
-Bombs damage both tiles and damageable entities (bosses):
-- **Regular Bomb**: Radius 2 tiles, 10 HP damage to entities
-- **Big Bomb**: Radius 4 tiles, 25 HP damage to entities
+Bombs damage both tiles and damageable entities (bosses). Damage values come from `ItemConfig`:
+- **Regular Bomb**: Radius and damage from `itemCfg.Bomb`
+- **Big Bomb**: Radius and damage from `itemCfg.BigBomb`
 
 Entities control their own vulnerability—the boss's `TakeDamage` method checks `IsVulnerable()` before applying damage.
 
@@ -720,8 +775,8 @@ func (w *World) NukeTileAtGrid(gridX, gridY int) (*entities.Tile, bool) {
 ```
 
 **Key Distinction:**
-- Rock: `IsSolid() = true`, `IsDrillable() = false` → DrillTile fails, NukeTile succeeds
-- Lava: `IsSolid() = true`, `IsDrillable() = true` → Both succeed
+- Hazard (Drillable=false, e.g., rock): `IsSolid() = true`, `IsDrillable() = false` → DrillTile fails, NukeTile succeeds
+- Hazard (Drillable=true, e.g., lava): `IsSolid() = true`, `IsDrillable() = true` → Both succeed
 - Dirt: `IsSolid() = true`, `IsDrillable() = true` → Both succeed
 
 ---

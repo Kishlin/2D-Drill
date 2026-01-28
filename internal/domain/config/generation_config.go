@@ -15,15 +15,33 @@ type OreConfig struct {
 	Color        [4]uint8         // RGBA for rendering
 }
 
+type HazardEffectType string
+
+const (
+	HazardEffectNone       HazardEffectType = "none"
+	HazardEffectDamage     HazardEffectType = "damage"
+	HazardEffectHeatDamage HazardEffectType = "heat_damage"
+	HazardEffectMoney      HazardEffectType = "money"
+)
+
+type HazardEffectConfig struct {
+	Type               HazardEffectType
+	Damage             float32 // For "damage" effect
+	BaseDamage         float32 // For "heat_damage" effect
+	MaxHeatResistance  float32 // For "heat_damage" (e.g., 320.0)
+	MaxDamageReduction float32 // For "heat_damage" (e.g., 0.5 = 50%)
+	MoneyAmount        int     // For "money" effect
+}
+
 type HazardConfig struct {
-	ID            string           // Unique identifier (e.g., "rock", "lava")
-	Name          string           // Display name (e.g., "Rock", "Lava")
-	Distribution  TileDistribution // Gaussian distribution for generation
-	Drillable     bool             // false = impenetrable (rock), true = can drill (lava)
-	FixedDuration float32          // If drillable: fixed drill time (0 = use depth formula)
-	OnDrillDamage float32          // Damage dealt when drilling completes (lava = 100)
-	OnHitDamage   float32          // Future: damage on collision (spikes)
-	Color         [4]uint8         // RGBA for rendering
+	ID            string             // Unique identifier (e.g., "rock", "lava")
+	Name          string             // Display name (e.g., "Rock", "Lava")
+	Distribution  TileDistribution   // Gaussian distribution for generation
+	Drillable     bool               // false = impenetrable (rock), true = can drill (lava)
+	FixedDuration float32            // If drillable: fixed drill time (0 = use depth formula)
+	OnDrillEffect HazardEffectConfig // Effect applied when drilling completes
+	OnHitDamage   float32            // Future: damage on collision (spikes)
+	Color         [4]uint8           // RGBA for rendering
 }
 
 type GenerationConfig struct {

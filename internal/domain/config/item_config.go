@@ -3,7 +3,8 @@ package config
 type ItemEntry struct {
 	Name   string
 	Price  int
-	Radius int // For bombs only (0 for non-bombs)
+	Radius int     // For bombs only (0 for non-bombs)
+	Damage float32 // For bombs only (0 for non-bombs)
 }
 
 type ItemConfig struct {

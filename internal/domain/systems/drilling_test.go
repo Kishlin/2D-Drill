@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Kishlin/drill-game/internal/domain/config"
+	"github.com/Kishlin/drill-game/internal/domain/effects"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/world"
@@ -14,7 +15,7 @@ func TestVerticalDrilling_StartsAnimation(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place dirt tile below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -44,7 +45,7 @@ func TestVerticalDrilling_DirtDuration(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place dirt at ground level
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -81,7 +82,7 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 		player2 := testPlayer()
 		player2.OnGround = true
 		genCfg := testGenerationConfig()
-		ds := NewDrillingSystemWithConfig(w2, genCfg)
+		ds := NewDrillingSystemWithConfig(w2, genCfg, testDrillingConfig())
 
 		playerCenterX := player2.AABB.X + player2.AABB.Width/2
 		playerBottomY := player2.AABB.Y + player2.AABB.Height
@@ -104,7 +105,7 @@ func TestOreDrilling_AppliesHardnessMultiplier(t *testing.T) {
 func TestDrilling_DepthAffectsDuration(t *testing.T) {
 	w := testWorld()
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	depthTests := []struct {
 		tileGridY int
@@ -133,7 +134,7 @@ func TestHorizontalDrilling_CollectsOre(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place ore tile to the left
 	playerCenterY := player.AABB.Y + player.AABB.Height/2
@@ -174,7 +175,7 @@ func TestDrilling_DoesNotStartOnNonDrillableTile(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place empty tile below player (no tile at all)
 	// This should prevent drilling from starting
@@ -192,7 +193,7 @@ func TestDrilling_AnimationProgress(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place ore to the right
 	playerCenterY := player.AABB.Y + player.AABB.Height/2
@@ -235,7 +236,7 @@ func TestDrilling_TileRemovedOnCompletion(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place gold ore below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -268,7 +269,7 @@ func TestDrilling_DoesNotCollectDirt(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place dirt below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -310,7 +311,7 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place ore below and to the right
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -343,7 +344,7 @@ func TestDrilling_SkipsInputWhileAnimating(t *testing.T) {
 func TestDrilling_LavaTileDrillsQuickly(t *testing.T) {
 	w := testWorld()
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Test at various depths
 	depths := []int{50, 200, 500, 800}
@@ -368,7 +369,7 @@ func TestDrilling_LavaTileDrillsQuicklyAtAnyDepth(t *testing.T) {
 		player := testPlayer()
 		player.OnGround = true
 		genCfg := testGenerationConfig()
-		ds := NewDrillingSystemWithConfig(w2, genCfg)
+		ds := NewDrillingSystemWithConfig(w2, genCfg, testDrillingConfig())
 
 		tileY := float32(tileGridY) * world.TileSize
 		lavaTile := entities.NewHazardTileByID("lava", nil)
@@ -385,7 +386,7 @@ func TestDrilling_RockTileBlocksDrilling(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place rock tile below player (rock is not drillable)
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -410,7 +411,7 @@ func TestDrilling_LavaDealsDamage(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place lava tile below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -425,7 +426,13 @@ func TestDrilling_LavaDealsDamage(t *testing.T) {
 	inputState := input.InputState{Drill: true}
 	drillingSystem.ProcessDrilling(player, inputState, 0.01)
 	dt := drillingSystem.animation.Duration + 0.01
-	drillingSystem.ProcessDrilling(player, inputState, dt)
+	drillEffects := drillingSystem.ProcessDrilling(player, inputState, dt)
+
+	// Apply the returned effects
+	ctx := &effects.EffectContext{Player: player, World: w}
+	for _, effect := range drillEffects {
+		effect.Apply(ctx)
+	}
 
 	// Player should take damage
 	if player.HP >= initialHP {
@@ -438,7 +445,7 @@ func TestDrilling_LavaTileRemovedAfterDrilling(t *testing.T) {
 	player := testPlayer()
 	player.OnGround = true
 	genCfg := testGenerationConfig()
-	drillingSystem := NewDrillingSystemWithConfig(w, genCfg)
+	drillingSystem := NewDrillingSystemWithConfig(w, genCfg, testDrillingConfig())
 
 	// Place lava tile below player
 	playerCenterX := player.AABB.X + player.AABB.Width/2
@@ -488,6 +495,14 @@ func testBossRoomConfig() config.BossRoomConfig {
 	}
 }
 
+func testDrillingConfig() config.DrillingConfig {
+	return config.DrillingConfig{
+		MinDrillingDuration:   1.0,
+		MaxDrillingDuration:   24.0,
+		FloorDrillingDuration: 0.5,
+	}
+}
+
 func testGenerationConfig() config.GenerationConfig {
 	return config.GenerationConfig{
 		Empty:        config.TileDistribution{PeakDepth: 0, Sigma: 1000, MaxWeight: 20},
@@ -503,7 +518,7 @@ func testGenerationConfig() config.GenerationConfig {
 		},
 		Hazards: []config.HazardConfig{
 			{ID: "rock", Name: "Rock", Drillable: false, Distribution: config.TileDistribution{PeakDepth: 650, Sigma: 200, MaxWeight: 15}, Color: [4]uint8{80, 80, 80, 255}},
-			{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillDamage: 100, Distribution: config.TileDistribution{PeakDepth: 750, Sigma: 150, MaxWeight: 12}, Color: [4]uint8{255, 100, 0, 255}},
+			{ID: "lava", Name: "Lava", Drillable: true, FixedDuration: 0.3, OnDrillEffect: config.HazardEffectConfig{Type: config.HazardEffectHeatDamage, BaseDamage: 100, MaxHeatResistance: 320, MaxDamageReduction: 0.5}, Distribution: config.TileDistribution{PeakDepth: 750, Sigma: 150, MaxWeight: 12}, Color: [4]uint8{255, 100, 0, 255}},
 		},
 	}
 }
@@ -524,7 +539,7 @@ func testPlayer() *entities.Player {
 		FuelTanks:   []config.UpgradeTier[config.FuelTankStats]{{Name: "Base", Price: 0, Stats: config.FuelTankStats{Capacity: 10}}},
 		CargoHolds:  []config.UpgradeTier[config.CargoHoldStats]{{Name: "Base", Price: 0, Stats: config.CargoHoldStats{Capacity: 10}}},
 		HeatShields: []config.UpgradeTier[config.HeatShieldStats]{{Name: "Base", Price: 0, Stats: config.HeatShieldStats{HeatResistance: 50}}},
-		Drills:      []config.UpgradeTier[config.DrillStats]{{Name: "Base", Price: 0, Stats: config.DrillStats{DrillSpeed: 1.0}}},
+		Drills:      []config.UpgradeTier[config.DrillStats]{{Name: "Base", Price: 0, Stats: config.DrillStats{SpeedAtSurface: 1.0, SpeedAtMaxDepth: 1.0}}},
 	}
 	return entities.NewPlayerFromConfig(100, 500, playerCfg, upgradeCfg)
 }

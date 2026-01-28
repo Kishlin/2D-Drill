@@ -24,5 +24,6 @@ type HeatShieldStats struct {
 }
 
 type DrillStats struct {
-	DrillSpeed float32
+	SpeedAtSurface  float32
+	SpeedAtMaxDepth float32
 }

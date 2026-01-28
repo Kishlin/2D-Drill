@@ -107,7 +107,7 @@ func TestSetUpgrade_HeatShield(t *testing.T) {
 func TestSetUpgrade_Drill(t *testing.T) {
 	player := testPlayer()
 
-	newDrill := upgrades.NewDrillFromConfig(2, "Mk2 Drill", config.DrillStats{DrillSpeed: 2.5})
+	newDrill := upgrades.NewDrillFromConfig(2, "Mk2 Drill", config.DrillStats{SpeedAtSurface: 2.5, SpeedAtMaxDepth: 2.5})
 
 	effect := SetUpgrade{Upgrade: newDrill}
 	effect.Apply(testContext(player))
@@ -118,7 +118,7 @@ func TestSetUpgrade_Drill(t *testing.T) {
 	if player.GetUpgrade(upgrades.TypeDrill).Name() != "Mk2 Drill" {
 		t.Errorf("expected drill name to be 'Mk2 Drill', got '%s'", player.GetUpgrade(upgrades.TypeDrill).Name())
 	}
-	if player.DrillSpeed() != 2.5 {
-		t.Errorf("expected drill speed to be 2.5, got %.2f", player.DrillSpeed())
+	if player.DrillSpeedAtSurface() != 2.5 {
+		t.Errorf("expected drill speed at surface to be 2.5, got %.2f", player.DrillSpeedAtSurface())
 	}
 }
