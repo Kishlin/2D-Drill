@@ -1,30 +1,23 @@
 package systems
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 )
 
-const (
-	// Fuel consumption rates in liters per second
-	FuelConsumptionMoving float32 = 10.0 / 30.0  // 0.33333 L/s when actively moving/drilling
-	FuelConsumptionIdle   float32 = 10.0 / 120.0 // 0.08333 L/s when idle (no inputs)
-)
-
 // ConsumeFuel drains fuel based on player input state.
 // Movement inputs (Left, Right, Up, Drill) consume fuel faster than idle state.
-func ConsumeFuel(player *entities.Player, inputState input.InputState, dt float32) {
+func ConsumeFuel(player *entities.Player, inputState input.InputState, dt float32, fuelCfg config.FuelSystemConfig) {
 	var rate float32
 	if inputState.HasMovementInput() {
-		rate = FuelConsumptionMoving
+		rate = fuelCfg.ConsumptionMoving
 	} else {
-		rate = FuelConsumptionIdle
+		rate = fuelCfg.ConsumptionIdle
 	}
 
-	// Calculate fuel consumed this frame
 	fuelConsumed := rate * dt
 
-	// Drain fuel (clamp at zero, never go negative)
 	player.Fuel -= fuelConsumed
 	if player.Fuel < 0 {
 		player.Fuel = 0

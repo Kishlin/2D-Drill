@@ -378,23 +378,20 @@ func (ps *PhysicsSystem) UpdatePhysics(
 
 ## Fuel System (`systems/fuel.go`)
 
-Manages fuel consumption based on player activity:
+Manages fuel consumption based on player activity. Consumption rates are configurable per-level via `FuelSystemConfig`.
 
 ```go
-type FuelSystem struct {
-    // No state - purely functional
-}
-
-func (fs *FuelSystem) ConsumeFuel(
+func ConsumeFuel(
     player *entities.Player,
     inputState input.InputState,
     dt float32,
+    fuelCfg config.FuelSystemConfig,
 ) {
     var rate float32
     if inputState.HasMovementInput() {
-        rate = FuelConsumptionMoving  // 0.333 L/s
+        rate = fuelCfg.ConsumptionMoving
     } else {
-        rate = FuelConsumptionIdle    // 0.0833 L/s
+        rate = fuelCfg.ConsumptionIdle
     }
 
     player.Fuel -= rate * dt
@@ -404,7 +401,15 @@ func (fs *FuelSystem) ConsumeFuel(
 }
 ```
 
-**Consumption Rates:**
+**Configuration** (see [CONFIGURATION.md](CONFIGURATION.md)):
+```go
+type FuelSystemConfig struct {
+    ConsumptionMoving float32  // Rate when moving/drilling (L/s)
+    ConsumptionIdle   float32  // Rate when idle (L/s)
+}
+```
+
+**Default Consumption Rates:**
 - **Active Input** (Left, Right, Up, Drill): 10L in 30 seconds = 0.333 L/s
 - **Idle** (no movement/drilling): 10L in 120 seconds = 0.0833 L/s
 - **Interact Input** (E key): Uses idle rate

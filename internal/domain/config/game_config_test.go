@@ -273,6 +273,10 @@ func validGameConfig() *config.GameConfig {
 			DamageDivisor:   10.0,
 			DamageExponent:  1.5,
 		},
+		Fuel: config.FuelSystemConfig{
+			ConsumptionMoving: 10.0 / 30.0,
+			ConsumptionIdle:   10.0 / 120.0,
+		},
 	}
 }
 

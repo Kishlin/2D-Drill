@@ -17,6 +17,7 @@ type GameConfig struct {
 	Level      LevelConfig
 	Drilling   DrillingConfig
 	Heat       HeatConfig
+	Fuel       FuelSystemConfig
 }
 
 func (c *GameConfig) Validate() error {
@@ -108,6 +109,14 @@ func (c *GameConfig) Validate() error {
 	}
 	if c.Heat.DamageBaseDPS <= 0 || c.Heat.DamageDivisor <= 0 || c.Heat.DamageExponent <= 0 {
 		return fmt.Errorf("heat damage parameters must be positive")
+	}
+
+	// Validate fuel config
+	if c.Fuel.ConsumptionMoving <= 0 {
+		return fmt.Errorf("fuel consumption moving rate must be positive")
+	}
+	if c.Fuel.ConsumptionIdle <= 0 {
+		return fmt.Errorf("fuel consumption idle rate must be positive")
 	}
 
 	return nil

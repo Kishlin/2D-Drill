@@ -25,6 +25,7 @@ internal/domain/config/
 ├── boss_room_config.go  # BossRoomConfig (boss type, floor, dimensions)
 ├── drilling_config.go   # DrillingConfig (duration parameters)
 ├── heat_config.go       # HeatConfig (temperature and heat damage parameters)
+├── fuel_config.go       # FuelSystemConfig (fuel consumption rates)
 └── component_stats.go   # EngineStats, HullStats, DrillStats, etc.
 ```
 
@@ -44,6 +45,7 @@ type GameConfig struct {
     Level      LevelConfig      // Level number, name, and boss room config
     Drilling   DrillingConfig   // Drilling duration parameters
     Heat       HeatConfig       // Temperature and heat damage parameters
+    Fuel       FuelSystemConfig // Fuel consumption rates
 }
 
 type LevelConfig struct {
@@ -61,6 +63,7 @@ func (c *GameConfig) Validate() error {
     // Validates boss room config (BossType required, RoomHeight > 0, FloorHeight >= 1)
     // Validates drilling config durations are positive
     // Validates heat config (BaseTemperature >= 0, MaxTemperature > BaseTemperature, damage params > 0)
+    // Validates fuel config (ConsumptionMoving > 0, ConsumptionIdle > 0)
 }
 ```
 
@@ -286,6 +289,32 @@ damagePerSecond = DamageBaseDPS × (excessHeat / DamageDivisor)^DamageExponent
 ```
 
 With default values (0.5, 10.0, 1.5), damage scales exponentially with excess heat.
+
+---
+
+## FuelSystemConfig
+
+Fuel consumption rates for the fuel system:
+
+```go
+type FuelSystemConfig struct {
+    ConsumptionMoving float32  // Fuel consumption rate when moving/drilling (L/s)
+    ConsumptionIdle   float32  // Fuel consumption rate when idle (L/s)
+}
+```
+
+### Default Values
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| ConsumptionMoving | 0.333 L/s (10/30) | Rate when actively moving or drilling |
+| ConsumptionIdle | 0.0833 L/s (10/120) | Rate when idle (no movement input) |
+
+### Tank Duration
+
+With the base 10L fuel tank:
+- **Moving continuously**: 30 seconds
+- **Idle**: 120 seconds
 
 ---
 

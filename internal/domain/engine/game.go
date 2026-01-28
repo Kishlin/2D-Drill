@@ -184,7 +184,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	systems.UpdatePhysics(g.player, g.world, inputState, dt)
 
 	// 5. Fuel consumption (runs even during drilling animation to maintain resource pressure)
-	systems.ConsumeFuel(g.player, inputState, dt)
+	systems.ConsumeFuel(g.player, inputState, dt, g.config.Fuel)
 
 	// 6. Drilling animation (vertical + horizontal)
 	drillEffects := g.drillingSystem.ProcessDrilling(g.player, inputState, dt)

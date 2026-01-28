@@ -252,5 +252,10 @@ func GetLevel1Config() *config.GameConfig {
 			DamageDivisor:   10.0,
 			DamageExponent:  1.5,
 		},
+
+		Fuel: config.FuelSystemConfig{
+			ConsumptionMoving: 10.0 / 30.0,  // 0.33333 L/s
+			ConsumptionIdle:   10.0 / 120.0, // 0.08333 L/s
+		},
 	}
 }
