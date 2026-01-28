@@ -24,6 +24,7 @@ internal/domain/config/
 ├── item_config.go       # ItemConfig (5 items with prices/effects)
 ├── boss_room_config.go  # BossRoomConfig (boss type, floor, dimensions)
 ├── drilling_config.go   # DrillingConfig (duration parameters)
+├── heat_config.go       # HeatConfig (temperature and heat damage parameters)
 └── component_stats.go   # EngineStats, HullStats, DrillStats, etc.
 ```
 
@@ -42,6 +43,7 @@ type GameConfig struct {
     Items      ItemConfig       // 5 items with prices and effects
     Level      LevelConfig      // Level number, name, and boss room config
     Drilling   DrillingConfig   // Drilling duration parameters
+    Heat       HeatConfig       // Temperature and heat damage parameters
 }
 
 type LevelConfig struct {
@@ -58,6 +60,7 @@ func (c *GameConfig) Validate() error {
     // Validates drillable hazards have FixedDuration > 0
     // Validates boss room config (BossType required, RoomHeight > 0, FloorHeight >= 1)
     // Validates drilling config durations are positive
+    // Validates heat config (BaseTemperature >= 0, MaxTemperature > BaseTemperature, damage params > 0)
 }
 ```
 
@@ -250,6 +253,42 @@ type DrillingConfig struct {
 
 ---
 
+## HeatConfig
+
+Temperature and heat damage parameters for the heat system:
+
+```go
+type HeatConfig struct {
+    BaseTemperature float32  // Temperature at ground level (°C)
+    MaxTemperature  float32  // Temperature at max depth (°C)
+    DamageBaseDPS   float32  // Base damage per second when over resistance
+    DamageDivisor   float32  // Scaling factor for excess heat
+    DamageExponent  float32  // Exponential scaling factor
+}
+```
+
+### Temperature Calculation
+
+Temperature interpolates linearly from `BaseTemperature` at ground level to `MaxTemperature` at world bottom:
+
+```
+depthFactor = (playerY - groundLevel) / (worldHeight - groundLevel)
+temperature = BaseTemperature + depthFactor × (MaxTemperature - BaseTemperature)
+```
+
+### Heat Damage Formula
+
+When temperature exceeds the player's heat resistance, damage is applied:
+
+```
+excessHeat = temperature - heatResistance
+damagePerSecond = DamageBaseDPS × (excessHeat / DamageDivisor)^DamageExponent
+```
+
+With default values (0.5, 10.0, 1.5), damage scales exponentially with excess heat.
+
+---
+
 ## ItemConfig
 
 ```go
@@ -380,7 +419,7 @@ engine.NewGame            → receives GameConfig, creates world/systems
                           ↓
 entities.NewPlayerFromConfig → receives PlayerConfig, UpgradeConfig
                           ↓
-renderer.NewWithConfig    → receives GenerationConfig (ore/hazard colors)
+renderer.NewWithConfig    → receives GameConfig (ore/hazard colors, heat display)
 ```
 
 ---
@@ -501,6 +540,25 @@ renderer.NewWithConfig    → receives GenerationConfig (ore/hazard colors)
 |----------|------|---------------------|
 | Active (moving/drilling) | 0.333 L/s | 30 seconds |
 | Idle | 0.0833 L/s | 120 seconds |
+
+### Heat System
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| BaseTemperature | 15.0°C | Temperature at ground level |
+| MaxTemperature | 350.0°C | Temperature at max depth |
+| DamageBaseDPS | 0.5 | Base damage per second |
+| DamageDivisor | 10.0 | Scaling factor for excess heat |
+| DamageExponent | 1.5 | Exponential scaling factor |
+
+**Example Damage Rates** (with base 50°C resistance):
+
+| Temperature | Excess Heat | Damage/Second |
+|-------------|-------------|---------------|
+| 60°C | 10°C | 0.5 HP/s |
+| 100°C | 50°C | 5.6 HP/s |
+| 150°C | 100°C | 15.8 HP/s |
+| 200°C | 150°C | 29.0 HP/s |
 
 ### Controls
 

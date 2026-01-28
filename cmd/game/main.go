@@ -36,7 +36,7 @@ func main() {
 		return
 	}
 
-	renderer := rendering.NewRaylibRendererWithConfig(screenWidth, screenHeight, &gameCfg.Generation)
+	renderer := rendering.NewRaylibRendererWithConfig(screenWidth, screenHeight, gameCfg)
 	inputAdapter := input.NewRaylibInputAdapter()
 
 	renderer.InitWindow(screenWidth, screenHeight, "Drill Game")

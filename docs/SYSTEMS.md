@@ -94,6 +94,73 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
 ---
 
+## Heat System (`systems/heat.go`)
+
+Calculates depth-based temperature and applies heat damage when the player exceeds their heat resistance.
+
+### Temperature Calculation
+
+Temperature interpolates linearly from ground level to max depth:
+
+```go
+func CalculateTemperature(playerY, groundLevel, worldHeight float32, heatCfg config.HeatConfig) float32 {
+    depthBelowGround := playerY - groundLevel
+    if depthBelowGround <= 0 {
+        return heatCfg.BaseTemperature  // At or above ground
+    }
+
+    maxDepth := worldHeight - groundLevel
+    normalizedDepth := depthBelowGround / maxDepth
+    temperature := heatCfg.BaseTemperature +
+        normalizedDepth*(heatCfg.MaxTemperature-heatCfg.BaseTemperature)
+
+    return temperature
+}
+```
+
+### Heat Damage
+
+When temperature exceeds the player's heat resistance, damage is applied exponentially:
+
+```go
+func UpdateHeat(player *entities.Player, w *world.World, dt float32, heatCfg config.HeatConfig) {
+    temperature := CalculateTemperature(player.AABB.Y, w.GroundLevel, w.Height, heatCfg)
+
+    excessHeat := temperature - player.HeatResistance()
+    if excessHeat <= 0 {
+        return  // Within safe temperature range
+    }
+
+    // Exponential damage scaling: damage = baseDPS × (excess/divisor)^exponent
+    damagePerSecond := heatCfg.DamageBaseDPS *
+        float32(math.Pow(float64(excessHeat/heatCfg.DamageDivisor), float64(heatCfg.DamageExponent)))
+
+    player.DealDamage(damagePerSecond * dt)
+}
+```
+
+### Configuration
+
+Heat parameters are defined per-level in `HeatConfig`:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| BaseTemperature | 15.0°C | Temperature at ground level |
+| MaxTemperature | 350.0°C | Temperature at max depth |
+| DamageBaseDPS | 0.5 | Base damage per second |
+| DamageDivisor | 10.0 | Scaling factor for excess heat |
+| DamageExponent | 1.5 | Exponential scaling factor |
+
+### Heat Shield Interaction
+
+The player's heat resistance comes from their Heat Shield upgrade:
+- Base: 50°C (safe to ~6,600px depth)
+- Mk5: 320°C (safe to ~44,500px depth)
+
+See [CONFIGURATION.md](CONFIGURATION.md) for full upgrade tables.
+
+---
+
 ## Drilling System (`systems/drilling.go`)
 
 Handles both vertical and horizontal drilling with variable animation duration based on tile hardness and depth. Returns effects to be applied by the caller for hazard tiles.

@@ -16,6 +16,7 @@ type GameConfig struct {
 	Items      ItemConfig
 	Level      LevelConfig
 	Drilling   DrillingConfig
+	Heat       HeatConfig
 }
 
 func (c *GameConfig) Validate() error {
@@ -96,6 +97,17 @@ func (c *GameConfig) Validate() error {
 	}
 	if c.Drilling.FloorDrillingDuration <= 0 {
 		return fmt.Errorf("drilling floor duration must be positive")
+	}
+
+	// Validate heat config
+	if c.Heat.BaseTemperature < 0 {
+		return fmt.Errorf("heat base temperature must be non-negative")
+	}
+	if c.Heat.MaxTemperature <= c.Heat.BaseTemperature {
+		return fmt.Errorf("heat max temperature must exceed base temperature")
+	}
+	if c.Heat.DamageBaseDPS <= 0 || c.Heat.DamageDivisor <= 0 || c.Heat.DamageExponent <= 0 {
+		return fmt.Errorf("heat damage parameters must be positive")
 	}
 
 	return nil

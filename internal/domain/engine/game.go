@@ -178,7 +178,7 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	}
 
 	// 3. Heat damage - applies damage based on depth-based temperature
-	systems.UpdateHeat(g.player, g.world, dt)
+	systems.UpdateHeat(g.player, g.world, dt, g.config.Heat)
 
 	// 4. Physics - handles landing/fall damage before drilling, prevents movement during drilling
 	systems.UpdatePhysics(g.player, g.world, inputState, dt)

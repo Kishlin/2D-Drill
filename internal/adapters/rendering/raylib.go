@@ -41,13 +41,13 @@ type RaylibRenderer struct {
 	camera       rl.Camera2D
 	screenWidth  float32
 	screenHeight float32
-	worldWidth   float32                  // Cached for boundary clamping
-	genCfg       *config.GenerationConfig // Ore/hazard colors from config
-	oreColors    map[string]rl.Color      // Cached ore colors by ID
-	hazardColors map[string]rl.Color      // Cached hazard colors by ID
+	worldWidth   float32            // Cached for boundary clamping
+	config       *config.GameConfig // Game configuration
+	oreColors    map[string]rl.Color
+	hazardColors map[string]rl.Color
 }
 
-func NewRaylibRendererWithConfig(screenWidth, screenHeight int32, genCfg *config.GenerationConfig) *RaylibRenderer {
+func NewRaylibRendererWithConfig(screenWidth, screenHeight int32, cfg *config.GameConfig) *RaylibRenderer {
 	r := &RaylibRenderer{
 		camera: rl.Camera2D{
 			Offset:   rl.Vector2{X: float32(screenWidth) / 2, Y: float32(screenHeight) / 2},
@@ -58,15 +58,15 @@ func NewRaylibRendererWithConfig(screenWidth, screenHeight int32, genCfg *config
 		screenWidth:  float32(screenWidth),
 		screenHeight: float32(screenHeight),
 		worldWidth:   0, // Set on first render
-		genCfg:       genCfg,
+		config:       cfg,
 		oreColors:    make(map[string]rl.Color),
 		hazardColors: make(map[string]rl.Color),
 	}
 
-	for _, oreCfg := range genCfg.Ores {
+	for _, oreCfg := range cfg.Generation.Ores {
 		r.oreColors[oreCfg.ID] = rl.NewColor(oreCfg.Color[0], oreCfg.Color[1], oreCfg.Color[2], oreCfg.Color[3])
 	}
-	for _, hazardCfg := range genCfg.Hazards {
+	for _, hazardCfg := range cfg.Generation.Hazards {
 		r.hazardColors[hazardCfg.ID] = rl.NewColor(hazardCfg.Color[0], hazardCfg.Color[1], hazardCfg.Color[2], hazardCfg.Color[3])
 	}
 
@@ -335,7 +335,7 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, w *world.World
 
 	// Draw ore inventory (dynamically from config)
 	inventoryText := "Ore:"
-	for _, oreCfg := range r.genCfg.Ores {
+	for _, oreCfg := range r.config.Generation.Ores {
 		count := player.OreInventory[oreCfg.ID]
 		inventoryText += fmt.Sprintf(" %s=%d", oreCfg.ID[:2], count)
 	}
@@ -361,7 +361,7 @@ func (r *RaylibRenderer) renderDebugInfo(player *entities.Player, w *world.World
 	posY += lineHeight
 
 	// Draw temperature
-	temperature := systems.CalculateTemperature(player.AABB.Y, w.GroundLevel, w.Height)
+	temperature := systems.CalculateTemperature(player.AABB.Y, w.GroundLevel, w.Height, r.config.Heat)
 	tempText := fmt.Sprintf("Temperature: %.1f°C (Resistance: %.1f°C)",
 		temperature, player.HeatResistance())
 	rl.DrawText(tempText, posX, posY, fontSize, textColor)

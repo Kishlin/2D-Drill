@@ -245,5 +245,13 @@ func GetTestLevelConfig() *config.GameConfig {
 			MaxDrillingDuration:   24.0,
 			FloorDrillingDuration: 0.5,
 		},
+
+		Heat: config.HeatConfig{
+			BaseTemperature: 15.0,
+			MaxTemperature:  350.0,
+			DamageBaseDPS:   0.5,
+			DamageDivisor:   10.0,
+			DamageExponent:  1.5,
+		},
 	}
 }
