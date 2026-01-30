@@ -32,8 +32,8 @@ func (r *TestBossRenderer) Render(boss bosses.Boss) {
 	state := tb.GetState()
 	stateTimer := tb.GetStateTimer()
 
-	// Vibration during windup
-	if state == test_boss.StateWindup {
+	// Vibration during windup (both initial windup and between slams)
+	if state == test_boss.StateWindup || state == test_boss.StateWindupBetween {
 		vibrationIntensity := float32(4.0)
 		vibrationSpeed := float32(30.0)
 		offset := vibrationIntensity*float32(int(stateTimer*vibrationSpeed*2)%2) - vibrationIntensity/2
@@ -45,7 +45,7 @@ func (r *TestBossRenderer) Render(boss bosses.Boss) {
 	borderColor := BossBorderColor
 
 	switch state {
-	case test_boss.StateWindup:
+	case test_boss.StateWindup, test_boss.StateWindupBetween:
 		// Windup: flash red/orange warning
 		if int(stateTimer*8)%2 == 0 {
 			bossColor = rl.NewColor(255, 100, 0, 255) // Orange flash
