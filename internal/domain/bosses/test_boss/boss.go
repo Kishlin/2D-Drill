@@ -13,6 +13,12 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
+func init() {
+	bosses.Register("test_boss", func(roomStartY, worldWidth float32) bosses.Boss {
+		return New(roomStartY, worldWidth)
+	})
+}
+
 const (
 	MaxHP         = 100.0
 	Width         = 100.0
@@ -80,6 +86,11 @@ type TestBoss struct {
 
 	// Reference to player for AOE damage (set during Update)
 	currentPlayer *entities.Player
+
+	// Pre-allocated box slices (positions updated each frame)
+	collisionBoxes []bosses.CollisionBox
+	hitboxes       []bosses.Hitbox
+	hurtbox        []bosses.Hurtbox
 }
 
 func New(roomStartY, worldWidth float32) *TestBoss {
@@ -123,6 +134,30 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 		maxSlams:         1,
 		aoeRadius:        150.0,
 		aoeDamage:        15.0,
+		// Pre-allocate box slices with initial positions
+		collisionBoxes: []bosses.CollisionBox{{
+			ID:     "body",
+			X:      centerX,
+			Y:      floorY,
+			Width:  Width,
+			Height: Height,
+		}},
+		hitboxes: []bosses.Hitbox{{
+			ID:           "body",
+			X:            centerX,
+			Y:            floorY,
+			Width:        Width,
+			Height:       Height,
+			DamagePerSec: ContactDamage,
+		}},
+		hurtbox: []bosses.Hurtbox{{
+			ID:               "body",
+			X:                centerX,
+			Y:                floorY,
+			Width:            Width,
+			Height:           Height,
+			DamageMultiplier: 1.0,
+		}},
 	}
 
 	// Build state machine with behaviors
@@ -222,7 +257,19 @@ func (b *TestBoss) Update(player *entities.Player, dt float32) []projectiles.Spa
 	}
 	result := b.stateMachine.Update(ctx)
 
+	// Update cached box positions
+	b.updateBoxPositions()
+
 	return result.SpawnRequests
+}
+
+func (b *TestBoss) updateBoxPositions() {
+	b.collisionBoxes[0].X = b.position.X
+	b.collisionBoxes[0].Y = b.position.Y
+	b.hitboxes[0].X = b.position.X
+	b.hitboxes[0].Y = b.position.Y
+	b.hurtbox[0].X = b.position.X
+	b.hurtbox[0].Y = b.position.Y
 }
 
 func (b *TestBoss) onPhaseChange() {
@@ -279,37 +326,17 @@ func (b *TestBoss) GetPosition() types.Vec2 {
 }
 
 func (b *TestBoss) GetCollisionBoxes() []bosses.CollisionBox {
-	return []bosses.CollisionBox{{
-		ID:     "body",
-		X:      b.position.X,
-		Y:      b.position.Y,
-		Width:  Width,
-		Height: Height,
-	}}
+	return b.collisionBoxes
 }
 
 func (b *TestBoss) GetHitboxes() []bosses.Hitbox {
-	return []bosses.Hitbox{{
-		ID:           "body",
-		X:            b.position.X,
-		Y:            b.position.Y,
-		Width:        Width,
-		Height:       Height,
-		DamagePerSec: ContactDamage,
-	}}
+	return b.hitboxes
 }
 
 func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
 	// Vulnerability determined by phase + state
 	if b.phaseManager.IsAlwaysVulnerable() || b.stateMachine.CurrentState() == StateVulnerable {
-		return []bosses.Hurtbox{{
-			ID:               "body",
-			X:                b.position.X,
-			Y:                b.position.Y,
-			Width:            Width,
-			Height:           Height,
-			DamageMultiplier: 1.0,
-		}}
+		return b.hurtbox
 	}
 	return nil // Invulnerable
 }

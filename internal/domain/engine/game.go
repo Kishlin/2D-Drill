@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
-	"github.com/Kishlin/drill-game/internal/domain/bosses/test_boss"
+	_ "github.com/Kishlin/drill-game/internal/domain/bosses/test_boss" // Register test_boss
 	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/effects"
@@ -82,7 +82,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 
 	// Create boss and boss fight system
 	var damageables []effects.DamageableEntity
-	boss, err := createBossByType(
+	boss, err := bosses.Create(
 		gameCfg.Level.BossRoom.BossType,
 		worldCfg.Height-gameCfg.Level.BossRoom.RoomHeight-gameCfg.Level.BossRoom.FloorHeight*world.TileSize,
 		worldCfg.Width,
@@ -315,11 +315,3 @@ func (g *Game) IsBossFightActive() bool {
 	return g.bossFightSystem.IsBossFightActive()
 }
 
-func createBossByType(bossType string, roomStartY, worldWidth float32) (bosses.Boss, error) {
-	switch bossType {
-	case "test_boss":
-		return test_boss.New(roomStartY, worldWidth), nil
-	default:
-		return nil, fmt.Errorf("unknown boss type: %s", bossType)
-	}
-}

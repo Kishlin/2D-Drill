@@ -5,8 +5,12 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/projectiles"
 )
 
-// StateID identifies a state by name
-type StateID string
+// StateID identifies a state by a type-safe integer constant.
+// Each boss package defines its own iota-based constants.
+type StateID int
+
+// StateIDNone represents no state / stay in current state
+const StateIDNone StateID = -1
 
 // StateContext provides data to state handlers
 type StateContext struct {
@@ -17,7 +21,7 @@ type StateContext struct {
 
 // StateResult is returned by OnUpdate to signal transitions and spawn requests
 type StateResult struct {
-	NextState     StateID // Empty = stay in current state
+	NextState     StateID // StateIDNone = stay in current state
 	SpawnRequests []projectiles.SpawnRequest
 }
 

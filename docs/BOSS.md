@@ -16,8 +16,9 @@ The boss system provides extensible end-of-level encounters. Bosses are implemen
 
 ```
 internal/domain/bosses/
-├── boss.go              # Core interfaces (Boss, PhysicalBoss) + shared types
-├── projectile.go        # Projectile entity with AABB collision
+├── boss.go              # Core Boss interface + shared types (AOEInfo)
+├── boxes.go             # Box types (CollisionBox, Hitbox, Hurtbox)
+├── registry.go          # Boss registration: Register() and Create()
 ├── phase.go             # PhaseManager for HP-threshold phases
 ├── attacks/             # Reusable attack patterns
 │   ├── attack.go        # Attack interface
@@ -26,8 +27,12 @@ internal/domain/bosses/
 ├── movement/            # Reusable movement behaviors
 │   ├── movement.go      # MovementBehavior interface
 │   └── grounded.go      # Left-right patrol on floor
+├── statemachine/        # Generic state machine framework
+│   ├── types.go         # StateID (int), StateContext, StateResult, State
+│   └── machine.go       # StateMachine with transitions and lifecycle
 └── test_boss/           # TestBoss implementation
-    └── boss.go          # State machine, phases, attacks
+    ├── boss.go          # Boss struct + init() registration
+    └── states.go        # State IDs (iota) + state definitions
 
 internal/adapters/rendering/bosses/
 ├── renderer.go          # BossRenderer interface + registry
@@ -40,38 +45,63 @@ internal/adapters/rendering/bosses/
 
 ### Boss Interface
 
-All bosses must implement the basic `Boss` interface:
+All bosses implement the `Boss` interface with three box types for collision/damage:
 
 ```go
 type Boss interface {
-    Update(player *entities.Player, dt float32)
-    GetHP() float32
-    GetMaxHP() float32
-    IsDefeated() bool
-    IsActive() bool
+    // Lifecycle
+    Update(player *entities.Player, dt float32) []projectiles.SpawnRequest
     Activate()
     Deactivate()
-    GetProjectiles() []*Projectile
+    IsActive() bool
+    IsDefeated() bool
+
+    // Health
+    GetHP() float32
+    GetMaxHP() float32
+    GetDamageable() *components.Damageable
+
+    // Position (origin for box offsets)
+    GetPosition() types.Vec2
+
+    // Three box types (state-dependent)
+    GetCollisionBoxes() []CollisionBox  // Blocks player movement
+    GetHitboxes() []Hitbox              // Damages player (contact damage)
+    GetHurtboxes() []Hurtbox            // Receives damage (empty = invulnerable)
+
+    // Damage (only works if hurtbox exists)
+    TakeDamageAt(hurtboxID string, baseDamage float32) float32
 }
 ```
 
-### PhysicalBoss Interface
-
-Bosses that can be damaged by bombs implement `PhysicalBoss`:
+### Box Types
 
 ```go
-type PhysicalBoss interface {
-    Boss
-    GetAABB() types.AABB
-    GetDamageable() *components.Damageable  // HP component
-    TakeDamage(damage float32)              // Respects vulnerability
-    IsVulnerable() bool                     // When can boss take damage?
-    GetVulnerableTimer() float32            // For UI feedback
-    GetContactDamage() float32              // Damage per second on player contact
+// CollisionBox blocks player movement
+type CollisionBox struct {
+    ID            string
+    X, Y          float32
+    Width, Height float32
+}
+
+// Hitbox deals damage to player on contact
+type Hitbox struct {
+    ID            string
+    X, Y          float32
+    Width, Height float32
+    DamagePerSec  float32
+}
+
+// Hurtbox receives damage (empty slice = invulnerable)
+type Hurtbox struct {
+    ID               string
+    X, Y             float32
+    Width, Height    float32
+    DamageMultiplier float32  // 1.0 = normal, 2.0 = weak point
 }
 ```
 
-**Key Design:** `TakeDamage()` checks vulnerability internally—callers don't need to check `IsVulnerable()` first.
+**Key Design:** Vulnerability is controlled by `GetHurtboxes()` returning empty slice when invulnerable. The boss controls this based on its state machine and phase config.
 
 ### Damageable Component
 
@@ -88,7 +118,7 @@ func (d *Damageable) TakeDamage(amount float32)  // Just decrements HP
 func (d *Damageable) IsDefeated() bool           // HP <= 0
 ```
 
-**Important:** The Damageable component is pure HP data. It does NOT handle vulnerability logic—that's boss-specific and controlled by the boss's state machine.
+**Important:** The Damageable component is pure HP data. Vulnerability logic is boss-specific, controlled by the state machine.
 
 ### Shared Types
 
@@ -103,13 +133,70 @@ type AOEInfo struct {
 }
 ```
 
+### Boss Registry
+
+Bosses self-register via `init()`:
+
+```go
+// bosses/registry.go
+func Register(bossType string, constructor BossConstructor)
+func Create(bossType string, roomStartY, worldWidth float32) (Boss, error)
+
+// Usage in boss package
+func init() {
+    bosses.Register("my_boss", func(roomStartY, worldWidth float32) bosses.Boss {
+        return New(roomStartY, worldWidth)
+    })
+}
+```
+
 ---
 
 ## State Machine
 
-Bosses use state machines for animation and behavior. States drive visual feedback and vulnerability windows.
+Bosses use a generic state machine framework (`bosses/statemachine/`) for animation and behavior. States drive visual feedback and vulnerability windows.
 
 **Single Source of Truth:** The boss's state machine is the single source of truth for vulnerability. The Damageable component only stores HP—vulnerability logic lives in the boss.
+
+### StateID Type
+
+State IDs use typed integers for compile-time safety:
+
+```go
+// statemachine/types.go
+type StateID int
+const StateIDNone StateID = -1  // Stay in current state
+
+// test_boss/states.go - each boss defines its own states
+const (
+    StatePatrol statemachine.StateID = iota
+    StateWindup
+    StateWindupBetween
+    StateSlam
+    StateVulnerable
+)
+```
+
+### State Definition
+
+States are declarative structs with lifecycle hooks:
+
+```go
+// statemachine/types.go
+type State struct {
+    ID      StateID
+    CanMove bool  // Movement behavior active in this state
+
+    OnEnter  func(ctx *StateContext)
+    OnUpdate func(ctx *StateContext) StateResult
+    OnExit   func(ctx *StateContext)
+}
+
+type StateResult struct {
+    NextState     StateID  // StateIDNone = stay in current state
+    SpawnRequests []projectiles.SpawnRequest
+}
+```
 
 ### TestBoss State Flow
 
@@ -123,7 +210,7 @@ StateWindup (stopped, vibrating warning, 1 second)
     v
 StateSlam (AOE damage zone, 0.3 seconds)
     │
-    ├─ More slams to do? → StateWindup (0.4s pause)
+    ├─ More slams to do? → StateWindupBetween (0.4s pause) → StateSlam
     v
 StateVulnerable (immobile, can be bombed)
     │
@@ -132,55 +219,48 @@ StateVulnerable (immobile, can be bombed)
 StatePatrol (cooldown reset)
 ```
 
-### State Implementation
+### State Machine Usage
 
 ```go
-type BossState int
+// Boss creates state machine with state definitions
+behaviors := b.buildStateBehaviors()
+states := BuildStates(behaviors)
+b.stateMachine = statemachine.NewStateMachine(states, StatePatrol)
 
-const (
-    StatePatrol BossState = iota
-    StateWindup
-    StateSlam
-    StateVulnerable
-)
+// In Update(), run state machine
+ctx := &statemachine.StateContext{Player: player, Dt: dt}
+result := b.stateMachine.Update(ctx)
+return result.SpawnRequests
 
-type TestBoss struct {
-    aabb       types.AABB
-    damageable components.Damageable  // HP component
-    state      BossState
-    stateTimer float32
+// Query current state for rendering/logic
+if b.stateMachine.CurrentState() == StateVulnerable {
     // ...
 }
+```
 
-func (b *TestBoss) Update(player *entities.Player, dt float32) {
-    switch b.state {
-    case StatePatrol:
-        b.updatePatrol(player, dt)
-    case StateWindup:
-        b.updateWindup(dt)
-    case StateSlam:
-        b.updateSlam(player, dt)
-    case StateVulnerable:
-        b.updateVulnerable(dt)
-    }
+### StateBehaviors Pattern
+
+States access boss data through a behaviors struct (avoids circular dependencies):
+
+```go
+type StateBehaviors struct {
+    GetAOECooldown    func() float32
+    DecrementCooldown func(dt float32)
+    UpdateMovement    func(dt float32)
+    // ... other callbacks
 }
 
-// Vulnerability is controlled by state machine + phase config
-func (b *TestBoss) IsVulnerable() bool {
-    phaseCfg := b.phaseManager.GetCurrentConfig()
-    return phaseCfg.AlwaysVulnerable || b.state == StateVulnerable
-}
-
-// TakeDamage checks vulnerability, then applies damage
-func (b *TestBoss) TakeDamage(damage float32) {
-    if !b.IsVulnerable() {
-        return
-    }
-    b.damageable.TakeDamage(damage)
-
-    // Taking damage ends vulnerability window
-    if b.state == StateVulnerable {
-        b.endVulnerability()
+func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachine.State {
+    return map[statemachine.StateID]*statemachine.State{
+        StatePatrol: {
+            ID:      StatePatrol,
+            CanMove: true,
+            OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+                behaviors.UpdateMovement(ctx.Dt)
+                // ...
+            },
+        },
+        // ... other states
     }
 }
 ```
@@ -379,7 +459,7 @@ type BossFightSystem struct {
 ### Player Entry/Exit
 
 ```go
-func (bfs *BossFightSystem) Update(player *entities.Player, dt float32) entities.GameState {
+func (bfs *BossFightSystem) Update(player *entities.Player, dt float32) BossFightResult {
     playerY := player.AABB.Y + player.AABB.Height
     inRoom := playerY >= bfs.bossRoomStartY
 
@@ -387,71 +467,45 @@ func (bfs *BossFightSystem) Update(player *entities.Player, dt float32) entities
         bfs.boss.Activate()
     } else if !inRoom && bfs.playerInBossRoom {
         bfs.boss.Deactivate()
-        // Clear projectiles when leaving
     }
     bfs.playerInBossRoom = inRoom
+
+    // Boss Update returns projectile spawn requests
+    spawnRequests := bfs.boss.Update(player, dt)
     // ...
 }
 ```
 
-### Projectile Collision
+### Contact Damage (Hitboxes)
 
 ```go
-func (bfs *BossFightSystem) handleProjectileCollisions(player *entities.Player) {
-    for _, projectile := range bfs.boss.GetProjectiles() {
-        if projectile.Active && projectile.Intersects(player.AABB) {
-            player.DealDamage(projectile.Damage)
-            projectile.Active = false
+func (bfs *BossFightSystem) handleHitboxDamage(player *entities.Player, dt float32) {
+    for _, hitbox := range bfs.boss.GetHitboxes() {
+        hitboxAABB := types.AABB{X: hitbox.X, Y: hitbox.Y, Width: hitbox.Width, Height: hitbox.Height}
+        if player.AABB.Intersects(hitboxAABB) {
+            player.DealDamage(hitbox.DamagePerSec * dt)
         }
     }
 }
 ```
 
-### Contact Damage
+### Bomb-Boss Interaction (Hurtboxes)
+
+Bombs damage bosses through hurtboxes. Empty hurtbox list = invulnerable:
 
 ```go
-func (bfs *BossFightSystem) handleContactDamage(player *entities.Player, dt float32) {
-    if physicalBoss, ok := bfs.boss.(bosses.PhysicalBoss); ok {
-        contactDamage := physicalBoss.GetContactDamage()
-        if contactDamage > 0 && player.AABB.Intersects(physicalBoss.GetAABB()) {
-            player.DealDamage(contactDamage * dt)
+func (bfs *BossFightSystem) handleBombDamage(blastAABB types.AABB, damage float32) {
+    for _, hurtbox := range bfs.boss.GetHurtboxes() {
+        hurtboxAABB := types.AABB{X: hurtbox.X, Y: hurtbox.Y, Width: hurtbox.Width, Height: hurtbox.Height}
+        if blastAABB.Intersects(hurtboxAABB) {
+            bfs.boss.TakeDamageAt(hurtbox.ID, damage)
+            break  // Only damage once per blast
         }
     }
 }
 ```
 
-### Bomb-Boss Interaction
-
-Bombs damage entities through the `DamageableEntity` interface (defined in `effects/`):
-
-```go
-// effects/effect.go
-type DamageableEntity interface {
-    GetAABB() types.AABB
-    GetDamageable() *components.Damageable
-    TakeDamage(amount float32)  // Entity controls vulnerability check
-}
-```
-
-Bomb effect iterates damageables from EffectContext:
-
-```go
-// effects/items.go
-func (e Bomb) Apply(ctx *EffectContext) {
-    // Calculate blast AABB...
-
-    // Damage all damageable entities in range
-    for _, entity := range ctx.Damageables {
-        if entity.GetAABB().Intersects(blastAABB) {
-            entity.TakeDamage(e.Damage)  // Boss checks vulnerability internally
-        }
-    }
-
-    // Destroy tiles...
-}
-```
-
-**Key Design:** The bomb calls `entity.TakeDamage()`, not `entity.GetDamageable().TakeDamage()`. This lets the boss control its own vulnerability check and side effects (like ending the vulnerability window).
+**Key Design:** `GetHurtboxes()` returns empty slice when invulnerable. `TakeDamageAt()` applies damage multiplier and triggers boss-specific side effects (like ending vulnerability window).
 
 **Damage Values:**
 - Regular bomb: 10 HP
@@ -579,59 +633,116 @@ func (r *RaylibRenderer) renderGameStateOverlay(state entities.GameState) {
 
 ## Adding a New Boss
 
-### 1. Create Boss Implementation
+Adding a boss = create package + call `bosses.Register()` in `init()`.
+
+### 1. Create Boss Package
 
 `internal/domain/bosses/my_boss/boss.go`:
 
 ```go
 package my_boss
 
+import "github.com/Kishlin/drill-game/internal/domain/bosses"
+
+// Register boss type on package import
+func init() {
+    bosses.Register("my_boss", func(roomStartY, worldWidth float32) bosses.Boss {
+        return New(roomStartY, worldWidth)
+    })
+}
+
 type MyBoss struct {
-    aabb       types.AABB
-    damageable components.Damageable  // HP component
-    active     bool
-    state      MyBossState
-    movement   *movement.Grounded
-    attacks    []attacks.Attack
-    phases     *bosses.PhaseManager
+    position     types.Vec2
+    damageable   components.Damageable
+    active       bool
+    stateMachine *statemachine.StateMachine
+    movement     *movement.Grounded
+    phaseManager *bosses.PhaseManager
+    // Pre-allocated box slices (avoid per-frame allocations)
+    collisionBoxes []bosses.CollisionBox
+    hitboxes       []bosses.Hitbox
+    hurtbox        []bosses.Hurtbox
 }
 
 func New(roomStartY, worldWidth float32) *MyBoss {
-    return &MyBoss{
-        aabb:       types.AABB{X: centerX, Y: floorY, Width: 100, Height: 100},
+    b := &MyBoss{
+        position:   types.NewVec2(centerX, floorY),
         damageable: components.NewDamageable(200, 200),
-        movement:   movement.NewGrounded(startPos, minX, maxX),
-        attacks:    []attacks.Attack{attacks.NewProjectileAttack(...)},
-        phases:     bosses.NewPhaseManager(myPhaseConfigs),
+        movement:   movement.NewGrounded(...),
+        // Pre-allocate boxes
+        collisionBoxes: []bosses.CollisionBox{{ID: "body", ...}},
+        hitboxes:       []bosses.Hitbox{{ID: "body", ...}},
+        hurtbox:        []bosses.Hurtbox{{ID: "body", ...}},
     }
+
+    behaviors := b.buildStateBehaviors()
+    states := BuildStates(behaviors)
+    b.stateMachine = statemachine.NewStateMachine(states, StateIdle)
+
+    return b
 }
 
-// Boss interface - delegate to Damageable
-func (b *MyBoss) GetHP() float32    { return b.damageable.HP }
-func (b *MyBoss) GetMaxHP() float32 { return b.damageable.MaxHP }
-func (b *MyBoss) IsDefeated() bool  { return b.damageable.IsDefeated() }
-
-// PhysicalBoss interface
-func (b *MyBoss) GetAABB() types.AABB                   { return b.aabb }
-func (b *MyBoss) GetDamageable() *components.Damageable { return &b.damageable }
-
-// TakeDamage - boss controls its own vulnerability
-func (b *MyBoss) TakeDamage(damage float32) {
-    if !b.IsVulnerable() {
-        return
+// Implement Boss interface...
+func (b *MyBoss) GetCollisionBoxes() []bosses.CollisionBox { return b.collisionBoxes }
+func (b *MyBoss) GetHitboxes() []bosses.Hitbox             { return b.hitboxes }
+func (b *MyBoss) GetHurtboxes() []bosses.Hurtbox {
+    if b.isVulnerable() {
+        return b.hurtbox
     }
-    b.damageable.TakeDamage(damage)
-    // Add boss-specific side effects here
+    return nil  // Invulnerable
 }
 
-// IsVulnerable - defined by state machine or phase config
-func (b *MyBoss) IsVulnerable() bool {
-    // Example: vulnerable during StateStunned or if AlwaysVulnerable phase
-    return b.phases.GetCurrentConfig().AlwaysVulnerable || b.state == StateStunned
+func (b *MyBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
+    // ... state machine update ...
+    b.updateBoxPositions()  // Update cached box positions
+    return result.SpawnRequests
 }
 ```
 
-### 2. Create Boss Renderer
+`internal/domain/bosses/my_boss/states.go`:
+
+```go
+package my_boss
+
+import "github.com/Kishlin/drill-game/internal/domain/bosses/statemachine"
+
+// State IDs (typed integers for compile-time safety)
+const (
+    StateIdle statemachine.StateID = iota
+    StateAttack
+    StateVulnerable
+)
+
+func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachine.State {
+    return map[statemachine.StateID]*statemachine.State{
+        StateIdle: {
+            ID:      StateIdle,
+            CanMove: true,
+            OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+                // ...
+                return statemachine.StateResult{NextState: statemachine.StateIDNone}
+            },
+        },
+        // ... other states
+    }
+}
+```
+
+### 2. Import in Game Engine
+
+`internal/domain/engine/game.go`:
+
+```go
+import (
+    "github.com/Kishlin/drill-game/internal/domain/bosses"
+    _ "github.com/Kishlin/drill-game/internal/domain/bosses/my_boss"  // Register my_boss
+)
+
+// Boss creation uses registry (no switch statement needed)
+boss, err := bosses.Create(bossType, roomStartY, worldWidth)
+```
+
+### 3. Create Boss Renderer
 
 `internal/adapters/rendering/bosses/my_boss.go`:
 
@@ -652,23 +763,6 @@ func (r *MyBossRenderer) Render(boss bosses.Boss) {
 
 func init() {
     Register(&MyBossRenderer{})
-}
-```
-
-### 3. Register in Game
-
-`internal/domain/engine/game.go`:
-
-```go
-func createBossByType(bossType string, roomStartY, worldWidth float32) (bosses.Boss, error) {
-    switch bossType {
-    case "test_boss":
-        return test_boss.New(roomStartY, worldWidth), nil
-    case "my_boss":
-        return my_boss.New(roomStartY, worldWidth), nil
-    default:
-        return nil, fmt.Errorf("unknown boss type: %s", bossType)
-    }
 }
 ```
 

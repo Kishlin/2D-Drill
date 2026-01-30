@@ -36,7 +36,7 @@ func (sm *StateMachine) Update(ctx *StateContext) StateResult {
 	result := state.OnUpdate(ctx)
 
 	// Handle transition if NextState is set
-	if result.NextState != "" && result.NextState != sm.current {
+	if result.NextState != StateIDNone && result.NextState != sm.current {
 		sm.TransitionTo(result.NextState, ctx)
 	} else {
 		sm.elapsed += ctx.Dt

@@ -6,27 +6,36 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/projectiles"
 )
 
+// Test state IDs
+const (
+	testStateIdle StateID = iota
+	testStateActive
+	testStatePatrol
+	testStateStunned
+	testStateShooting
+)
+
 func TestStateMachine_StartsInInitialState(t *testing.T) {
 	states := map[StateID]*State{
-		"idle": {ID: "idle", CanMove: false},
+		testStateIdle: {ID: testStateIdle, CanMove: false},
 	}
-	sm := NewStateMachine(states, "idle")
+	sm := NewStateMachine(states, testStateIdle)
 
-	if sm.CurrentState() != "idle" {
-		t.Errorf("expected state 'idle', got '%s'", sm.CurrentState())
+	if sm.CurrentState() != testStateIdle {
+		t.Errorf("expected state idle, got %d", sm.CurrentState())
 	}
 }
 
 func TestStateMachine_CallsOnEnterOnInit(t *testing.T) {
 	enterCalled := false
 	states := map[StateID]*State{
-		"idle": {
-			ID:      "idle",
+		testStateIdle: {
+			ID:      testStateIdle,
 			CanMove: false,
 			OnEnter: func(ctx *StateContext) { enterCalled = true },
 		},
 	}
-	NewStateMachine(states, "idle")
+	NewStateMachine(states, testStateIdle)
 
 	if enterCalled == false {
 		t.Error("expected OnEnter to be called on init")
@@ -35,9 +44,9 @@ func TestStateMachine_CallsOnEnterOnInit(t *testing.T) {
 
 func TestStateMachine_ElapsedIncrements(t *testing.T) {
 	states := map[StateID]*State{
-		"idle": {ID: "idle", CanMove: false},
+		testStateIdle: {ID: testStateIdle, CanMove: false},
 	}
-	sm := NewStateMachine(states, "idle")
+	sm := NewStateMachine(states, testStateIdle)
 
 	ctx := &StateContext{Dt: 0.5}
 	sm.Update(ctx)
@@ -56,17 +65,17 @@ func TestStateMachine_ElapsedIncrements(t *testing.T) {
 
 func TestStateMachine_TransitionResetsElapsed(t *testing.T) {
 	states := map[StateID]*State{
-		"idle":   {ID: "idle", CanMove: false},
-		"active": {ID: "active", CanMove: true},
+		testStateIdle:   {ID: testStateIdle, CanMove: false},
+		testStateActive: {ID: testStateActive, CanMove: true},
 	}
-	sm := NewStateMachine(states, "idle")
+	sm := NewStateMachine(states, testStateIdle)
 
 	// Accumulate time
 	ctx := &StateContext{Dt: 1.0}
 	sm.Update(ctx)
 
 	// Transition
-	sm.TransitionTo("active", ctx)
+	sm.TransitionTo(testStateActive, ctx)
 
 	if sm.Elapsed() != 0 {
 		t.Errorf("expected elapsed 0 after transition, got %f", sm.Elapsed())
@@ -78,19 +87,19 @@ func TestStateMachine_TransitionCallsOnExitAndOnEnter(t *testing.T) {
 	enterCalled := false
 
 	states := map[StateID]*State{
-		"idle": {
-			ID:     "idle",
+		testStateIdle: {
+			ID:     testStateIdle,
 			OnExit: func(ctx *StateContext) { exitCalled = true },
 		},
-		"active": {
-			ID:      "active",
+		testStateActive: {
+			ID:      testStateActive,
 			OnEnter: func(ctx *StateContext) { enterCalled = true },
 		},
 	}
-	sm := NewStateMachine(states, "idle")
+	sm := NewStateMachine(states, testStateIdle)
 
 	ctx := &StateContext{}
-	sm.TransitionTo("active", ctx)
+	sm.TransitionTo(testStateActive, ctx)
 
 	if exitCalled == false {
 		t.Error("expected OnExit to be called")
@@ -102,54 +111,55 @@ func TestStateMachine_TransitionCallsOnExitAndOnEnter(t *testing.T) {
 
 func TestStateMachine_OnUpdateCanTransition(t *testing.T) {
 	states := map[StateID]*State{
-		"idle": {
-			ID: "idle",
+		testStateIdle: {
+			ID: testStateIdle,
 			OnUpdate: func(ctx *StateContext) StateResult {
 				if ctx.Elapsed >= 1.0 {
-					return StateResult{NextState: "active"}
+					return StateResult{NextState: testStateActive}
 				}
-				return StateResult{}
+				return StateResult{NextState: StateIDNone}
 			},
 		},
-		"active": {ID: "active"},
+		testStateActive: {ID: testStateActive},
 	}
-	sm := NewStateMachine(states, "idle")
+	sm := NewStateMachine(states, testStateIdle)
 
 	// Update but don't hit threshold (elapsed=0 during check, becomes 0.5 after)
 	ctx := &StateContext{Dt: 0.5}
 	sm.Update(ctx)
-	if sm.CurrentState() != "idle" {
+	if sm.CurrentState() != testStateIdle {
 		t.Error("should still be in idle")
 	}
 
 	// Update again (elapsed=0.5 during check, becomes 1.0 after)
 	ctx.Dt = 0.5
 	sm.Update(ctx)
-	if sm.CurrentState() != "idle" {
+	if sm.CurrentState() != testStateIdle {
 		t.Error("should still be in idle at elapsed=0.5")
 	}
 
 	// Update past threshold (elapsed=1.0 during check, triggers transition)
 	ctx.Dt = 0.1
 	sm.Update(ctx)
-	if sm.CurrentState() != "active" {
-		t.Errorf("expected transition to active, got %s", sm.CurrentState())
+	if sm.CurrentState() != testStateActive {
+		t.Errorf("expected transition to active, got %d", sm.CurrentState())
 	}
 }
 
 func TestStateMachine_OnUpdateReturnsSpawnRequests(t *testing.T) {
 	expectedRequest := projectiles.SpawnRequest{Damage: 10}
 	states := map[StateID]*State{
-		"shooting": {
-			ID: "shooting",
+		testStateShooting: {
+			ID: testStateShooting,
 			OnUpdate: func(ctx *StateContext) StateResult {
 				return StateResult{
+					NextState:     StateIDNone,
 					SpawnRequests: []projectiles.SpawnRequest{expectedRequest},
 				}
 			},
 		},
 	}
-	sm := NewStateMachine(states, "shooting")
+	sm := NewStateMachine(states, testStateShooting)
 
 	ctx := &StateContext{Dt: 0.1}
 	result := sm.Update(ctx)
@@ -164,16 +174,16 @@ func TestStateMachine_OnUpdateReturnsSpawnRequests(t *testing.T) {
 
 func TestStateMachine_CanMove(t *testing.T) {
 	states := map[StateID]*State{
-		"patrol": {ID: "patrol", CanMove: true},
-		"stunned": {ID: "stunned", CanMove: false},
+		testStatePatrol:  {ID: testStatePatrol, CanMove: true},
+		testStateStunned: {ID: testStateStunned, CanMove: false},
 	}
 
-	sm := NewStateMachine(states, "patrol")
+	sm := NewStateMachine(states, testStatePatrol)
 	if sm.CanMove() == false {
 		t.Error("patrol should allow movement")
 	}
 
-	sm.TransitionTo("stunned", &StateContext{})
+	sm.TransitionTo(testStateStunned, &StateContext{})
 	if sm.CanMove() == true {
 		t.Error("stunned should not allow movement")
 	}
@@ -182,15 +192,15 @@ func TestStateMachine_CanMove(t *testing.T) {
 func TestStateMachine_ContextReceivesElapsed(t *testing.T) {
 	var receivedElapsed float32
 	states := map[StateID]*State{
-		"idle": {
-			ID: "idle",
+		testStateIdle: {
+			ID: testStateIdle,
 			OnUpdate: func(ctx *StateContext) StateResult {
 				receivedElapsed = ctx.Elapsed
-				return StateResult{}
+				return StateResult{NextState: StateIDNone}
 			},
 		},
 	}
-	sm := NewStateMachine(states, "idle")
+	sm := NewStateMachine(states, testStateIdle)
 
 	ctx := &StateContext{Dt: 0.5}
 	sm.Update(ctx)

@@ -8,11 +8,11 @@ import (
 
 // State IDs
 const (
-	StatePatrol       statemachine.StateID = "patrol"
-	StateWindup       statemachine.StateID = "windup"
-	StateWindupBetween statemachine.StateID = "windup_between"
-	StateSlam         statemachine.StateID = "slam"
-	StateVulnerable   statemachine.StateID = "vulnerable"
+	StatePatrol statemachine.StateID = iota
+	StateWindup
+	StateWindupBetween
+	StateSlam
+	StateVulnerable
 )
 
 // StateBehaviors provides callbacks for state handlers to interact with boss data
@@ -69,7 +69,7 @@ func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachi
 					}
 				}
 
-				return statemachine.StateResult{SpawnRequests: spawnRequests}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone, SpawnRequests: spawnRequests}
 			},
 		},
 
@@ -84,7 +84,7 @@ func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachi
 				if ctx.Elapsed >= WindupDuration {
 					return statemachine.StateResult{NextState: StateSlam}
 				}
-				return statemachine.StateResult{}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
 			},
 		},
 
@@ -95,7 +95,7 @@ func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachi
 				if ctx.Elapsed >= DoubleSlamPause {
 					return statemachine.StateResult{NextState: StateSlam}
 				}
-				return statemachine.StateResult{}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
 			},
 		},
 
@@ -116,7 +116,7 @@ func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachi
 					// Done slamming, enter vulnerable state
 					return statemachine.StateResult{NextState: StateVulnerable}
 				}
-				return statemachine.StateResult{}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
 			},
 		},
 
@@ -127,7 +127,7 @@ func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachi
 				if ctx.Elapsed >= behaviors.GetVulnerableDuration() {
 					return statemachine.StateResult{NextState: StatePatrol}
 				}
-				return statemachine.StateResult{}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
 			},
 			OnExit: func(ctx *statemachine.StateContext) {
 				behaviors.EndVulnerability()
