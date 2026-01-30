@@ -8,50 +8,28 @@ import (
 )
 
 type Boss interface {
-	// Update runs boss AI and returns projectile spawn requests
+	// Lifecycle
 	Update(player *entities.Player, dt float32) []projectiles.SpawnRequest
-
-	// GetHP returns current health points
-	GetHP() float32
-
-	// GetMaxHP returns maximum health points
-	GetMaxHP() float32
-
-	// IsDefeated returns true if boss is dead
+	Activate()
+	Deactivate()
+	IsActive() bool
 	IsDefeated() bool
 
-	// IsActive returns true if boss is currently active in the fight
-	IsActive() bool
-
-	// Activate starts the boss fight
-	Activate()
-
-	// Deactivate pauses the boss fight
-	Deactivate()
-}
-
-// PhysicalBoss is a boss that has a physical AABB and can be hit by bombs
-type PhysicalBoss interface {
-	Boss
-
-	// GetAABB returns the boss's axis-aligned bounding box for collision detection
-	GetAABB() types.AABB
-
-	// GetDamageable returns the boss's damageable component
+	// Health
+	GetHP() float32
+	GetMaxHP() float32
 	GetDamageable() *components.Damageable
 
-	// TakeDamage applies damage to the boss (delegates to Damageable)
-	TakeDamage(damage float32)
+	// Position (origin for box offsets)
+	GetPosition() types.Vec2
 
-	// IsVulnerable returns true if the boss can currently take damage
-	IsVulnerable() bool
+	// Three box types (state-dependent)
+	GetCollisionBoxes() []CollisionBox // Blocks player movement
+	GetHitboxes() []Hitbox             // Damages player
+	GetHurtboxes() []Hurtbox           // Receives damage (empty = invulnerable)
 
-	// GetVulnerableTimer returns remaining vulnerability duration (for UI)
-	GetVulnerableTimer() float32
-
-	// GetContactDamage returns damage dealt per second on player contact
-	// Returns 0 if boss doesn't deal contact damage
-	GetContactDamage() float32
+	// Damage (only works if hurtbox exists)
+	TakeDamageAt(hurtboxID string, baseDamage float32) float32
 }
 
 // AOEInfo contains information about an active AOE effect for rendering

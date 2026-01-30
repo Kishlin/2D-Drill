@@ -58,7 +58,7 @@ var phases = []bosses.PhaseConfig{
 }
 
 type TestBoss struct {
-	aabb             types.AABB
+	position         types.Vec2
 	damageable       components.Damageable
 	active           bool
 	movement         *movement.Grounded
@@ -110,12 +110,7 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 	phaseManager := bosses.NewPhaseManager(MaxHP, phases)
 
 	b := &TestBoss{
-		aabb: types.AABB{
-			X:      centerX,
-			Y:      floorY,
-			Width:  Width,
-			Height: Height,
-		},
+		position:         types.NewVec2(centerX, floorY),
 		damageable:       components.NewDamageable(MaxHP, MaxHP),
 		active:           false,
 		movement:         groundedMovement,
@@ -158,24 +153,23 @@ func (b *TestBoss) buildStateBehaviors() *StateBehaviors {
 			}
 			// Store AOE position at boss's feet
 			b.aoePosition = types.NewVec2(
-				b.aabb.X+b.aabb.Width/2,
-				b.aabb.Y+b.aabb.Height,
+				b.position.X+Width/2,
+				b.position.Y+Height,
 			)
 		},
 
 		SetAOEPosition: func(pos types.Vec2) { b.aoePosition = pos },
 
 		UpdateMovement: func(dt float32) {
-			newPos := b.movement.Update(types.NewVec2(b.aabb.X, b.aabb.Y), dt)
-			b.aabb.X = newPos.X
-			b.aabb.Y = newPos.Y
+			b.position = b.movement.Update(b.position, dt)
 		},
 
 		UpdateProjectileAttack: func(dt float32) []projectiles.SpawnRequest {
 			if b.currentPlayer == nil {
 				return nil
 			}
-			return b.projectileAttack.Update(b.aabb, b.currentPlayer.AABB, dt)
+			bossAABB := types.AABB{X: b.position.X, Y: b.position.Y, Width: Width, Height: Height}
+			return b.projectileAttack.Update(bossAABB, b.currentPlayer.AABB, dt)
 		},
 
 		GetVulnerableDuration: func() float32 {
@@ -276,37 +270,73 @@ func (b *TestBoss) Deactivate() {
 	b.active = false
 }
 
-func (b *TestBoss) GetAABB() types.AABB {
-	return b.aabb
-}
-
-func (b *TestBoss) GetContactDamage() float32 {
-	return ContactDamage
-}
-
-func (b *TestBoss) TakeDamage(damage float32) {
-	if b.IsVulnerable() == false {
-		return
-	}
-
-	b.damageable.TakeDamage(damage)
-
-	// Close vulnerability window after taking damage
-	if b.stateMachine.CurrentState() == StateVulnerable {
-		ctx := &statemachine.StateContext{}
-		b.stateMachine.TransitionTo(StatePatrol, ctx)
-	}
-}
-
-func (b *TestBoss) IsVulnerable() bool {
-	return b.phaseManager.IsAlwaysVulnerable() ||
-		b.stateMachine.CurrentState() == StateVulnerable
-}
-
 func (b *TestBoss) GetDamageable() *components.Damageable {
 	return &b.damageable
 }
 
+func (b *TestBoss) GetPosition() types.Vec2 {
+	return b.position
+}
+
+func (b *TestBoss) GetCollisionBoxes() []bosses.CollisionBox {
+	return []bosses.CollisionBox{{
+		ID:     "body",
+		X:      b.position.X,
+		Y:      b.position.Y,
+		Width:  Width,
+		Height: Height,
+	}}
+}
+
+func (b *TestBoss) GetHitboxes() []bosses.Hitbox {
+	return []bosses.Hitbox{{
+		ID:           "body",
+		X:            b.position.X,
+		Y:            b.position.Y,
+		Width:        Width,
+		Height:       Height,
+		DamagePerSec: ContactDamage,
+	}}
+}
+
+func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
+	// Vulnerability determined by phase + state
+	if b.phaseManager.IsAlwaysVulnerable() || b.stateMachine.CurrentState() == StateVulnerable {
+		return []bosses.Hurtbox{{
+			ID:               "body",
+			X:                b.position.X,
+			Y:                b.position.Y,
+			Width:            Width,
+			Height:           Height,
+			DamageMultiplier: 1.0,
+		}}
+	}
+	return nil // Invulnerable
+}
+
+func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32 {
+	// Find hurtbox and apply multiplier
+	for _, hb := range b.GetHurtboxes() {
+		if hb.ID == hurtboxID {
+			actual := baseDamage * hb.DamageMultiplier
+			b.damageable.TakeDamage(actual)
+
+			// End vulnerability on damage if in vulnerable state
+			if b.stateMachine.CurrentState() == StateVulnerable {
+				b.stateMachine.TransitionTo(StatePatrol, &statemachine.StateContext{})
+			}
+			return actual
+		}
+	}
+	return 0
+}
+
+// IsVulnerable returns true if the boss can currently take damage (for rendering)
+func (b *TestBoss) IsVulnerable() bool {
+	return len(b.GetHurtboxes()) > 0
+}
+
+// GetVulnerableTimer returns remaining vulnerability duration (for UI rendering)
 func (b *TestBoss) GetVulnerableTimer() float32 {
 	if b.phaseManager.GetCurrentConfig().AlwaysVulnerable {
 		return -1

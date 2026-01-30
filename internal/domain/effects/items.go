@@ -49,10 +49,13 @@ func (e Bomb) Apply(ctx *EffectContext) {
 		Height: blastRadius * 2,
 	}
 
-	// Damage all damageable entities in range
+	// Damage all damageable entities in range via their hurtboxes
 	for _, entity := range ctx.Damageables {
-		if entity.GetAABB().Intersects(blastAABB) {
-			entity.TakeDamage(e.Damage)
+		for _, hurtbox := range entity.GetHurtboxes() {
+			if hurtbox.AABB().Intersects(blastAABB) {
+				entity.TakeDamageAt(hurtbox.ID, e.Damage)
+				break // Only damage once per entity
+			}
 		}
 	}
 

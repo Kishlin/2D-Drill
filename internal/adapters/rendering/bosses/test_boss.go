@@ -25,9 +25,9 @@ func (r *TestBossRenderer) Render(boss bosses.Boss) {
 		return
 	}
 
-	aabb := tb.GetAABB()
-	drawX := aabb.X
-	drawY := aabb.Y
+	pos := tb.GetPosition()
+	drawX := pos.X
+	drawY := pos.Y
 
 	state := tb.GetState()
 	stateTimer := tb.GetStateTimer()
@@ -72,25 +72,64 @@ func (r *TestBossRenderer) Render(boss bosses.Boss) {
 		}
 	}
 
-	// Draw boss
-	rl.DrawRectangle(
-		int32(drawX),
-		int32(drawY),
-		int32(aabb.Width),
-		int32(aabb.Height),
-		bossColor,
-	)
+	// Draw boss body (using drawX/drawY which includes vibration offset)
+	collisionBoxes := tb.GetCollisionBoxes()
+	if len(collisionBoxes) > 0 {
+		body := collisionBoxes[0]
+		rl.DrawRectangle(
+			int32(drawX),
+			int32(drawY),
+			int32(body.Width),
+			int32(body.Height),
+			bossColor,
+		)
 
-	rl.DrawRectangleLines(
-		int32(drawX),
-		int32(drawY),
-		int32(aabb.Width),
-		int32(aabb.Height),
-		borderColor,
-	)
+		rl.DrawRectangleLines(
+			int32(drawX),
+			int32(drawY),
+			int32(body.Width),
+			int32(body.Height),
+			borderColor,
+		)
+	}
 
 	// Render AOE effects
 	r.renderAOE(tb)
+
+	// Debug: render box outlines
+	r.renderDebugBoxes(tb)
+}
+
+func (r *TestBossRenderer) renderDebugBoxes(tb *test_boss.TestBoss) {
+	// Collision boxes - blue
+	for _, box := range tb.GetCollisionBoxes() {
+		aabb := box.AABB()
+		rl.DrawRectangleLinesEx(
+			rl.NewRectangle(aabb.X, aabb.Y, aabb.Width, aabb.Height),
+			2,
+			rl.NewColor(0, 100, 255, 128), // Semi-transparent blue
+		)
+	}
+
+	// Hitboxes - red
+	for _, box := range tb.GetHitboxes() {
+		aabb := box.AABB()
+		rl.DrawRectangleLinesEx(
+			rl.NewRectangle(aabb.X+2, aabb.Y+2, aabb.Width-4, aabb.Height-4),
+			2,
+			rl.NewColor(255, 50, 50, 128), // Semi-transparent red
+		)
+	}
+
+	// Hurtboxes - green
+	for _, box := range tb.GetHurtboxes() {
+		aabb := box.AABB()
+		rl.DrawRectangleLinesEx(
+			rl.NewRectangle(aabb.X+4, aabb.Y+4, aabb.Width-8, aabb.Height-8),
+			2,
+			rl.NewColor(50, 255, 50, 128), // Semi-transparent green
+		)
+	}
 }
 
 func (r *TestBossRenderer) renderAOE(tb *test_boss.TestBoss) {

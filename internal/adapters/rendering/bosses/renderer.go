@@ -45,33 +45,37 @@ func RenderBoss(boss bosses.Boss) bool {
 	return false
 }
 
-// RenderGeneric provides fallback rendering for any PhysicalBoss
+// RenderGeneric provides fallback rendering for any Boss using collision boxes
 func RenderGeneric(boss bosses.Boss) {
-	physicalBoss, ok := boss.(bosses.PhysicalBoss)
-	if ok == false {
+	collisionBoxes := boss.GetCollisionBoxes()
+
+	if len(collisionBoxes) == 0 {
 		return
 	}
 
-	aabb := physicalBoss.GetAABB()
-
+	// Check vulnerability via hurtbox presence
 	color := BossColor
-	if physicalBoss.IsVulnerable() {
+	if len(boss.GetHurtboxes()) > 0 {
 		color = BossVulnerableColor
 	}
 
-	rl.DrawRectangle(
-		int32(aabb.X),
-		int32(aabb.Y),
-		int32(aabb.Width),
-		int32(aabb.Height),
-		color,
-	)
+	for _, box := range collisionBoxes {
+		aabb := box.AABB()
 
-	rl.DrawRectangleLines(
-		int32(aabb.X),
-		int32(aabb.Y),
-		int32(aabb.Width),
-		int32(aabb.Height),
-		BossBorderColor,
-	)
+		rl.DrawRectangle(
+			int32(aabb.X),
+			int32(aabb.Y),
+			int32(aabb.Width),
+			int32(aabb.Height),
+			color,
+		)
+
+		rl.DrawRectangleLines(
+			int32(aabb.X),
+			int32(aabb.Y),
+			int32(aabb.Width),
+			int32(aabb.Height),
+			BossBorderColor,
+		)
+	}
 }

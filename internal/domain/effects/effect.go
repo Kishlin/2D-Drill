@@ -1,17 +1,17 @@
 package effects
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
-	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
 // DamageableEntity is what effects need to damage entities in area
 type DamageableEntity interface {
-	GetAABB() types.AABB
+	GetHurtboxes() []bosses.Hurtbox
 	GetDamageable() *components.Damageable
-	TakeDamage(amount float32)
+	TakeDamageAt(hurtboxID string, baseDamage float32) float32
 }
 
 // EffectContext provides access to game state for effects

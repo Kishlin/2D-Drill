@@ -93,9 +93,10 @@ func (s *BossFightSystem) IsPlayerInBossRoom(player *entities.Player) bool {
 }
 
 func (s *BossFightSystem) DamageBoss(damage float32) {
-	physicalBoss, ok := s.boss.(bosses.PhysicalBoss)
-	if ok {
-		physicalBoss.TakeDamage(damage)
+	// Damage the first available hurtbox
+	hurtboxes := s.boss.GetHurtboxes()
+	if len(hurtboxes) > 0 {
+		s.boss.TakeDamageAt(hurtboxes[0].ID, damage)
 	}
 }
 
@@ -104,19 +105,14 @@ func (s *BossFightSystem) GetBoss() bosses.Boss {
 }
 
 func (s *BossFightSystem) handleContactDamage(player *entities.Player, dt float32) {
-	physicalBoss, ok := s.boss.(bosses.PhysicalBoss)
-	if ok == false {
-		return
-	}
+	for _, hitbox := range s.boss.GetHitboxes() {
+		if hitbox.DamagePerSec <= 0 {
+			continue
+		}
 
-	contactDamage := physicalBoss.GetContactDamage()
-	if contactDamage <= 0 {
-		return
-	}
-
-	// Check if player intersects boss
-	if player.AABB.Intersects(physicalBoss.GetAABB()) {
-		player.DealDamage(contactDamage * dt)
+		if player.AABB.Intersects(hitbox.AABB()) {
+			player.DealDamage(hitbox.DamagePerSec * dt)
+		}
 	}
 }
 
