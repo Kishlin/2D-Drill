@@ -183,6 +183,11 @@ func (p *Player) DealDamage(damage float32) {
 	}
 }
 
+// GetAABB returns the player's bounding box for collision detection
+func (p *Player) GetAABB() types.AABB {
+	return p.AABB
+}
+
 func (p *Player) GetTotalOreCount() int {
 	total := 0
 	for _, count := range p.OreInventory {

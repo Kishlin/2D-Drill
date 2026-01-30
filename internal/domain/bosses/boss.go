@@ -3,12 +3,13 @@ package bosses
 import (
 	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
+	"github.com/Kishlin/drill-game/internal/domain/projectiles"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
 type Boss interface {
-	// Update runs boss AI and updates state
-	Update(player *entities.Player, dt float32)
+	// Update runs boss AI and returns projectile spawn requests
+	Update(player *entities.Player, dt float32) []projectiles.SpawnRequest
 
 	// GetHP returns current health points
 	GetHP() float32
@@ -27,10 +28,6 @@ type Boss interface {
 
 	// Deactivate pauses the boss fight
 	Deactivate()
-
-	// GetProjectiles returns all projectiles the boss has spawned
-	// Returns empty slice if boss doesn't use projectiles
-	GetProjectiles() []*Projectile
 }
 
 // PhysicalBoss is a boss that has a physical AABB and can be hit by bombs

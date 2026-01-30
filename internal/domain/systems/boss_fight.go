@@ -4,8 +4,15 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
+	"github.com/Kishlin/drill-game/internal/domain/projectiles"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
+
+// BossFightResult contains the results of a boss fight update
+type BossFightResult struct {
+	GameState     entities.GameState
+	SpawnRequests []projectiles.SpawnRequest
+}
 
 type BossFightSystem struct {
 	boss            bosses.Boss
@@ -45,8 +52,8 @@ func NewBossFightSystem(boss bosses.Boss, bossRoomCfg config.BossRoomConfig, wor
 }
 
 // Update handles boss fight logic
-// Returns the current game state (Playing, Victory, or Defeat)
-func (s *BossFightSystem) Update(player *entities.Player, dt float32) entities.GameState {
+// Returns game state and any projectile spawn requests from the boss
+func (s *BossFightSystem) Update(player *entities.Player, dt float32) BossFightResult {
 	playerInRoom := s.IsPlayerInBossRoom(player)
 
 	if playerInRoom && s.wasPlayerInRoom == false {
@@ -59,23 +66,25 @@ func (s *BossFightSystem) Update(player *entities.Player, dt float32) entities.G
 
 	s.wasPlayerInRoom = playerInRoom
 
-	s.boss.Update(player, dt)
-
-	s.handleProjectileCollisions(player)
+	spawnRequests := s.boss.Update(player, dt)
 
 	s.handleContactDamage(player, dt)
 
 	s.handleFloorDamage(player)
 
+	var gameState entities.GameState
 	if s.boss.IsDefeated() {
-		return entities.GameStateVictory
+		gameState = entities.GameStateVictory
+	} else if player.HP <= 0 {
+		gameState = entities.GameStateDefeat
+	} else {
+		gameState = entities.GameStatePlaying
 	}
 
-	if player.HP <= 0 {
-		return entities.GameStateDefeat
+	return BossFightResult{
+		GameState:     gameState,
+		SpawnRequests: spawnRequests,
 	}
-
-	return entities.GameStatePlaying
 }
 
 func (s *BossFightSystem) IsPlayerInBossRoom(player *entities.Player) bool {
@@ -92,16 +101,6 @@ func (s *BossFightSystem) DamageBoss(damage float32) {
 
 func (s *BossFightSystem) GetBoss() bosses.Boss {
 	return s.boss
-}
-
-func (s *BossFightSystem) handleProjectileCollisions(player *entities.Player) {
-	projectiles := s.boss.GetProjectiles()
-	for _, proj := range projectiles {
-		if proj.Active && proj.Intersects(player.AABB) {
-			player.DealDamage(proj.Damage)
-			proj.Deactivate()
-		}
-	}
 }
 
 func (s *BossFightSystem) handleContactDamage(player *entities.Player, dt float32) {

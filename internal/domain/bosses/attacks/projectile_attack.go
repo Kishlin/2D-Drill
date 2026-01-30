@@ -1,7 +1,7 @@
 package attacks
 
 import (
-	"github.com/Kishlin/drill-game/internal/domain/bosses"
+	"github.com/Kishlin/drill-game/internal/domain/projectiles"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
@@ -16,22 +16,22 @@ type ProjectileAttackConfig struct {
 
 // ProjectileAttack fires projectiles at the player
 type ProjectileAttack struct {
-	config          ProjectileAttackConfig
-	cooldownTimer   float32
-	spreadAngle     float32 // Spread angle in radians for multiple projectiles
+	config        ProjectileAttackConfig
+	cooldownTimer float32
+	spreadAngle   float32 // Spread angle in radians for multiple projectiles
 }
 
 // NewProjectileAttack creates a new projectile attack
 func NewProjectileAttack(cfg ProjectileAttackConfig) *ProjectileAttack {
 	return &ProjectileAttack{
 		config:        cfg,
-		cooldownTimer: 0, // Ready immediately
+		cooldownTimer: 0,   // Ready immediately
 		spreadAngle:   0.3, // ~17 degrees spread
 	}
 }
 
-// Update updates the attack and returns any new projectiles
-func (a *ProjectileAttack) Update(bossAABB, playerAABB types.AABB, dt float32) []*bosses.Projectile {
+// Update updates the attack and returns spawn requests for projectiles
+func (a *ProjectileAttack) Update(bossAABB, playerAABB types.AABB, dt float32) []projectiles.SpawnRequest {
 	// Update cooldown
 	if a.cooldownTimer > 0 {
 		a.cooldownTimer -= dt
@@ -43,14 +43,14 @@ func (a *ProjectileAttack) Update(bossAABB, playerAABB types.AABB, dt float32) [
 	}
 
 	// Fire projectiles
-	projectiles := a.fire(bossAABB, playerAABB)
+	requests := a.fire(bossAABB, playerAABB)
 	a.cooldownTimer = a.config.Cooldown
 
-	return projectiles
+	return requests
 }
 
-// fire creates projectiles aimed at the player
-func (a *ProjectileAttack) fire(bossAABB, playerAABB types.AABB) []*bosses.Projectile {
+// fire creates spawn requests for projectiles aimed at the player
+func (a *ProjectileAttack) fire(bossAABB, playerAABB types.AABB) []projectiles.SpawnRequest {
 	// Calculate boss center
 	bossX := bossAABB.X + bossAABB.Width/2
 	bossY := bossAABB.Y + bossAABB.Height/2
@@ -64,20 +64,18 @@ func (a *ProjectileAttack) fire(bossAABB, playerAABB types.AABB) []*bosses.Proje
 	dy := playerY - bossY
 	direction := types.NewVec2(dx, dy).Normalize()
 
-	projectiles := make([]*bosses.Projectile, 0, a.config.ProjectileCount)
+	requests := make([]projectiles.SpawnRequest, 0, a.config.ProjectileCount)
 
 	if a.config.ProjectileCount == 1 {
 		// Single projectile aimed directly at player
 		velocity := direction.Scale(a.config.ProjectileSpeed)
-		proj := bosses.NewProjectile(
-			bossX-a.config.ProjectileSize/2,
-			bossY-a.config.ProjectileSize/2,
-			a.config.ProjectileSize,
-			a.config.ProjectileSize,
-			velocity,
-			a.config.Damage,
-		)
-		projectiles = append(projectiles, proj)
+		req := projectiles.SpawnRequest{
+			Position: types.NewVec2(bossX, bossY),
+			Size:     a.config.ProjectileSize,
+			Damage:   a.config.Damage,
+			Movement: projectiles.Linear{Velocity: velocity},
+		}
+		requests = append(requests, req)
 	} else {
 		// Multiple projectiles with spread
 		halfCount := float32(a.config.ProjectileCount-1) / 2
@@ -91,19 +89,17 @@ func (a *ProjectileAttack) fire(bossAABB, playerAABB types.AABB) []*bosses.Proje
 			rotatedDir := rotateVector(direction, angleOffset)
 			velocity := rotatedDir.Scale(a.config.ProjectileSpeed)
 
-			proj := bosses.NewProjectile(
-				bossX-a.config.ProjectileSize/2,
-				bossY-a.config.ProjectileSize/2,
-				a.config.ProjectileSize,
-				a.config.ProjectileSize,
-				velocity,
-				a.config.Damage,
-			)
-			projectiles = append(projectiles, proj)
+			req := projectiles.SpawnRequest{
+				Position: types.NewVec2(bossX, bossY),
+				Size:     a.config.ProjectileSize,
+				Damage:   a.config.Damage,
+				Movement: projectiles.Linear{Velocity: velocity},
+			}
+			requests = append(requests, req)
 		}
 	}
 
-	return projectiles
+	return requests
 }
 
 // IsReady returns true if the attack can fire

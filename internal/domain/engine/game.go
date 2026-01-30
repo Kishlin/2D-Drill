@@ -17,21 +17,22 @@ import (
 )
 
 type Game struct {
-	world           *world.World
-	player          *entities.Player
-	buildings       []*entities.Building
-	upgradeCatalog  *upgrades.Catalog
-	itemCatalog     *entities.ItemCatalog
-	drillingSystem  *systems.DrillingSystem
-	uiManager       *ui.Manager
-	inventoryUI     *ui.InventoryUI
-	effectProcessor *effects.Processor
-	effectContext   *effects.EffectContext
-	damageables     []effects.DamageableEntity
-	boss            bosses.Boss
-	bossFightSystem *systems.BossFightSystem
-	gameState       entities.GameState
-	config          *config.GameConfig
+	world            *world.World
+	player           *entities.Player
+	buildings        []*entities.Building
+	upgradeCatalog   *upgrades.Catalog
+	itemCatalog      *entities.ItemCatalog
+	drillingSystem   *systems.DrillingSystem
+	projectileSystem *systems.ProjectileSystem
+	uiManager        *ui.Manager
+	inventoryUI      *ui.InventoryUI
+	effectProcessor  *effects.Processor
+	effectContext    *effects.EffectContext
+	damageables      []effects.DamageableEntity
+	boss             bosses.Boss
+	bossFightSystem  *systems.BossFightSystem
+	gameState        entities.GameState
+	config           *config.GameConfig
 }
 
 func NewGame(gameCfg *config.GameConfig) *Game {
@@ -102,22 +103,32 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		Damageables: damageables,
 	}
 
+	// Create projectile system with world bounds
+	projectileBounds := systems.ProjectileBounds{
+		MinX: -100,
+		MaxX: worldCfg.Width + 100,
+		MinY: -100,
+		MaxY: worldCfg.Height + 100,
+	}
+	projectileSystem := systems.NewProjectileSystem(projectileBounds)
+
 	return &Game{
-		world:           w,
-		player:          player,
-		buildings:       buildings,
-		upgradeCatalog:  upgradeCatalog,
-		itemCatalog:     itemCatalog,
-		drillingSystem:  systems.NewDrillingSystemWithConfig(w, gameCfg.Generation, gameCfg.Drilling),
-		uiManager:       uiManager,
-		inventoryUI:     inventoryUI,
-		effectProcessor: effects.NewProcessor(),
-		effectContext:   effectContext,
-		damageables:     damageables,
-		boss:            boss,
-		bossFightSystem: bossFightSystem,
-		gameState:       entities.GameStatePlaying,
-		config:          gameCfg,
+		world:            w,
+		player:           player,
+		buildings:        buildings,
+		upgradeCatalog:   upgradeCatalog,
+		itemCatalog:      itemCatalog,
+		drillingSystem:   systems.NewDrillingSystemWithConfig(w, gameCfg.Generation, gameCfg.Drilling),
+		projectileSystem: projectileSystem,
+		uiManager:        uiManager,
+		inventoryUI:      inventoryUI,
+		effectProcessor:  effects.NewProcessor(),
+		effectContext:    effectContext,
+		damageables:      damageables,
+		boss:             boss,
+		bossFightSystem:  bossFightSystem,
+		gameState:        entities.GameStatePlaying,
+		config:           gameCfg,
 	}
 }
 
@@ -203,9 +214,17 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 		g.effectProcessor.Apply(g.effectContext, itemEffects)
 	}
 
-	// 8. Update boss fight system (if active)
+	// 8. Update boss fight system - returns spawn requests
 	if g.bossFightSystem != nil {
-		g.gameState = g.bossFightSystem.Update(g.player, dt)
+		result := g.bossFightSystem.Update(g.player, dt)
+		g.gameState = result.GameState
+		g.projectileSystem.SpawnAll(result.SpawnRequests)
+	}
+
+	// 9. Update projectile system (moves, culls, detects collisions)
+	projectileEffects := g.projectileSystem.Update(dt, []systems.CollisionTarget{g.player})
+	if len(projectileEffects) > 0 {
+		g.effectProcessor.Apply(g.effectContext, projectileEffects)
 	}
 
 	return nil
@@ -279,6 +298,10 @@ func (g *Game) GetBoss() bosses.Boss {
 
 func (g *Game) GetBossFightSystem() *systems.BossFightSystem {
 	return g.bossFightSystem
+}
+
+func (g *Game) GetProjectileSystem() *systems.ProjectileSystem {
+	return g.projectileSystem
 }
 
 func (g *Game) GetGameState() entities.GameState {

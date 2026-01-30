@@ -8,6 +8,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/bosses/movement"
 	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
+	"github.com/Kishlin/drill-game/internal/domain/projectiles"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
@@ -69,7 +70,6 @@ type TestBoss struct {
 	aabb             types.AABB
 	damageable       components.Damageable
 	active           bool
-	projectiles      []*bosses.Projectile
 	movement         *movement.Grounded
 	projectileAttack *attacks.ProjectileAttack
 	phaseManager     *bosses.PhaseManager
@@ -123,7 +123,6 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 		},
 		damageable:       components.NewDamageable(MaxHP, MaxHP),
 		active:           false,
-		projectiles:      make([]*bosses.Projectile, 0),
 		movement:         groundedMovement,
 		projectileAttack: projAttack,
 		phaseManager:     phaseManager,
@@ -139,9 +138,9 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 	}
 }
 
-func (b *TestBoss) Update(player *entities.Player, dt float32) {
+func (b *TestBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
 	if b.active == false || b.damageable.IsDefeated() {
-		return
+		return nil
 	}
 
 	// Check for phase transitions
@@ -153,7 +152,7 @@ func (b *TestBoss) Update(player *entities.Player, dt float32) {
 
 	switch b.state {
 	case StatePatrol:
-		b.updatePatrol(player, dt, phaseCfg)
+		return b.updatePatrol(player, dt, phaseCfg)
 	case StateWindup:
 		b.updateWindup(dt)
 	case StateSlam:
@@ -162,21 +161,17 @@ func (b *TestBoss) Update(player *entities.Player, dt float32) {
 		b.updateVulnerable(dt)
 	}
 
-	// Update existing projectiles (always, regardless of state)
-	b.updateProjectiles(dt, player)
+	return nil
 }
 
-func (b *TestBoss) updatePatrol(player *entities.Player, dt float32, phaseCfg bosses.PhaseConfig) {
+func (b *TestBoss) updatePatrol(player *entities.Player, dt float32, phaseCfg bosses.PhaseConfig) []projectiles.SpawnRequest {
 	// Move
 	newPos := b.movement.Update(types.NewVec2(b.aabb.X, b.aabb.Y), dt)
 	b.aabb.X = newPos.X
 	b.aabb.Y = newPos.Y
 
-	// Shoot projectiles
-	newProjectiles := b.projectileAttack.Update(b.aabb, player.AABB, dt)
-	if len(newProjectiles) > 0 {
-		b.projectiles = append(b.projectiles, newProjectiles...)
-	}
+	// Get projectile spawn requests
+	spawnRequests := b.projectileAttack.Update(b.aabb, player.AABB, dt)
 
 	// Check if should start slam (only in phases with AOE)
 	if phaseCfg.AOECooldown > 0 {
@@ -185,6 +180,8 @@ func (b *TestBoss) updatePatrol(player *entities.Player, dt float32, phaseCfg bo
 			b.startWindup()
 		}
 	}
+
+	return spawnRequests
 }
 
 func (b *TestBoss) startWindup() {
@@ -278,25 +275,6 @@ func (b *TestBoss) onPhaseChange() {
 	}
 }
 
-func (b *TestBoss) updateProjectiles(dt float32, player *entities.Player) {
-	activeProjectiles := make([]*bosses.Projectile, 0, len(b.projectiles))
-	for _, proj := range b.projectiles {
-		if proj.Active == false {
-			continue
-		}
-		proj.Update(dt)
-
-		if proj.AABB.X < -100 || proj.AABB.X > b.worldWidth+100 ||
-			proj.AABB.Y < -100 || proj.AABB.Y > b.floorY+200 {
-			proj.Deactivate()
-			continue
-		}
-
-		activeProjectiles = append(activeProjectiles, proj)
-	}
-	b.projectiles = activeProjectiles
-}
-
 func (b *TestBoss) GetHP() float32 {
 	return b.damageable.HP
 }
@@ -319,11 +297,6 @@ func (b *TestBoss) Activate() {
 
 func (b *TestBoss) Deactivate() {
 	b.active = false
-	b.projectiles = make([]*bosses.Projectile, 0)
-}
-
-func (b *TestBoss) GetProjectiles() []*bosses.Projectile {
-	return b.projectiles
 }
 
 func (b *TestBoss) GetAABB() types.AABB {

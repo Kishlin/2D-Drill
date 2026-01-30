@@ -1,7 +1,6 @@
 package attacks
 
 import (
-	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
@@ -44,9 +43,8 @@ func NewAOEAttack(cfg AOEAttackConfig) *AOEAttack {
 	}
 }
 
-// Update updates the AOE attack state
-// Returns damage to apply to player (0 if no damage this frame)
-func (a *AOEAttack) Update(bossAABB, playerAABB types.AABB, dt float32) []*bosses.Projectile {
+// Update updates the AOE attack state machine
+func (a *AOEAttack) Update(dt float32) {
 	switch a.state {
 	case AOEStateIdle:
 		if a.cooldownTimer > 0 {
@@ -71,9 +69,6 @@ func (a *AOEAttack) Update(bossAABB, playerAABB types.AABB, dt float32) []*bosse
 			a.cooldownTimer = a.config.Cooldown
 		}
 	}
-
-	// AOE attacks don't spawn projectiles - damage is handled separately
-	return nil
 }
 
 // StartAttack begins the attack sequence (called by boss when ready)

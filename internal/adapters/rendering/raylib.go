@@ -136,8 +136,10 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	// Boss rendering
 	if game.GetBoss() != nil {
 		r.renderBoss(game.GetBoss())
-		r.renderProjectiles(game.GetBoss())
 	}
+
+	// Projectile rendering (from central system)
+	r.renderProjectiles(game)
 
 	rl.EndMode2D()
 
@@ -1259,18 +1261,15 @@ func (r *RaylibRenderer) renderBossHPBar(boss bosses.Boss) {
 	)
 }
 
-// renderProjectiles renders boss projectiles
-func (r *RaylibRenderer) renderProjectiles(boss bosses.Boss) {
-	if boss == nil {
+// renderProjectiles renders projectiles from the central system
+func (r *RaylibRenderer) renderProjectiles(game *engine.Game) {
+	projSystem := game.GetProjectileSystem()
+	if projSystem == nil {
 		return
 	}
 
-	projectiles := boss.GetProjectiles()
+	projectiles := projSystem.GetActiveProjectiles()
 	for _, proj := range projectiles {
-		if proj.Active == false {
-			continue
-		}
-
 		// Draw projectile as small circle
 		centerX := proj.AABB.X + proj.AABB.Width/2
 		centerY := proj.AABB.Y + proj.AABB.Height/2
