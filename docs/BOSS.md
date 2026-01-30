@@ -103,6 +103,89 @@ type Hurtbox struct {
 
 **Key Design:** Vulnerability is controlled by `GetHurtboxes()` returning empty slice when invulnerable. The boss controls this based on its state machine and phase config.
 
+### BoxSet (Position Management)
+
+`BoxSet` handles pre-allocation and position synchronization for all box types:
+
+```go
+// Definition types (static, relative to boss position)
+type BoxDef struct {
+    ID      string
+    OffsetX float32  // Relative to boss position
+    OffsetY float32
+    Width   float32
+    Height  float32
+}
+
+type HitboxDef struct {
+    BoxDef
+    DamagePerSec float32
+}
+
+type HurtboxDef struct {
+    BoxDef
+    DamageMultiplier float32
+}
+
+// BoxSet manages pre-allocated boxes with position synchronization
+type BoxSet struct {
+    CollisionBoxes []CollisionBox  // Runtime boxes (positions updated)
+    Hitboxes       []Hitbox
+    Hurtboxes      []Hurtbox
+}
+
+func NewBoxSet(collisions []BoxDef, hitboxes []HitboxDef, hurtboxes []HurtboxDef) *BoxSet
+func (bs *BoxSet) UpdatePositions(bossX, bossY float32)
+```
+
+**Simple body box helper:**
+
+```go
+type BodyBoxConfig struct {
+    ID               string
+    Width, Height    float32
+    OffsetX, OffsetY float32
+    DamagePerSec     float32
+    DamageMultiplier float32
+}
+
+func NewBodyBoxSet(cfg BodyBoxConfig) *BoxSet
+```
+
+**Usage:**
+
+```go
+// In constructor:
+boxSet: bosses.NewBodyBoxSet(bosses.BodyBoxConfig{
+    ID:               "body",
+    Width:            100,
+    Height:           100,
+    DamagePerSec:     20.0,
+    DamageMultiplier: 1.0,
+}),
+
+// In Update():
+b.boxSet.UpdatePositions(b.position.X, b.position.Y)
+
+// In interface methods:
+func (b *MyBoss) GetCollisionBoxes() []bosses.CollisionBox { return b.boxSet.CollisionBoxes }
+func (b *MyBoss) GetHitboxes() []bosses.Hitbox             { return b.boxSet.Hitboxes }
+func (b *MyBoss) GetHurtboxes() []bosses.Hurtbox           { return b.boxSet.Hurtboxes }
+```
+
+**Multi-box example (boss with weak point):**
+
+```go
+boxSet: bosses.NewBoxSet(
+    []bosses.BoxDef{{ID: "body", Width: 100, Height: 120}},
+    []bosses.HitboxDef{{BoxDef: bosses.BoxDef{ID: "body", Width: 100, Height: 120}, DamagePerSec: 15}},
+    []bosses.HurtboxDef{
+        {BoxDef: bosses.BoxDef{ID: "body", OffsetX: 10, OffsetY: 40, Width: 80, Height: 80}, DamageMultiplier: 1.0},
+        {BoxDef: bosses.BoxDef{ID: "head", OffsetX: 25, OffsetY: -30, Width: 50, Height: 40}, DamageMultiplier: 2.0},
+    },
+),
+```
+
 ### Damageable Component
 
 Bosses use the `components.Damageable` struct for HP storage:
@@ -658,10 +741,7 @@ type MyBoss struct {
     stateMachine *statemachine.StateMachine
     movement     *movement.Grounded
     phaseManager *bosses.PhaseManager
-    // Pre-allocated box slices (avoid per-frame allocations)
-    collisionBoxes []bosses.CollisionBox
-    hitboxes       []bosses.Hitbox
-    hurtbox        []bosses.Hurtbox
+    boxSet       *bosses.BoxSet
 }
 
 func New(roomStartY, worldWidth float32) *MyBoss {
@@ -669,10 +749,13 @@ func New(roomStartY, worldWidth float32) *MyBoss {
         position:   types.NewVec2(centerX, floorY),
         damageable: components.NewDamageable(200, 200),
         movement:   movement.NewGrounded(...),
-        // Pre-allocate boxes
-        collisionBoxes: []bosses.CollisionBox{{ID: "body", ...}},
-        hitboxes:       []bosses.Hitbox{{ID: "body", ...}},
-        hurtbox:        []bosses.Hurtbox{{ID: "body", ...}},
+        boxSet: bosses.NewBodyBoxSet(bosses.BodyBoxConfig{
+            ID:               "body",
+            Width:            100,
+            Height:           100,
+            DamagePerSec:     20.0,
+            DamageMultiplier: 1.0,
+        }),
     }
 
     behaviors := b.buildStateBehaviors()
@@ -683,18 +766,18 @@ func New(roomStartY, worldWidth float32) *MyBoss {
 }
 
 // Implement Boss interface...
-func (b *MyBoss) GetCollisionBoxes() []bosses.CollisionBox { return b.collisionBoxes }
-func (b *MyBoss) GetHitboxes() []bosses.Hitbox             { return b.hitboxes }
+func (b *MyBoss) GetCollisionBoxes() []bosses.CollisionBox { return b.boxSet.CollisionBoxes }
+func (b *MyBoss) GetHitboxes() []bosses.Hitbox             { return b.boxSet.Hitboxes }
 func (b *MyBoss) GetHurtboxes() []bosses.Hurtbox {
     if b.isVulnerable() {
-        return b.hurtbox
+        return b.boxSet.Hurtboxes
     }
     return nil  // Invulnerable
 }
 
 func (b *MyBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
     // ... state machine update ...
-    b.updateBoxPositions()  // Update cached box positions
+    b.boxSet.UpdatePositions(b.position.X, b.position.Y)
     return result.SpawnRequests
 }
 ```
