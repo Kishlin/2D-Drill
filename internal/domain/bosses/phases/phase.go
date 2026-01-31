@@ -1,24 +1,24 @@
-package bosses
+package phases
 
-// PhaseConfig defines a boss phase
-type PhaseConfig struct {
+// Config defines a boss phase
+type Config struct {
 	HPThreshold        float32 // Percentage of HP where this phase ends (e.g., 0.66 = 66%)
 	MovementSpeed      float32 // Movement speed in this phase
 	ProjectileCooldown float32 // Time between projectile attacks
 	AOECooldown        float32 // Time between AOE attacks (0 = disabled)
 }
 
-// PhaseManager tracks boss phases based on HP
-type PhaseManager struct {
-	phases       []PhaseConfig
+// Manager tracks boss phases based on HP
+type Manager struct {
+	phases       []Config
 	currentPhase int
 	maxHP        float32
 }
 
-// NewPhaseManager creates a phase manager with the given phases
+// NewManager creates a phase manager with the given phases
 // Phases should be ordered from full HP to low HP
-func NewPhaseManager(maxHP float32, phases []PhaseConfig) *PhaseManager {
-	return &PhaseManager{
+func NewManager(maxHP float32, phases []Config) *Manager {
+	return &Manager{
 		phases:       phases,
 		currentPhase: 0,
 		maxHP:        maxHP,
@@ -27,7 +27,7 @@ func NewPhaseManager(maxHP float32, phases []PhaseConfig) *PhaseManager {
 
 // Update checks if phase should change based on current HP
 // Returns true if phase changed
-func (pm *PhaseManager) Update(currentHP float32) bool {
+func (pm *Manager) Update(currentHP float32) bool {
 	if len(pm.phases) == 0 {
 		return false
 	}
@@ -45,11 +45,11 @@ func (pm *PhaseManager) Update(currentHP float32) bool {
 	return pm.currentPhase != oldPhase
 }
 
-func (pm *PhaseManager) GetCurrentPhase() int {
+func (pm *Manager) GetCurrentPhase() int {
 	return pm.currentPhase
 }
 
-func (pm *PhaseManager) GetCurrentConfig() PhaseConfig {
+func (pm *Manager) GetCurrentConfig() Config {
 	if pm.currentPhase >= len(pm.phases) {
 		return pm.phases[len(pm.phases)-1]
 	}

@@ -23,11 +23,11 @@ type StateBehaviors struct {
 	DecrementCooldown func(dt float32)
 
 	// Slam management
-	GetSlamCount     func() int
-	IncrementSlam    func()
-	ResetSlamCount   func()
-	GetMaxSlams      func() int
-	SetMaxSlams      func(int)
+	GetSlamCount      func() int
+	IncrementSlam     func()
+	ResetSlamCount    func()
+	GetMaxSlams       func() int
+	SetMaxSlams       func(int)
 	DetermineMaxSlams func()
 
 	// AOE position

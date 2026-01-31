@@ -6,6 +6,7 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/attacks"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/movement"
+	"github.com/Kishlin/drill-game/internal/domain/bosses/phases"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/statemachine"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/projectiles"
@@ -36,7 +37,7 @@ const (
 )
 
 // Phase configurations
-var phases = []bosses.PhaseConfig{
+var phaseConfigs = []phases.Config{
 	// Phase 1: 100% - 66% HP
 	{
 		HPThreshold:        0.66,
@@ -84,7 +85,7 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 
 	// Create movement behavior
 	moveCfg := movement.GroundedConfig{
-		Speed:     phases[0].MovementSpeed,
+		Speed:     phaseConfigs[0].MovementSpeed,
 		MinX:      0,
 		MaxX:      worldWidth,
 		FloorY:    floorY,
@@ -94,7 +95,7 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 
 	// Create projectile attack
 	projCfg := attacks.ProjectileAttackConfig{
-		Cooldown:        phases[0].ProjectileCooldown,
+		Cooldown:        phaseConfigs[0].ProjectileCooldown,
 		ProjectileCount: 3,
 		ProjectileSpeed: 200.0,
 		ProjectileSize:  16.0,
@@ -113,7 +114,7 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 			DamagePerSec:     ContactDamage,
 			DamageMultiplier: 1.0,
 		}),
-		Phases: phases,
+		Phases: phaseConfigs,
 	})
 
 	b := &TestBoss{
@@ -122,7 +123,7 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 		projectileAttack: projAttack,
 		worldWidth:       worldWidth,
 		floorY:           floorY,
-		aoeCooldown:      phases[0].AOECooldown,
+		aoeCooldown:      phaseConfigs[0].AOECooldown,
 		slamCount:        0,
 		maxSlams:         1,
 		aoeRadius:        150.0,
@@ -154,7 +155,7 @@ func (b *TestBoss) vulnerableDuration() float32 {
 }
 
 // OnPhaseChange implements PhaseChangeHandler
-func (b *TestBoss) OnPhaseChange(phaseIndex int, phaseCfg bosses.PhaseConfig) {
+func (b *TestBoss) OnPhaseChange(phaseIndex int, phaseCfg phases.Config) {
 	// Update movement speed
 	b.movement.SetSpeed(phaseCfg.MovementSpeed)
 

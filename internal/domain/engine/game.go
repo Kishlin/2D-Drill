@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
-	_ "github.com/Kishlin/drill-game/internal/domain/bosses/test_boss" // Register test_boss
+	_ "github.com/Kishlin/drill-game/internal/domain/boss_catalog/test_boss" // Register test_boss
 	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/effects"

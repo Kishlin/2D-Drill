@@ -10,31 +10,34 @@ This document provides a detailed reference of the current boss fight implementa
 
 ```
 internal/domain/
-├── bosses/
-│   ├── boss.go              # Boss interface definition
-│   ├── boxes.go             # BoxSet, CollisionBox, Hitbox, Hurtbox types
-│   ├── registry.go          # Boss registration pattern
-│   ├── phase.go             # PhaseManager and PhaseConfig
-│   ├── phase_test.go
+├── bosses/                      # Boss infrastructure
+│   ├── boss.go                  # Boss interface definition
+│   ├── base_boss.go             # BaseBoss struct with default implementations
+│   ├── boxes.go                 # BoxSet, CollisionBox, Hitbox, Hurtbox types
+│   ├── registry.go              # Boss registration pattern
+│   ├── phases/                  # Phase management package
+│   │   ├── phase.go             # phases.Config, phases.Manager
+│   │   └── phase_test.go
 │   ├── statemachine/
-│   │   ├── types.go         # State, StateID (int), StateContext, StateResult
-│   │   └── machine.go       # StateMachine implementation
+│   │   ├── types.go             # State, StateID (int), StateContext, StateResult
+│   │   └── machine.go           # StateMachine implementation
 │   ├── attacks/
-│   │   └── projectile_attack.go  # Cooldown-based projectile volleys
-│   ├── movement/
-│   │   └── grounded.go      # Left-right patrol movement
+│   │   └── projectile_attack.go # Cooldown-based projectile volleys
+│   └── movement/
+│       └── grounded.go          # Left-right patrol movement
+├── boss_catalog/                # Boss implementations
 │   └── test_boss/
-│       ├── boss.go          # TestBoss struct, init() registration, config constants
-│       └── states.go        # State definitions and StateBehaviors
+│       ├── boss.go              # TestBoss (embeds BaseBoss)
+│       └── states.go            # State definitions and StateBehaviors
 ├── systems/
-│   ├── boss_fight.go        # BossFightSystem (room detection, contact damage)
-│   └── projectile_system.go # Projectile pool management
+│   ├── boss_fight.go            # BossFightSystem (room detection, contact damage)
+│   └── projectile_system.go     # Projectile pool management
 ├── projectiles/
-│   ├── spawn.go             # SpawnRequest struct
-│   └── movement.go          # Movement interface + implementations
+│   ├── spawn.go                 # SpawnRequest struct
+│   └── movement.go              # Movement interface + implementations
 └── effects/
-    ├── effect.go            # Effect interface, EffectContext, DamageableEntity
-    └── projectile.go        # ProjectileDamage effect
+    ├── effect.go                # Effect interface, EffectContext, DamageableEntity
+    └── projectile.go            # ProjectileDamage effect
 ```
 
 ---
@@ -118,6 +121,90 @@ Used by the effect system to damage any entity (boss, future enemies).
 
 ---
 
+## BaseBoss Struct
+
+**Location:** `internal/domain/bosses/base_boss.go`
+
+Embeddable struct that provides default implementations for most Boss interface methods.
+
+### Handler Interfaces
+
+```go
+// PhaseChangeHandler is called when the boss transitions to a new phase
+type PhaseChangeHandler interface {
+    OnPhaseChange(phaseIndex int, config phases.Config)
+}
+
+// DamageReactionHandler is called when the boss receives damage
+type DamageReactionHandler interface {
+    OnDamageReceived(hurtboxID string, damage float32)
+}
+```
+
+### BaseBossConfig
+
+```go
+type BaseBossConfig struct {
+    Position types.Vec2
+    MaxHP    float32
+    BoxSet   *BoxSet
+    Phases   []phases.Config
+}
+```
+
+### BaseBoss Struct
+
+```go
+type BaseBoss struct {
+    Position      types.Vec2
+    Damageable    components.Damageable
+    Active        bool
+    BoxSet        *BoxSet
+    StateMachine  *statemachine.StateMachine
+    PhaseManager  *phases.Manager
+    CurrentPlayer *entities.Player
+
+    // Optional handlers (nil = skip)
+    PhaseChangeHandler    PhaseChangeHandler
+    DamageReactionHandler DamageReactionHandler
+}
+
+func NewBaseBoss(cfg BaseBossConfig) *BaseBoss
+func (b *BaseBoss) SetStateMachine(sm *statemachine.StateMachine)
+```
+
+### Default Implementations
+
+```go
+func (b *BaseBoss) Activate()
+func (b *BaseBoss) Deactivate()
+func (b *BaseBoss) IsActive() bool
+func (b *BaseBoss) IsDefeated() bool
+func (b *BaseBoss) GetHP() float32
+func (b *BaseBoss) GetMaxHP() float32
+func (b *BaseBoss) GetDamageable() *components.Damageable
+func (b *BaseBoss) GetPosition() types.Vec2
+func (b *BaseBoss) GetCollisionBoxes() []CollisionBox
+func (b *BaseBoss) GetHitboxes() []Hitbox
+func (b *BaseBoss) GetHurtboxes() []Hurtbox  // Override for custom vulnerability
+func (b *BaseBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32
+func (b *BaseBoss) BaseUpdate(player *entities.Player, dt float32) []projectiles.SpawnRequest
+func (b *BaseBoss) GetCurrentPhase() int      // 1-indexed for display
+func (b *BaseBoss) GetState() statemachine.StateID
+func (b *BaseBoss) GetStateElapsed() float32
+```
+
+### BaseUpdate Flow
+
+1. Check if active and not defeated
+2. Store player reference
+3. Check for phase transitions (calls `PhaseChangeHandler` if set)
+4. Update state machine
+5. Update box positions
+6. Return spawn requests
+
+---
+
 ## Box System
 
 **Location:** `internal/domain/bosses/boxes.go`
@@ -149,33 +236,7 @@ type Hurtbox struct {
 ### BoxSet (Pre-allocated Box Management)
 
 ```go
-// BoxDef defines static properties relative to boss position
-type BoxDef struct {
-    ID      string
-    OffsetX float32
-    OffsetY float32
-    Width   float32
-    Height  float32
-}
-
-type HitboxDef struct {
-    BoxDef
-    DamagePerSec float32
-}
-
-type HurtboxDef struct {
-    BoxDef
-    DamageMultiplier float32
-}
-
-// BoxSet manages pre-allocated boxes with position synchronization
 type BoxSet struct {
-    // Definitions (static)
-    collisionDefs []BoxDef
-    hitboxDefs    []HitboxDef
-    hurtboxDefs   []HurtboxDef
-
-    // Runtime boxes (pre-allocated, positions updated)
     CollisionBoxes []CollisionBox
     Hitboxes       []Hitbox
     Hurtboxes      []Hurtbox
@@ -201,43 +262,32 @@ type BodyBoxConfig struct {
 func NewBodyBoxSet(cfg BodyBoxConfig) *BoxSet
 ```
 
-**Usage:**
-```go
-boxSet: bosses.NewBodyBoxSet(bosses.BodyBoxConfig{
-    ID:               "body",
-    Width:            100,
-    Height:           100,
-    DamagePerSec:     20,
-    DamageMultiplier: 1.0,
-}),
-```
-
 ---
 
 ## Phase System
 
-**Location:** `internal/domain/bosses/phase.go`
+**Location:** `internal/domain/bosses/phases/phase.go`
 
-### PhaseConfig
+### phases.Config
+
 ```go
-type PhaseConfig struct {
+type Config struct {
     HPThreshold        float32 // % HP where phase ends (0.66 = 66%)
     MovementSpeed      float32 // Speed in this phase
     ProjectileCooldown float32 // Time between projectile attacks
     AOECooldown        float32 // Time between AOE attacks (0 = disabled)
-    AlwaysVulnerable   bool    // If true, always damageable
-    VulnerableDuration float32 // Duration after AOE where vulnerable
 }
 ```
 
-### PhaseManager
+**Note:** Vulnerability is boss-specific logic, not part of Config. Each boss decides its own vulnerability rules based on phase index and state.
+
+### phases.Manager
+
 ```go
-func NewPhaseManager(maxHP float32, phases []PhaseConfig) *PhaseManager
-func (pm *PhaseManager) Update(currentHP float32) bool  // Returns true if phase changed
-func (pm *PhaseManager) GetCurrentConfig() PhaseConfig
-func (pm *PhaseManager) GetCurrentPhase() int
-func (pm *PhaseManager) IsAlwaysVulnerable() bool
-func (pm *PhaseManager) GetVulnerableDuration() float32
+func NewManager(maxHP float32, phases []Config) *Manager
+func (pm *Manager) Update(currentHP float32) bool  // Returns true if phase changed
+func (pm *Manager) GetCurrentConfig() Config
+func (pm *Manager) GetCurrentPhase() int  // 0-indexed
 ```
 
 **Phase Progression:**
@@ -290,21 +340,11 @@ func (sm *StateMachine) CanMove() bool
 func (sm *StateMachine) Elapsed() float32
 ```
 
-**Update Flow:**
-1. Set `ctx.Elapsed` to accumulated time
-2. Call current state's `OnUpdate`
-3. If `NextState` is set (not `StateIDNone`):
-   - Call `OnExit` on current state
-   - Reset elapsed to 0
-   - Call `OnEnter` on new state
-4. Otherwise increment elapsed by dt
-5. Return `StateResult` (spawn requests, next state)
-
 ---
 
 ## TestBoss Implementation
 
-**Location:** `internal/domain/bosses/test_boss/`
+**Location:** `internal/domain/boss_catalog/test_boss/`
 
 ### Configuration Constants (`boss.go`)
 
@@ -316,18 +356,42 @@ const (
     BaseSpeed     = 80.0
     ContactDamage = 20.0
 
-    WindupDuration  = 1.0
-    SlamDuration    = 0.3
-    DoubleSlamPause = 0.4
+    WindupDuration           = 1.0
+    SlamDuration             = 0.3
+    DoubleSlamPause          = 0.4
+    Phase2VulnerableDuration = 3.0
+    Phase3VulnerableDuration = 2.0
 )
 
-var phases = []bosses.PhaseConfig{
-    // Phase 1: 100% - 66% HP - Always vulnerable
-    {HPThreshold: 0.66, MovementSpeed: BaseSpeed, ProjectileCooldown: 3.0, AlwaysVulnerable: true},
-    // Phase 2: 66% - 33% HP - AOE attacks
-    {HPThreshold: 0.33, MovementSpeed: BaseSpeed * 1.25, ProjectileCooldown: 2.0, AOECooldown: 6.0, VulnerableDuration: 3.0},
-    // Phase 3: 33% - 0% HP - Faster, double slams
-    {HPThreshold: 0.0, MovementSpeed: BaseSpeed * 1.5, ProjectileCooldown: 1.0, AOECooldown: 4.0, VulnerableDuration: 2.0},
+var phaseConfigs = []phases.Config{
+    // Phase 1: 100% - 66% HP
+    {HPThreshold: 0.66, MovementSpeed: BaseSpeed, ProjectileCooldown: 3.0, AOECooldown: 0},
+    // Phase 2: 66% - 33% HP
+    {HPThreshold: 0.33, MovementSpeed: BaseSpeed * 1.25, ProjectileCooldown: 2.0, AOECooldown: 6.0},
+    // Phase 3: 33% - 0% HP
+    {HPThreshold: 0.0, MovementSpeed: BaseSpeed * 1.5, ProjectileCooldown: 1.0, AOECooldown: 4.0},
+}
+```
+
+### Struct (Embeds BaseBoss)
+
+```go
+type TestBoss struct {
+    *bosses.BaseBoss
+
+    // Boss-specific components
+    movement         *movement.Grounded
+    projectileAttack *attacks.ProjectileAttack
+    worldWidth       float32
+    floorY           float32
+
+    // Boss-specific data
+    aoeCooldown float32
+    slamCount   int
+    maxSlams    int
+    aoeRadius   float32
+    aoeDamage   float32
+    aoePosition types.Vec2
 }
 ```
 
@@ -343,34 +407,38 @@ const (
 )
 ```
 
-### StateBehaviors Pattern
+### Handler Implementations
 
 ```go
-type StateBehaviors struct {
-    // Cooldown management
-    GetAOECooldown    func() float32
-    SetAOECooldown    func(float32)
-    DecrementCooldown func(dt float32)
+// OnPhaseChange implements PhaseChangeHandler
+func (b *TestBoss) OnPhaseChange(phaseIndex int, phaseCfg phases.Config) {
+    b.movement.SetSpeed(phaseCfg.MovementSpeed)
+    // Update projectile attack cooldown
+    // Reset slam cooldown if in patrol state
+}
 
-    // Slam management
-    GetSlamCount      func() int
-    IncrementSlam     func()
-    ResetSlamCount    func()
-    GetMaxSlams       func() int
-    SetMaxSlams       func(int)
-    DetermineMaxSlams func()
+// OnDamageReceived implements DamageReactionHandler
+func (b *TestBoss) OnDamageReceived(hurtboxID string, damage float32) {
+    if b.StateMachine.CurrentState() == StateVulnerable {
+        b.StateMachine.TransitionTo(StatePatrol, &statemachine.StateContext{})
+    }
+}
+```
 
-    // Movement and attacks
-    UpdateMovement         func(dt float32)
-    UpdateProjectileAttack func(dt float32) []projectiles.SpawnRequest
+### Vulnerability Implementation
 
-    // Phase info
-    GetVulnerableDuration func() float32
-    HasAOEAttack          func() bool
+```go
+func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
+    // Phase 1: always has hurtboxes
+    // Phase 2+: only has hurtboxes during StateVulnerable
+    if b.PhaseManager.GetCurrentPhase() == 0 || b.StateMachine.CurrentState() == StateVulnerable {
+        return b.BoxSet.Hurtboxes
+    }
+    return []bosses.Hurtbox{}
+}
 
-    // Damage and vulnerability
-    DealAOEDamage    func(dt float32)
-    EndVulnerability func()
+func (b *TestBoss) IsVulnerable() bool {
+    return len(b.GetHurtboxes()) > 0
 }
 ```
 
@@ -403,21 +471,6 @@ type StateBehaviors struct {
    - Boss has hurtbox, can take damage
    - On damage: transitions to StatePatrol immediately
    - On timeout: transitions to StatePatrol, resets AOE cooldown
-
-### Vulnerability Implementation
-
-```go
-func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
-    if b.phaseManager.IsAlwaysVulnerable() || b.stateMachine.CurrentState() == StateVulnerable {
-        return b.boxSet.Hurtboxes
-    }
-    return nil // Invulnerable
-}
-
-func (b *TestBoss) IsVulnerable() bool {
-    return len(b.GetHurtboxes()) > 0
-}
-```
 
 ---
 
@@ -453,88 +506,31 @@ type BossFightResult struct {
 
 ---
 
-## Projectile System
-
-**Location:** `internal/domain/systems/projectile_system.go`
-
-```go
-type Projectile struct {
-    aabb     types.AABB
-    movement projectiles.Movement
-    damage   float32
-    active   bool
-}
-
-type ProjectileSystem struct {
-    pool         []Projectile  // Pre-allocated pool (64 default)
-    bounds       ProjectileBounds
-    renderBuffer []ProjectileRenderData
-}
-
-func NewProjectileSystem(bounds ProjectileBounds) *ProjectileSystem
-func (ps *ProjectileSystem) SpawnAll(requests []SpawnRequest)
-func (ps *ProjectileSystem) Update(dt float32, targets []CollisionTarget) []effects.Effect
-func (ps *ProjectileSystem) GetActiveProjectiles() []ProjectileRenderData
-func (ps *ProjectileSystem) Clear()
-```
-
----
-
-## Game Loop Integration
-
-**Location:** `internal/domain/engine/game.go`
-
-Boss fight is step 8 in the update sequence:
-
-```go
-func (g *Game) Update(dt, inputState) error {
-    // 1. Chunk loading
-    // 2. UI processing
-    // 3. Heat damage
-    // 4. Physics
-    // 5. Fuel consumption
-    // 6. Drilling
-    // 7. Item usage
-
-    // 8. Boss fight
-    if g.bossFightSystem != nil {
-        result := g.bossFightSystem.Update(g.player, dt)
-        g.gameState = result.GameState
-        g.projectileSystem.SpawnAll(result.SpawnRequests)
-    }
-
-    // 9. Projectile system
-    projectileEffects := g.projectileSystem.Update(dt, []CollisionTarget{g.player})
-    g.effectProcessor.Apply(g.effectContext, projectileEffects)
-
-    return nil
-}
-```
-
-**Boss Creation (via registry):**
-```go
-boss, err := bosses.Create(bossType, roomStartY, worldWidth)
-```
-
----
-
 ## Adding a New Boss
 
-1. **Create package:** `internal/domain/bosses/my_boss/`
+1. **Create package:** `internal/domain/boss_catalog/my_boss/`
 
 2. **Define constants and phases** at top of `boss.go`:
    ```go
    const (
-       MaxHP         = 150.0
-       Width         = 120.0
-       Height        = 80.0
+       MaxHP  = 150.0
+       Width  = 120.0
+       Height = 80.0
        // timing constants...
    )
 
-   var phases = []bosses.PhaseConfig{...}
+   var phaseConfigs = []phases.Config{...}
    ```
 
-3. **Register via init():**
+3. **Create struct embedding BaseBoss:**
+   ```go
+   type MyBoss struct {
+       *bosses.BaseBoss
+       // Boss-specific fields
+   }
+   ```
+
+4. **Register via init():**
    ```go
    func init() {
        bosses.Register("my_boss", func(roomStartY, worldWidth float32) bosses.Boss {
@@ -543,35 +539,47 @@ boss, err := bosses.Create(bossType, roomStartY, worldWidth)
    }
    ```
 
-4. **Use BoxSet for boxes:**
+5. **Create using NewBaseBoss:**
    ```go
-   boxSet: bosses.NewBodyBoxSet(bosses.BodyBoxConfig{...}),
-   // or for complex bosses:
-   boxSet: bosses.NewBoxSet(collisionDefs, hitboxDefs, hurtboxDefs),
+   baseBoss := bosses.NewBaseBoss(bosses.BaseBossConfig{
+       Position: types.NewVec2(centerX, floorY),
+       MaxHP:    MaxHP,
+       BoxSet:   bosses.NewBodyBoxSet(...),
+       Phases:   phaseConfigs,
+   })
+
+   b := &MyBoss{BaseBoss: baseBoss, ...}
+   b.PhaseChangeHandler = b
+   b.DamageReactionHandler = b
+   b.SetStateMachine(statemachine.NewStateMachine(states, StateIdle))
    ```
 
-5. **Define typed state IDs** in `states.go`:
+6. **Implement handlers:**
    ```go
-   const (
-       StateIdle statemachine.StateID = iota
-       StateAttack
-       StateVulnerable
-   )
+   func (b *MyBoss) OnPhaseChange(phaseIndex int, cfg phases.Config) { ... }
+   func (b *MyBoss) OnDamageReceived(hurtboxID string, damage float32) { ... }
    ```
 
-6. **Build states via BuildStates(behaviors):**
+7. **Override GetHurtboxes for custom vulnerability:**
    ```go
-   behaviors := b.buildStateBehaviors()
-   states := BuildStates(behaviors)
-   b.stateMachine = statemachine.NewStateMachine(states, StateIdle)
-   ```
-
-7. **Update box positions each frame:**
-   ```go
-   func (b *MyBoss) Update(...) {
-       // ... state machine update ...
-       b.boxSet.UpdatePositions(b.position.X, b.position.Y)
+   func (b *MyBoss) GetHurtboxes() []bosses.Hurtbox {
+       if /* vulnerability condition */ {
+           return b.BoxSet.Hurtboxes
+       }
+       return []bosses.Hurtbox{}
    }
    ```
 
-**No modifications to `game.go` or other core files required.**
+8. **Implement Update:**
+   ```go
+   func (b *MyBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
+       return b.BaseUpdate(player, dt)
+   }
+   ```
+
+9. **Import in game.go:**
+   ```go
+   import _ "github.com/Kishlin/drill-game/internal/domain/boss_catalog/my_boss"
+   ```
+
+**No modifications to core files required besides the import.**

@@ -1,27 +1,27 @@
-package bosses
+package phases
 
 import "testing"
 
-func TestPhaseManager_StartsAtPhase0(t *testing.T) {
-	phases := []PhaseConfig{
+func TestManager_StartsAtPhase0(t *testing.T) {
+	p := []Config{
 		{HPThreshold: 0.66},
 		{HPThreshold: 0.33},
 		{HPThreshold: 0.0},
 	}
-	pm := NewPhaseManager(100.0, phases)
+	pm := NewManager(100.0, p)
 
 	if pm.GetCurrentPhase() != 0 {
 		t.Errorf("expected phase 0, got %d", pm.GetCurrentPhase())
 	}
 }
 
-func TestPhaseManager_TransitionsToPhase1(t *testing.T) {
-	phases := []PhaseConfig{
+func TestManager_TransitionsToPhase1(t *testing.T) {
+	p := []Config{
 		{HPThreshold: 0.66},
 		{HPThreshold: 0.33},
 		{HPThreshold: 0.0},
 	}
-	pm := NewPhaseManager(100.0, phases)
+	pm := NewManager(100.0, p)
 
 	// HP drops below 66%
 	changed := pm.Update(65.0)
@@ -35,13 +35,13 @@ func TestPhaseManager_TransitionsToPhase1(t *testing.T) {
 	}
 }
 
-func TestPhaseManager_TransitionsToPhase2(t *testing.T) {
-	phases := []PhaseConfig{
+func TestManager_TransitionsToPhase2(t *testing.T) {
+	p := []Config{
 		{HPThreshold: 0.66},
 		{HPThreshold: 0.33},
 		{HPThreshold: 0.0},
 	}
-	pm := NewPhaseManager(100.0, phases)
+	pm := NewManager(100.0, p)
 
 	// HP drops below 33%
 	pm.Update(32.0)
@@ -51,12 +51,12 @@ func TestPhaseManager_TransitionsToPhase2(t *testing.T) {
 	}
 }
 
-func TestPhaseManager_NoChangeAboveThreshold(t *testing.T) {
-	phases := []PhaseConfig{
+func TestManager_NoChangeAboveThreshold(t *testing.T) {
+	p := []Config{
 		{HPThreshold: 0.66},
 		{HPThreshold: 0.33},
 	}
-	pm := NewPhaseManager(100.0, phases)
+	pm := NewManager(100.0, p)
 
 	changed := pm.Update(80.0)
 
@@ -69,12 +69,12 @@ func TestPhaseManager_NoChangeAboveThreshold(t *testing.T) {
 	}
 }
 
-func TestPhaseManager_GetCurrentConfig(t *testing.T) {
-	phases := []PhaseConfig{
+func TestManager_GetCurrentConfig(t *testing.T) {
+	p := []Config{
 		{HPThreshold: 0.66, MovementSpeed: 80.0},
 		{HPThreshold: 0.33, MovementSpeed: 100.0},
 	}
-	pm := NewPhaseManager(100.0, phases)
+	pm := NewManager(100.0, p)
 
 	cfg := pm.GetCurrentConfig()
 	if cfg.MovementSpeed != 80.0 {

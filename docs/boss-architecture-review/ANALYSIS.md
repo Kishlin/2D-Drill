@@ -6,9 +6,9 @@
 
 ---
 
-## Overall Rating: 8.5/10
+## Overall Rating: 9/10
 
-Strong foundations with most friction points resolved. Adding a new boss now requires only creating a subpackage with no modifications to core files.
+Excellent architecture with BaseBoss significantly reducing boilerplate. Adding a new boss requires creating a subpackage, embedding BaseBoss, and implementing handlers.
 
 ---
 
@@ -24,16 +24,24 @@ Movement, attacks, phases, and state machine are properly decoupled into separat
 Flexible hitbox/hurtbox/collision box separation allows complex boss scenarios (invulnerability phases, damage-only zones, etc.).
 
 ### 4. Data-Driven Phases
-`PhaseConfig` struct allows phase behavior to be defined declaratively rather than in code.
+`phases.Config` struct allows phase behavior to be defined declaratively rather than in code.
 
 ### 5. Pool-Based Projectile System
 Pre-allocated projectile pool avoids GC pressure during combat.
 
-### 6. BoxSet System (NEW)
+### 6. BoxSet System
 Pre-allocated boxes with position synchronization eliminate per-frame allocations.
 
-### 7. Registration Pattern (NEW)
+### 7. Registration Pattern
 Boss packages self-register via `init()`, enabling "add package only" workflow.
+
+### 8. BaseBoss Struct (NEW)
+Embeddable struct provides default implementations for 11+ interface methods, reducing ~80 lines of boilerplate per boss.
+
+### 9. Package Organization (NEW)
+- `bosses/phases/` - Phase management as separate package
+- `boss_catalog/` - Boss implementations separate from infrastructure
+- Clean import paths and separation of concerns
 
 ---
 
@@ -52,7 +60,7 @@ var registry = make(map[string]BossConstructor)
 func Register(bossType string, constructor BossConstructor) { ... }
 func Create(bossType string, roomStartY, worldWidth float32) (Boss, error) { ... }
 
-// In test_boss/boss.go init()
+// In boss_catalog/test_boss/boss.go init()
 func init() {
     bosses.Register("test_boss", func(roomStartY, worldWidth float32) bosses.Boss {
         return New(roomStartY, worldWidth)
@@ -74,7 +82,7 @@ func init() {
 type StateID int
 const StateIDNone StateID = -1
 
-// In test_boss/states.go
+// In boss_catalog/test_boss/states.go
 const (
     StatePatrol statemachine.StateID = iota
     StateWindup
@@ -88,38 +96,74 @@ Typos in state names are now caught at compile time.
 
 ---
 
-### 3. Boss Interface Is Too Large (13+ methods) ⚠️ ACCEPTABLE
+### 3. Boss Interface Is Too Large (13+ methods) ✅ RESOLVED
 
 **Location:** `internal/domain/bosses/boss.go`
 
-**Status:** Interface size unchanged, but `BoxSet` reduces implementation burden. Each method has clear purpose and the pattern is well-documented.
-
-**Alternative considered:** BaseBoss struct could provide default implementations. Not yet implemented but remains an option for future optimization.
+**Solution Implemented:** `BaseBoss` struct provides default implementations for most interface methods. Concrete bosses only need to:
+- Embed `*bosses.BaseBoss`
+- Implement handlers (`PhaseChangeHandler`, `DamageReactionHandler`)
+- Override `GetHurtboxes()` for custom vulnerability logic
+- Implement `Update()` by calling `b.BaseUpdate(player, dt)`
 
 ---
 
-### 4. No Base Boss / Composition Helper ⚠️ NOT IMPLEMENTED
+### 4. No Base Boss / Composition Helper ✅ IMPLEMENTED
 
-**Status:** Not implemented, but `BoxSet` significantly reduces boilerplate.
+**Location:** `internal/domain/bosses/base_boss.go`
 
-**Current pattern:** Bosses manually wire up components but the code is straightforward:
+**Solution Implemented:** `BaseBoss` struct with:
 
 ```go
-b := &TestBoss{
-    position:     types.NewVec2(centerX, floorY),
-    damageable:   components.NewDamageable(MaxHP, MaxHP),
-    boxSet:       bosses.NewBodyBoxSet(bosses.BodyBoxConfig{...}),
-    // ...
+type BaseBoss struct {
+    Position      types.Vec2
+    Damageable    components.Damageable
+    Active        bool
+    BoxSet        *BoxSet
+    StateMachine  *statemachine.StateMachine
+    PhaseManager  *phases.Manager
+    CurrentPlayer *entities.Player
+
+    PhaseChangeHandler    PhaseChangeHandler
+    DamageReactionHandler DamageReactionHandler
 }
+
+// Default implementations provided:
+func (b *BaseBoss) Activate()
+func (b *BaseBoss) Deactivate()
+func (b *BaseBoss) IsActive() bool
+func (b *BaseBoss) IsDefeated() bool
+func (b *BaseBoss) GetHP() float32
+func (b *BaseBoss) GetMaxHP() float32
+func (b *BaseBoss) GetDamageable() *components.Damageable
+func (b *BaseBoss) GetPosition() types.Vec2
+func (b *BaseBoss) GetCollisionBoxes() []CollisionBox
+func (b *BaseBoss) GetHitboxes() []Hitbox
+func (b *BaseBoss) GetHurtboxes() []Hurtbox
+func (b *BaseBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32
+func (b *BaseBoss) BaseUpdate(player *entities.Player, dt float32) []projectiles.SpawnRequest
 ```
 
-**Recommendation:** Consider `BaseBoss` if adding many bosses reveals repetitive patterns.
+**Usage in TestBoss:**
+```go
+type TestBoss struct {
+    *bosses.BaseBoss
+    // Boss-specific fields only
+    movement         *movement.Grounded
+    projectileAttack *attacks.ProjectileAttack
+    // ...
+}
+
+func (b *TestBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
+    return b.BaseUpdate(player, dt)
+}
+```
 
 ---
 
 ### 5. StateBehaviors Callback Pattern Is Unusual for Go ⚠️ RETAINED (ACCEPTABLE)
 
-**Location:** `internal/domain/bosses/test_boss/states.go`
+**Location:** `internal/domain/boss_catalog/test_boss/states.go`
 
 **Status:** Pattern retained as an acceptable trade-off.
 
@@ -139,16 +183,18 @@ Current approach is pragmatic.
 
 ### 6. Vulnerability Logic Is Scattered ✅ RESOLVED
 
-**Location:** `internal/domain/bosses/test_boss/boss.go:308-336`
+**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
 
-**Solution Implemented:** `GetHurtboxes()` is the single source of truth:
+**Solution Implemented:** `GetHurtboxes()` is the single source of truth. Each boss decides its own vulnerability rules:
 
 ```go
 func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
-    if b.phaseManager.IsAlwaysVulnerable() || b.stateMachine.CurrentState() == StateVulnerable {
-        return b.boxSet.Hurtboxes
+    // Phase 1: always has hurtboxes
+    // Phase 2+: only has hurtboxes during StateVulnerable
+    if b.PhaseManager.GetCurrentPhase() == 0 || b.StateMachine.CurrentState() == StateVulnerable {
+        return b.BoxSet.Hurtboxes
     }
-    return nil // Invulnerable
+    return []bosses.Hurtbox{}
 }
 
 func (b *TestBoss) IsVulnerable() bool {
@@ -156,23 +202,21 @@ func (b *TestBoss) IsVulnerable() bool {
 }
 ```
 
-Empty hurtbox slice = invulnerable. Simple, clear, single source of truth.
+**Key improvement:** Vulnerability is boss-specific logic, not part of `phases.Config`. Phases only define HP thresholds and phase-specific parameters (speed, cooldowns).
 
 ---
 
 ### 7. TakeDamageAt Has Hidden Side Effects ⚠️ DOCUMENTED
 
-**Location:** `internal/domain/bosses/test_boss/boss.go:316-331`
+**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
 
-**Status:** Side effect remains (transitioning out of vulnerable state on damage) but is now well-documented and intentional game design.
+**Status:** Side effect remains (transitioning out of vulnerable state on damage) but is now handled via `DamageReactionHandler`:
 
 ```go
-func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32 {
-    // ...
-    if b.stateMachine.CurrentState() == StateVulnerable {
-        b.stateMachine.TransitionTo(StatePatrol, &statemachine.StateContext{})
+func (b *TestBoss) OnDamageReceived(hurtboxID string, damage float32) {
+    if b.StateMachine.CurrentState() == StateVulnerable {
+        b.StateMachine.TransitionTo(StatePatrol, &statemachine.StateContext{})
     }
-    return actual
 }
 ```
 
@@ -182,17 +226,18 @@ This is desired behavior: hitting the boss during vulnerability window immediate
 
 ### 8. Hardcoded Duration Values in States ✅ RESOLVED
 
-**Location:** `internal/domain/bosses/test_boss/boss.go:22-33`
+**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
 
 **Solution Implemented:** All timing values are package-level constants:
 
 ```go
 const (
-    MaxHP           = 100.0
-    WindupDuration  = 1.0
-    SlamDuration    = 0.3
-    DoubleSlamPause = 0.4
-    // ...
+    MaxHP                    = 100.0
+    WindupDuration           = 1.0
+    SlamDuration             = 0.3
+    DoubleSlamPause          = 0.4
+    Phase2VulnerableDuration = 3.0
+    Phase3VulnerableDuration = 2.0
 )
 ```
 
@@ -202,24 +247,16 @@ if ctx.Elapsed >= WindupDuration { ... }
 if ctx.Elapsed >= SlamDuration { ... }
 ```
 
-Phase-dependent values accessed via `behaviors.GetVulnerableDuration()`.
-
 ---
 
 ### 9. Potential GC Pressure from Slice Returns ✅ RESOLVED
 
-**Location:** `internal/domain/bosses/boxes.go:85-151`
+**Location:** `internal/domain/bosses/boxes.go`
 
 **Solution Implemented:** `BoxSet` pre-allocates all boxes and updates positions in-place:
 
 ```go
 type BoxSet struct {
-    // Definitions (static)
-    collisionDefs []BoxDef
-    hitboxDefs    []HitboxDef
-    hurtboxDefs   []HurtboxDef
-
-    // Runtime boxes (pre-allocated, positions updated)
     CollisionBoxes []CollisionBox
     Hitboxes       []Hitbox
     Hurtboxes      []Hurtbox
@@ -279,32 +316,16 @@ Current rendering uses `GetState()` and `GetStateTimer()` for basic visual feedb
 |-------|--------|-------|
 | Boss factory switch statement | ✅ Resolved | Registration pattern via `init()` |
 | String-based state IDs | ✅ Resolved | `StateID int` with iota constants |
-| Large Boss interface | ⚠️ Acceptable | Well-documented, BoxSet helps |
-| No BaseBoss struct | ⚠️ Not needed yet | BoxSet reduces boilerplate |
+| Large Boss interface | ✅ Resolved | BaseBoss provides defaults |
+| No BaseBoss struct | ✅ Implemented | ~80 lines boilerplate reduction |
 | StateBehaviors callbacks | ⚠️ Retained | Acceptable trade-off, documented |
 | Scattered vulnerability logic | ✅ Resolved | `GetHurtboxes()` as single source |
-| TakeDamageAt side effects | ⚠️ Documented | Intentional game design |
-| Hardcoded durations | ✅ Resolved | Package constants + PhaseConfig |
+| TakeDamageAt side effects | ⚠️ Documented | Via DamageReactionHandler |
+| Hardcoded durations | ✅ Resolved | Package constants |
 | GC pressure from slices | ✅ Resolved | BoxSet pre-allocation |
 | Nested state machines | ✅ Resolved | Single state machine |
 | Three-box complexity | ⚠️ Documented | Helper for common case |
 | No animation/sound hooks | ⚠️ Deferred | Add when needed |
-
----
-
-## Remaining Opportunities
-
-1. **BaseBoss struct** - Would reduce per-boss boilerplate by ~10-15%. Consider if adding many bosses.
-
-2. **Animation/Sound hooks** - Extend `StateResult` when adding polish:
-   ```go
-   type StateResult struct {
-       NextState     StateID
-       SpawnRequests []projectiles.SpawnRequest
-       Animation     AnimationID
-       Sound         SoundID
-   }
-   ```
 
 ---
 
@@ -313,6 +334,7 @@ Current rendering uses `GetState()` and `GetStateTimer()` for basic visual feedb
 | Version | Rating | Key Changes |
 |---------|--------|-------------|
 | Initial | 7/10 | Good foundations, friction points |
-| Current | 8.5/10 | Registry, BoxSet, typed IDs, config constants |
+| Previous | 8.5/10 | Registry, BoxSet, typed IDs, config constants |
+| Current | 9/10 | BaseBoss, phases package, boss_catalog separation |
 
-The system now achieves the goal: **adding a new boss requires only creating a subpackage**.
+The system now achieves the goal: **adding a new boss requires only creating a subpackage and embedding BaseBoss**.

@@ -1,6 +1,7 @@
 package bosses
 
 import (
+	"github.com/Kishlin/drill-game/internal/domain/bosses/phases"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/statemachine"
 	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
@@ -10,7 +11,7 @@ import (
 
 // PhaseChangeHandler is called when the boss transitions to a new phase
 type PhaseChangeHandler interface {
-	OnPhaseChange(phaseIndex int, config PhaseConfig)
+	OnPhaseChange(phaseIndex int, config phases.Config)
 }
 
 // DamageReactionHandler is called when the boss receives damage
@@ -23,7 +24,7 @@ type BaseBossConfig struct {
 	Position types.Vec2
 	MaxHP    float32
 	BoxSet   *BoxSet
-	Phases   []PhaseConfig
+	Phases   []phases.Config
 }
 
 // BaseBoss provides default implementations for common Boss interface methods.
@@ -34,7 +35,7 @@ type BaseBoss struct {
 	Active        bool
 	BoxSet        *BoxSet
 	StateMachine  *statemachine.StateMachine
-	PhaseManager  *PhaseManager
+	PhaseManager  *phases.Manager
 	CurrentPlayer *entities.Player
 
 	// Optional handlers (nil = skip)
@@ -49,7 +50,7 @@ func NewBaseBoss(cfg BaseBossConfig) *BaseBoss {
 		Damageable:   components.NewDamageable(cfg.MaxHP, cfg.MaxHP),
 		Active:       false,
 		BoxSet:       cfg.BoxSet,
-		PhaseManager: NewPhaseManager(cfg.MaxHP, cfg.Phases),
+		PhaseManager: phases.NewManager(cfg.MaxHP, cfg.Phases),
 	}
 }
 
