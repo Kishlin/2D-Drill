@@ -161,23 +161,39 @@ func (b *TestBoss) Update(player *entities.Player, dt float32) []projectiles.Spa
 
 ---
 
-### 5. StateBehaviors Callback Pattern Is Unusual for Go ⚠️ RETAINED (ACCEPTABLE)
+### 5. StateBehaviors Callback Pattern Is Unusual for Go ✅ RESOLVED
 
-**Location:** `internal/domain/boss_catalog/test_boss/states.go`
+**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
 
-**Status:** Pattern retained as an acceptable trade-off.
+**Solution Implemented:** Removed the callback pattern entirely. States are now defined in a `buildStates()` method on the boss struct with direct field access:
 
-**Trade-offs documented:**
-- Avoids circular dependencies between boss and states
-- Provides clean encapsulation
-- States don't need to know concrete boss type
-- Well-documented in `docs/BOSS.md`
+```go
+func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
+    return map[statemachine.StateID]*statemachine.State{
+        StatePatrol: {
+            ID:      StatePatrol,
+            CanMove: true,
+            OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+                b.Position = b.movement.Update(b.Position, ctx.Dt)
+                // Direct field access - no callbacks needed
+                if b.hasAOEAttack() {
+                    b.aoeCooldown -= ctx.Dt
+                    // ...
+                }
+                return statemachine.StateResult{NextState: statemachine.StateIDNone}
+            },
+        },
+        // ... other states
+    }
+}
+```
 
-Alternative (passing boss pointer) would require either:
-- Circular imports, or
-- Defining states in same package as boss
-
-Current approach is pragmatic.
+**Benefits:**
+- No callback indirection - states directly access boss fields
+- Simpler mental model - one file contains boss logic
+- Better IDE support - direct field/method access enables navigation
+- More idiomatic Go - methods instead of function fields
+- `states.go` now only contains state ID constants (~12 lines)
 
 ---
 
@@ -318,7 +334,7 @@ Current rendering uses `GetState()` and `GetStateTimer()` for basic visual feedb
 | String-based state IDs | ✅ Resolved | `StateID int` with iota constants |
 | Large Boss interface | ✅ Resolved | BaseBoss provides defaults |
 | No BaseBoss struct | ✅ Implemented | ~80 lines boilerplate reduction |
-| StateBehaviors callbacks | ⚠️ Retained | Acceptable trade-off, documented |
+| StateBehaviors callbacks | ✅ Resolved | Removed, direct field access |
 | Scattered vulnerability logic | ✅ Resolved | `GetHurtboxes()` as single source |
 | TakeDamageAt side effects | ⚠️ Documented | Via DamageReactionHandler |
 | Hardcoded durations | ✅ Resolved | Package constants |

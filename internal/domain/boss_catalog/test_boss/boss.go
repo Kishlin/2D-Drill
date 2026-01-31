@@ -134,10 +134,8 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 	b.PhaseChangeHandler = b
 	b.DamageReactionHandler = b
 
-	// Build state machine with behaviors
-	behaviors := b.buildStateBehaviors()
-	states := BuildStates(behaviors)
-	b.SetStateMachine(statemachine.NewStateMachine(states, StatePatrol))
+	// Build state machine
+	b.SetStateMachine(statemachine.NewStateMachine(b.buildStates(), StatePatrol))
 
 	return b
 }
@@ -182,72 +180,137 @@ func (b *TestBoss) OnDamageReceived(hurtboxID string, damage float32) {
 	}
 }
 
-func (b *TestBoss) buildStateBehaviors() *StateBehaviors {
-	return &StateBehaviors{
-		GetAOECooldown:    func() float32 { return b.aoeCooldown },
-		SetAOECooldown:    func(cd float32) { b.aoeCooldown = cd },
-		DecrementCooldown: func(dt float32) { b.aoeCooldown -= dt },
+// buildStates creates the state machine states with direct access to boss fields
+func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
+	return map[statemachine.StateID]*statemachine.State{
+		StatePatrol: {
+			ID:      StatePatrol,
+			CanMove: true,
+			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+				b.Position = b.movement.Update(b.Position, ctx.Dt)
+				spawnRequests := b.updateProjectileAttack(ctx.Dt)
 
-		GetSlamCount:   func() int { return b.slamCount },
-		IncrementSlam:  func() { b.slamCount++ },
-		ResetSlamCount: func() { b.slamCount = 0 },
-		GetMaxSlams:    func() int { return b.maxSlams },
-		SetMaxSlams:    func(n int) { b.maxSlams = n },
-		DetermineMaxSlams: func() {
-			phase := b.PhaseManager.GetCurrentPhase()
-			if phase >= 2 && rand.Float32() < 0.5 {
-				b.maxSlams = 2 // 50% chance of double slam in phase 3
-			} else {
-				b.maxSlams = 1
-			}
-			// Store AOE position at boss's feet
-			b.aoePosition = types.NewVec2(
-				b.Position.X+Width/2,
-				b.Position.Y+Height,
-			)
+				// Check if should start slam (only in phases with AOE)
+				if b.hasAOEAttack() {
+					b.aoeCooldown -= ctx.Dt
+					if b.aoeCooldown <= 0 {
+						return statemachine.StateResult{
+							NextState:     StateWindup,
+							SpawnRequests: spawnRequests,
+						}
+					}
+				}
+
+				return statemachine.StateResult{NextState: statemachine.StateIDNone, SpawnRequests: spawnRequests}
+			},
 		},
 
-		SetAOEPosition: func(pos types.Vec2) { b.aoePosition = pos },
-
-		UpdateMovement: func(dt float32) {
-			b.Position = b.movement.Update(b.Position, dt)
+		StateWindup: {
+			ID:      StateWindup,
+			CanMove: false,
+			OnEnter: func(ctx *statemachine.StateContext) {
+				b.slamCount = 0
+				b.determineMaxSlams()
+			},
+			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+				if ctx.Elapsed >= WindupDuration {
+					return statemachine.StateResult{NextState: StateSlam}
+				}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
+			},
 		},
 
-		UpdateProjectileAttack: func(dt float32) []projectiles.SpawnRequest {
-			if b.CurrentPlayer == nil {
-				return nil
-			}
-			bossAABB := types.AABB{X: b.Position.X, Y: b.Position.Y, Width: Width, Height: Height}
-			return b.projectileAttack.Update(bossAABB, b.CurrentPlayer.AABB, dt)
+		StateWindupBetween: {
+			ID:      StateWindupBetween,
+			CanMove: false,
+			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+				if ctx.Elapsed >= DoubleSlamPause {
+					return statemachine.StateResult{NextState: StateSlam}
+				}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
+			},
 		},
 
-		GetVulnerableDuration: func() float32 {
-			return b.vulnerableDuration()
+		StateSlam: {
+			ID:      StateSlam,
+			CanMove: false,
+			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+				b.dealAOEDamage(ctx.Dt)
+
+				if ctx.Elapsed >= SlamDuration {
+					b.slamCount++
+
+					// Check if more slams to do
+					if b.slamCount < b.maxSlams {
+						return statemachine.StateResult{NextState: StateWindupBetween}
+					}
+
+					// Done slamming, enter vulnerable state
+					return statemachine.StateResult{NextState: StateVulnerable}
+				}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
+			},
 		},
 
-		HasAOEAttack: func() bool {
-			return b.PhaseManager.GetCurrentConfig().AOECooldown > 0
+		StateVulnerable: {
+			ID:      StateVulnerable,
+			CanMove: false,
+			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+				if ctx.Elapsed >= b.vulnerableDuration() {
+					return statemachine.StateResult{NextState: StatePatrol}
+				}
+				return statemachine.StateResult{NextState: statemachine.StateIDNone}
+			},
+			OnExit: func(ctx *statemachine.StateContext) {
+				b.aoeCooldown = b.PhaseManager.GetCurrentConfig().AOECooldown
+			},
 		},
+	}
+}
 
-		DealAOEDamage: func(dt float32) {
-			if b.CurrentPlayer == nil {
-				return
-			}
-			playerCenterX := b.CurrentPlayer.AABB.X + b.CurrentPlayer.AABB.Width/2
-			playerCenterY := b.CurrentPlayer.AABB.Y + b.CurrentPlayer.AABB.Height/2
-			dx := playerCenterX - b.aoePosition.X
-			dy := playerCenterY - b.aoePosition.Y
-			distSq := dx*dx + dy*dy
-			radiusSq := b.aoeRadius * b.aoeRadius
+// updateProjectileAttack handles projectile spawning during patrol
+func (b *TestBoss) updateProjectileAttack(dt float32) []projectiles.SpawnRequest {
+	if b.CurrentPlayer == nil {
+		return nil
+	}
+	bossAABB := types.AABB{X: b.Position.X, Y: b.Position.Y, Width: Width, Height: Height}
+	return b.projectileAttack.Update(bossAABB, b.CurrentPlayer.AABB, dt)
+}
 
-			if distSq <= radiusSq {
-				b.CurrentPlayer.DealDamage(b.aoeDamage * dt / SlamDuration)
-			}
-		},
+// hasAOEAttack returns true if the current phase has AOE attacks
+func (b *TestBoss) hasAOEAttack() bool {
+	return b.PhaseManager.GetCurrentConfig().AOECooldown > 0
+}
 
-		EndVulnerability: func() {
-			b.aoeCooldown = b.PhaseManager.GetCurrentConfig().AOECooldown
-		},
+// determineMaxSlams sets up the slam sequence for this attack
+func (b *TestBoss) determineMaxSlams() {
+	phase := b.PhaseManager.GetCurrentPhase()
+	if phase >= 2 && rand.Float32() < 0.5 {
+		b.maxSlams = 2 // 50% chance of double slam in phase 3
+	} else {
+		b.maxSlams = 1
+	}
+	// Store AOE position at boss's feet
+	b.aoePosition = types.NewVec2(
+		b.Position.X+Width/2,
+		b.Position.Y+Height,
+	)
+}
+
+// dealAOEDamage applies damage to player if within AOE radius
+func (b *TestBoss) dealAOEDamage(dt float32) {
+	if b.CurrentPlayer == nil {
+		return
+	}
+	playerCenterX := b.CurrentPlayer.AABB.X + b.CurrentPlayer.AABB.Width/2
+	playerCenterY := b.CurrentPlayer.AABB.Y + b.CurrentPlayer.AABB.Height/2
+	dx := playerCenterX - b.aoePosition.X
+	dy := playerCenterY - b.aoePosition.Y
+	distSq := dx*dx + dy*dy
+	radiusSq := b.aoeRadius * b.aoeRadius
+
+	if distSq <= radiusSq {
+		b.CurrentPlayer.DealDamage(b.aoeDamage * dt / SlamDuration)
 	}
 }
 

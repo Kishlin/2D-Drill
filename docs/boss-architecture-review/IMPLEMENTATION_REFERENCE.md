@@ -27,8 +27,8 @@ internal/domain/
 │       └── grounded.go          # Left-right patrol movement
 ├── boss_catalog/                # Boss implementations
 │   └── test_boss/
-│       ├── boss.go              # TestBoss (embeds BaseBoss)
-│       └── states.go            # State definitions and StateBehaviors
+│       ├── boss.go              # TestBoss (embeds BaseBoss) + buildStates()
+│       └── states.go            # State ID constants (iota)
 ├── systems/
 │   ├── boss_fight.go            # BossFightSystem (room detection, contact damage)
 │   └── projectile_system.go     # Projectile pool management
@@ -551,16 +551,34 @@ type BossFightResult struct {
    b := &MyBoss{BaseBoss: baseBoss, ...}
    b.PhaseChangeHandler = b
    b.DamageReactionHandler = b
-   b.SetStateMachine(statemachine.NewStateMachine(states, StateIdle))
+   b.SetStateMachine(statemachine.NewStateMachine(b.buildStates(), StateIdle))
    ```
 
-6. **Implement handlers:**
+6. **Define buildStates() method** with direct field access:
+   ```go
+   func (b *MyBoss) buildStates() map[statemachine.StateID]*statemachine.State {
+       return map[statemachine.StateID]*statemachine.State{
+           StateIdle: {
+               ID:      StateIdle,
+               CanMove: true,
+               OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+                   // Direct field access
+                   b.someField = someValue
+                   return statemachine.StateResult{NextState: statemachine.StateIDNone}
+               },
+           },
+           // ... other states
+       }
+   }
+   ```
+
+7. **Implement handlers:**
    ```go
    func (b *MyBoss) OnPhaseChange(phaseIndex int, cfg phases.Config) { ... }
    func (b *MyBoss) OnDamageReceived(hurtboxID string, damage float32) { ... }
    ```
 
-7. **Override GetHurtboxes for custom vulnerability:**
+8. **Override GetHurtboxes for custom vulnerability:**
    ```go
    func (b *MyBoss) GetHurtboxes() []bosses.Hurtbox {
        if /* vulnerability condition */ {
@@ -570,16 +588,16 @@ type BossFightResult struct {
    }
    ```
 
-8. **Implement Update:**
+9. **Implement Update:**
    ```go
    func (b *MyBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
        return b.BaseUpdate(player, dt)
    }
    ```
 
-9. **Import in game.go:**
-   ```go
-   import _ "github.com/Kishlin/drill-game/internal/domain/boss_catalog/my_boss"
-   ```
+10. **Import in game.go:**
+    ```go
+    import _ "github.com/Kishlin/drill-game/internal/domain/boss_catalog/my_boss"
+    ```
 
 **No modifications to core files required besides the import.**

@@ -35,8 +35,8 @@ internal/domain/bosses/              # Boss infrastructure
 
 internal/domain/boss_catalog/        # Boss implementations
 └── test_boss/                       # TestBoss implementation
-    ├── boss.go                      # Boss struct (embeds BaseBoss) + init() registration
-    └── states.go                    # State IDs (iota) + state definitions
+    ├── boss.go                      # Boss struct (embeds BaseBoss), states, init() registration
+    └── states.go                    # State ID constants (iota)
 
 internal/adapters/rendering/bosses/
 ├── renderer.go                      # BossRenderer interface + registry
@@ -267,10 +267,8 @@ StatePatrol (cooldown reset)
 ### State Machine Usage
 
 ```go
-// Boss creates state machine with state definitions
-behaviors := b.buildStateBehaviors()
-states := BuildStates(behaviors)
-b.SetStateMachine(statemachine.NewStateMachine(states, StatePatrol))
+// Boss creates state machine with inline state definitions
+b.SetStateMachine(statemachine.NewStateMachine(b.buildStates(), StatePatrol))
 
 // In Update(), BaseUpdate() handles state machine
 func (b *TestBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
@@ -283,26 +281,24 @@ if b.StateMachine.CurrentState() == StateVulnerable {
 }
 ```
 
-### StateBehaviors Pattern
+### State Definitions Pattern
 
-States access boss data through a behaviors struct (avoids circular dependencies):
+States are defined in a `buildStates()` method on the boss, with direct access to boss fields:
 
 ```go
-type StateBehaviors struct {
-    GetAOECooldown    func() float32
-    DecrementCooldown func(dt float32)
-    UpdateMovement    func(dt float32)
-    // ... other callbacks
-}
-
-func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachine.State {
+func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
     return map[statemachine.StateID]*statemachine.State{
         StatePatrol: {
             ID:      StatePatrol,
             CanMove: true,
             OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
-                behaviors.UpdateMovement(ctx.Dt)
-                // ...
+                b.Position = b.movement.Update(b.Position, ctx.Dt)
+                // Direct field access - no callbacks needed
+                if b.hasAOEAttack() {
+                    b.aoeCooldown -= ctx.Dt
+                    // ...
+                }
+                return statemachine.StateResult{NextState: statemachine.StateIDNone}
             },
         },
         // ... other states
@@ -556,10 +552,7 @@ func New(roomStartY, worldWidth float32) *MyBoss {
     b := &MyBoss{BaseBoss: baseBoss}
     b.PhaseChangeHandler = b
     b.DamageReactionHandler = b
-
-    behaviors := b.buildStateBehaviors()
-    states := BuildStates(behaviors)
-    b.SetStateMachine(statemachine.NewStateMachine(states, StateIdle))
+    b.SetStateMachine(statemachine.NewStateMachine(b.buildStates(), StateIdle))
 
     return b
 }
@@ -594,14 +587,19 @@ const (
     StateAttack
     StateVulnerable
 )
+```
 
-func BuildStates(behaviors *StateBehaviors) map[statemachine.StateID]*statemachine.State {
+State definitions go in `boss.go` as a method with direct field access:
+
+```go
+func (b *MyBoss) buildStates() map[statemachine.StateID]*statemachine.State {
     return map[statemachine.StateID]*statemachine.State{
         StateIdle: {
             ID:      StateIdle,
             CanMove: true,
             OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
-                // ...
+                // Direct field access
+                b.someField = someValue
                 return statemachine.StateResult{NextState: statemachine.StateIDNone}
             },
         },

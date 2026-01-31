@@ -44,8 +44,8 @@ internal/domain/
 │       └── machine.go
 ├── boss_catalog/            # Boss implementations
 │   └── test_boss/
-│       ├── boss.go          # TestBoss (embeds BaseBoss)
-│       └── states.go        # State IDs + BuildStates()
+│       ├── boss.go          # TestBoss (embeds BaseBoss) + buildStates()
+│       └── states.go        # State ID constants (iota)
 ├── systems/
 │   ├── boss_fight.go        # Room detection, contact damage
 │   └── projectile_system.go # Projectile pool
@@ -59,8 +59,8 @@ The `test_boss` package shows the current pattern:
 
 ```
 internal/domain/boss_catalog/test_boss/
-├── boss.go    # Embeds *bosses.BaseBoss, implements handlers
-└── states.go  # StateID iota constants, StateBehaviors, BuildStates()
+├── boss.go    # Embeds *bosses.BaseBoss, implements handlers, buildStates()
+└── states.go  # StateID iota constants only
 ```
 
 ## Adding a New Boss
@@ -72,7 +72,7 @@ internal/domain/boss_catalog/test_boss/
 5. Implement `PhaseChangeHandler` and `DamageReactionHandler` interfaces
 6. Override `GetHurtboxes()` for custom vulnerability logic
 7. Define typed state IDs with `iota` in `states.go`
-8. Build states via `BuildStates(behaviors)` pattern
+8. Build states via `buildStates()` method with direct field access
 
 No modifications to `game.go` or other core files required.
 
