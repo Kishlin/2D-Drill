@@ -7,7 +7,6 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/bosses/attacks"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/movement"
 	"github.com/Kishlin/drill-game/internal/domain/bosses/statemachine"
-	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/projectiles"
 	"github.com/Kishlin/drill-game/internal/domain/types"
@@ -30,65 +29,53 @@ const (
 	WindupDuration  = 1.0 // Vibration warning before slam
 	SlamDuration    = 0.3 // Actual slam damage window
 	DoubleSlamPause = 0.4 // Pause between slams in phase 3
+
+	// Vulnerability durations per phase (after slam)
+	Phase2VulnerableDuration = 3.0
+	Phase3VulnerableDuration = 2.0
 )
 
 // Phase configurations
 var phases = []bosses.PhaseConfig{
-	// Phase 1: 100% - 66% HP - Easy mode, always vulnerable
+	// Phase 1: 100% - 66% HP
 	{
 		HPThreshold:        0.66,
 		MovementSpeed:      BaseSpeed,
 		ProjectileCooldown: 3.0,
 		AOECooldown:        0, // No AOE in phase 1
-		AlwaysVulnerable:   true,
-		VulnerableDuration: 0,
 	},
-	// Phase 2: 66% - 33% HP - Medium difficulty
+	// Phase 2: 66% - 33% HP
 	{
 		HPThreshold:        0.33,
 		MovementSpeed:      BaseSpeed * 1.25,
 		ProjectileCooldown: 2.0,
 		AOECooldown:        6.0,
-		AlwaysVulnerable:   false,
-		VulnerableDuration: 3.0,
 	},
-	// Phase 3: 33% - 0% HP - Hard mode
+	// Phase 3: 33% - 0% HP
 	{
 		HPThreshold:        0.0,
 		MovementSpeed:      BaseSpeed * 1.5,
 		ProjectileCooldown: 1.0,
 		AOECooldown:        4.0,
-		AlwaysVulnerable:   false,
-		VulnerableDuration: 2.0,
 	},
 }
 
 type TestBoss struct {
-	position         types.Vec2
-	damageable       components.Damageable
-	active           bool
+	*bosses.BaseBoss
+
+	// Boss-specific components
 	movement         *movement.Grounded
 	projectileAttack *attacks.ProjectileAttack
-	phaseManager     *bosses.PhaseManager
 	worldWidth       float32
 	floorY           float32
 
-	// State machine
-	stateMachine *statemachine.StateMachine
-
-	// Boss data (accessed by state behaviors)
+	// Boss-specific data (accessed by state behaviors)
 	aoeCooldown float32
 	slamCount   int
 	maxSlams    int
 	aoeRadius   float32
 	aoeDamage   float32
 	aoePosition types.Vec2
-
-	// Reference to player for AOE damage (set during Update)
-	currentPlayer *entities.Player
-
-	// Box management
-	boxSet *bosses.BoxSet
 }
 
 func New(roomStartY, worldWidth float32) *TestBoss {
@@ -115,16 +102,24 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 	}
 	projAttack := attacks.NewProjectileAttack(projCfg)
 
-	// Create phase manager
-	phaseManager := bosses.NewPhaseManager(MaxHP, phases)
+	// Create base boss
+	baseBoss := bosses.NewBaseBoss(bosses.BaseBossConfig{
+		Position: types.NewVec2(centerX, floorY),
+		MaxHP:    MaxHP,
+		BoxSet: bosses.NewBodyBoxSet(bosses.BodyBoxConfig{
+			ID:               "body",
+			Width:            Width,
+			Height:           Height,
+			DamagePerSec:     ContactDamage,
+			DamageMultiplier: 1.0,
+		}),
+		Phases: phases,
+	})
 
 	b := &TestBoss{
-		position:         types.NewVec2(centerX, floorY),
-		damageable:       components.NewDamageable(MaxHP, MaxHP),
-		active:           false,
+		BaseBoss:         baseBoss,
 		movement:         groundedMovement,
 		projectileAttack: projAttack,
-		phaseManager:     phaseManager,
 		worldWidth:       worldWidth,
 		floorY:           floorY,
 		aoeCooldown:      phases[0].AOECooldown,
@@ -132,21 +127,58 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 		maxSlams:         1,
 		aoeRadius:        150.0,
 		aoeDamage:        15.0,
-		boxSet: bosses.NewBodyBoxSet(bosses.BodyBoxConfig{
-			ID:               "body",
-			Width:            Width,
-			Height:           Height,
-			DamagePerSec:     ContactDamage,
-			DamageMultiplier: 1.0,
-		}),
 	}
+
+	// Configure handlers
+	b.PhaseChangeHandler = b
+	b.DamageReactionHandler = b
 
 	// Build state machine with behaviors
 	behaviors := b.buildStateBehaviors()
 	states := BuildStates(behaviors)
-	b.stateMachine = statemachine.NewStateMachine(states, StatePatrol)
+	b.SetStateMachine(statemachine.NewStateMachine(states, StatePatrol))
 
 	return b
+}
+
+// vulnerableDuration returns the vulnerability window duration for the current phase
+func (b *TestBoss) vulnerableDuration() float32 {
+	switch b.PhaseManager.GetCurrentPhase() {
+	case 1:
+		return Phase2VulnerableDuration
+	case 2:
+		return Phase3VulnerableDuration
+	default:
+		return 0
+	}
+}
+
+// OnPhaseChange implements PhaseChangeHandler
+func (b *TestBoss) OnPhaseChange(phaseIndex int, phaseCfg bosses.PhaseConfig) {
+	// Update movement speed
+	b.movement.SetSpeed(phaseCfg.MovementSpeed)
+
+	// Update projectile cooldown
+	b.projectileAttack = attacks.NewProjectileAttack(attacks.ProjectileAttackConfig{
+		Cooldown:        phaseCfg.ProjectileCooldown,
+		ProjectileCount: 3,
+		ProjectileSpeed: 200.0,
+		ProjectileSize:  16.0,
+		Damage:          5.0,
+	})
+
+	// Reset slam cooldown for new phase
+	if b.StateMachine.CurrentState() == StatePatrol {
+		b.aoeCooldown = phaseCfg.AOECooldown
+	}
+}
+
+// OnDamageReceived implements DamageReactionHandler
+func (b *TestBoss) OnDamageReceived(hurtboxID string, damage float32) {
+	// End vulnerability on damage if in vulnerable state
+	if b.StateMachine.CurrentState() == StateVulnerable {
+		b.StateMachine.TransitionTo(StatePatrol, &statemachine.StateContext{})
+	}
 }
 
 func (b *TestBoss) buildStateBehaviors() *StateBehaviors {
@@ -161,7 +193,7 @@ func (b *TestBoss) buildStateBehaviors() *StateBehaviors {
 		GetMaxSlams:    func() int { return b.maxSlams },
 		SetMaxSlams:    func(n int) { b.maxSlams = n },
 		DetermineMaxSlams: func() {
-			phase := b.phaseManager.GetCurrentPhase()
+			phase := b.PhaseManager.GetCurrentPhase()
 			if phase >= 2 && rand.Float32() < 0.5 {
 				b.maxSlams = 2 // 50% chance of double slam in phase 3
 			} else {
@@ -169,160 +201,83 @@ func (b *TestBoss) buildStateBehaviors() *StateBehaviors {
 			}
 			// Store AOE position at boss's feet
 			b.aoePosition = types.NewVec2(
-				b.position.X+Width/2,
-				b.position.Y+Height,
+				b.Position.X+Width/2,
+				b.Position.Y+Height,
 			)
 		},
 
 		SetAOEPosition: func(pos types.Vec2) { b.aoePosition = pos },
 
 		UpdateMovement: func(dt float32) {
-			b.position = b.movement.Update(b.position, dt)
+			b.Position = b.movement.Update(b.Position, dt)
 		},
 
 		UpdateProjectileAttack: func(dt float32) []projectiles.SpawnRequest {
-			if b.currentPlayer == nil {
+			if b.CurrentPlayer == nil {
 				return nil
 			}
-			bossAABB := types.AABB{X: b.position.X, Y: b.position.Y, Width: Width, Height: Height}
-			return b.projectileAttack.Update(bossAABB, b.currentPlayer.AABB, dt)
+			bossAABB := types.AABB{X: b.Position.X, Y: b.Position.Y, Width: Width, Height: Height}
+			return b.projectileAttack.Update(bossAABB, b.CurrentPlayer.AABB, dt)
 		},
 
 		GetVulnerableDuration: func() float32 {
-			return b.phaseManager.GetCurrentConfig().VulnerableDuration
+			return b.vulnerableDuration()
 		},
 
 		HasAOEAttack: func() bool {
-			return b.phaseManager.GetCurrentConfig().AOECooldown > 0
+			return b.PhaseManager.GetCurrentConfig().AOECooldown > 0
 		},
 
 		DealAOEDamage: func(dt float32) {
-			if b.currentPlayer == nil {
+			if b.CurrentPlayer == nil {
 				return
 			}
-			playerCenterX := b.currentPlayer.AABB.X + b.currentPlayer.AABB.Width/2
-			playerCenterY := b.currentPlayer.AABB.Y + b.currentPlayer.AABB.Height/2
+			playerCenterX := b.CurrentPlayer.AABB.X + b.CurrentPlayer.AABB.Width/2
+			playerCenterY := b.CurrentPlayer.AABB.Y + b.CurrentPlayer.AABB.Height/2
 			dx := playerCenterX - b.aoePosition.X
 			dy := playerCenterY - b.aoePosition.Y
 			distSq := dx*dx + dy*dy
 			radiusSq := b.aoeRadius * b.aoeRadius
 
 			if distSq <= radiusSq {
-				b.currentPlayer.DealDamage(b.aoeDamage * dt / SlamDuration)
+				b.CurrentPlayer.DealDamage(b.aoeDamage * dt / SlamDuration)
 			}
 		},
 
 		EndVulnerability: func() {
-			b.aoeCooldown = b.phaseManager.GetCurrentConfig().AOECooldown
+			b.aoeCooldown = b.PhaseManager.GetCurrentConfig().AOECooldown
 		},
 	}
 }
 
 func (b *TestBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
-	if b.active == false || b.damageable.IsDefeated() {
-		return nil
-	}
-
-	// Store player reference for state behaviors
-	b.currentPlayer = player
-
-	// Check for phase transitions
-	if b.phaseManager.Update(b.damageable.HP) {
-		b.onPhaseChange()
-	}
-
-	// Update state machine
-	ctx := &statemachine.StateContext{
-		Player: player,
-		Dt:     dt,
-	}
-	result := b.stateMachine.Update(ctx)
-
-	// Update cached box positions
-	b.boxSet.UpdatePositions(b.position.X, b.position.Y)
-
-	return result.SpawnRequests
+	return b.BaseUpdate(player, dt)
 }
 
-func (b *TestBoss) onPhaseChange() {
-	phaseCfg := b.phaseManager.GetCurrentConfig()
-
-	// Update movement speed
-	b.movement.SetSpeed(phaseCfg.MovementSpeed)
-
-	// Update projectile cooldown
-	b.projectileAttack = attacks.NewProjectileAttack(attacks.ProjectileAttackConfig{
-		Cooldown:        phaseCfg.ProjectileCooldown,
-		ProjectileCount: 3,
-		ProjectileSpeed: 200.0,
-		ProjectileSize:  16.0,
-		Damage:          5.0,
-	})
-
-	// Reset slam cooldown for new phase
-	if b.stateMachine.CurrentState() == StatePatrol {
-		b.aoeCooldown = phaseCfg.AOECooldown
-	}
-}
-
-func (b *TestBoss) GetHP() float32 {
-	return b.damageable.HP
-}
-
-func (b *TestBoss) GetMaxHP() float32 {
-	return b.damageable.MaxHP
-}
-
-func (b *TestBoss) IsDefeated() bool {
-	return b.damageable.IsDefeated()
-}
-
-func (b *TestBoss) IsActive() bool {
-	return b.active
-}
-
-func (b *TestBoss) Activate() {
-	b.active = true
-}
-
-func (b *TestBoss) Deactivate() {
-	b.active = false
-}
-
-func (b *TestBoss) GetDamageable() *components.Damageable {
-	return &b.damageable
-}
-
-func (b *TestBoss) GetPosition() types.Vec2 {
-	return b.position
-}
-
-func (b *TestBoss) GetCollisionBoxes() []bosses.CollisionBox {
-	return b.boxSet.CollisionBoxes
-}
-
-func (b *TestBoss) GetHitboxes() []bosses.Hitbox {
-	return b.boxSet.Hitboxes
-}
-
+// GetHurtboxes returns hurtboxes based on phase and state.
+// Phase 1: always has hurtboxes
+// Phase 2+: only has hurtboxes during StateVulnerable
 func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
-	// Vulnerability determined by phase + state
-	if b.phaseManager.IsAlwaysVulnerable() || b.stateMachine.CurrentState() == StateVulnerable {
-		return b.boxSet.Hurtboxes
+	if b.PhaseManager.GetCurrentPhase() == 0 || b.StateMachine.CurrentState() == StateVulnerable {
+		return b.BoxSet.Hurtboxes
 	}
-	return nil // Invulnerable
+	return []bosses.Hurtbox{}
 }
 
+// TakeDamageAt overrides BaseBoss to check vulnerability via GetHurtboxes
 func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32 {
-	// Find hurtbox and apply multiplier
-	for _, hb := range b.GetHurtboxes() {
+	hurtboxes := b.GetHurtboxes()
+	if len(hurtboxes) == 0 {
+		return 0
+	}
+
+	for _, hb := range hurtboxes {
 		if hb.ID == hurtboxID {
 			actual := baseDamage * hb.DamageMultiplier
-			b.damageable.TakeDamage(actual)
+			b.Damageable.TakeDamage(actual)
 
-			// End vulnerability on damage if in vulnerable state
-			if b.stateMachine.CurrentState() == StateVulnerable {
-				b.stateMachine.TransitionTo(StatePatrol, &statemachine.StateContext{})
+			if b.DamageReactionHandler != nil {
+				b.DamageReactionHandler.OnDamageReceived(hurtboxID, actual)
 			}
 			return actual
 		}
@@ -336,19 +291,20 @@ func (b *TestBoss) IsVulnerable() bool {
 }
 
 // GetVulnerableTimer returns remaining vulnerability duration (for UI rendering)
+// Returns -1 in phase 1 (always vulnerable), 0 when not vulnerable, or remaining time
 func (b *TestBoss) GetVulnerableTimer() float32 {
-	if b.phaseManager.GetCurrentConfig().AlwaysVulnerable {
+	if b.PhaseManager.GetCurrentPhase() == 0 {
 		return -1
 	}
-	if b.stateMachine.CurrentState() == StateVulnerable {
-		return b.phaseManager.GetVulnerableDuration() - b.stateMachine.Elapsed()
+	if b.StateMachine.CurrentState() == StateVulnerable {
+		return b.vulnerableDuration() - b.StateMachine.Elapsed()
 	}
 	return 0
 }
 
 func (b *TestBoss) GetAOEInfo() *bosses.AOEInfo {
-	currentState := b.stateMachine.CurrentState()
-	elapsed := b.stateMachine.Elapsed()
+	currentState := b.StateMachine.CurrentState()
+	elapsed := b.StateMachine.Elapsed()
 
 	switch currentState {
 	case StateWindup:
@@ -380,19 +336,15 @@ func (b *TestBoss) GetAOEInfo() *bosses.AOEInfo {
 	}
 }
 
-func (b *TestBoss) GetCurrentPhase() int {
-	return b.phaseManager.GetCurrentPhase() + 1
-}
-
 // GetState returns the current state ID for rendering
 func (b *TestBoss) GetState() statemachine.StateID {
-	return b.stateMachine.CurrentState()
+	return b.StateMachine.CurrentState()
 }
 
 // GetStateTimer returns the remaining time in current state
 func (b *TestBoss) GetStateTimer() float32 {
-	currentState := b.stateMachine.CurrentState()
-	elapsed := b.stateMachine.Elapsed()
+	currentState := b.StateMachine.CurrentState()
+	elapsed := b.StateMachine.Elapsed()
 
 	switch currentState {
 	case StateWindup:
@@ -402,7 +354,7 @@ func (b *TestBoss) GetStateTimer() float32 {
 	case StateSlam:
 		return SlamDuration - elapsed
 	case StateVulnerable:
-		return b.phaseManager.GetVulnerableDuration() - elapsed
+		return b.vulnerableDuration() - elapsed
 	default:
 		return 0
 	}

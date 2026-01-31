@@ -6,8 +6,6 @@ type PhaseConfig struct {
 	MovementSpeed      float32 // Movement speed in this phase
 	ProjectileCooldown float32 // Time between projectile attacks
 	AOECooldown        float32 // Time between AOE attacks (0 = disabled)
-	AlwaysVulnerable   bool    // If true, boss is always vulnerable in this phase
-	VulnerableDuration float32 // Duration of vulnerability window after AOE (if not always vulnerable)
 }
 
 // PhaseManager tracks boss phases based on HP
@@ -56,14 +54,4 @@ func (pm *PhaseManager) GetCurrentConfig() PhaseConfig {
 		return pm.phases[len(pm.phases)-1]
 	}
 	return pm.phases[pm.currentPhase]
-}
-
-// IsAlwaysVulnerable returns true if current phase has no vulnerability windows
-func (pm *PhaseManager) IsAlwaysVulnerable() bool {
-	return pm.GetCurrentConfig().AlwaysVulnerable
-}
-
-// GetVulnerableDuration returns the vulnerability window duration for current phase
-func (pm *PhaseManager) GetVulnerableDuration() float32 {
-	return pm.GetCurrentConfig().VulnerableDuration
 }
