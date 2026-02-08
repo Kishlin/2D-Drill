@@ -367,8 +367,7 @@ type StateResult struct {
 }
 
 type State struct {
-    ID      StateID
-    CanMove bool  // Whether movement behavior runs in this state
+    ID StateID
 
     OnEnter  func(ctx *StateContext)
     OnUpdate func(ctx *StateContext) StateResult
@@ -383,7 +382,6 @@ func NewStateMachine(states map[StateID]*State, initialState StateID) *StateMach
 func (sm *StateMachine) Update(ctx *StateContext) StateResult
 func (sm *StateMachine) TransitionTo(newState StateID, ctx *StateContext)
 func (sm *StateMachine) CurrentState() StateID
-func (sm *StateMachine) CanMove() bool
 func (sm *StateMachine) Elapsed() float32
 ```
 
@@ -680,33 +678,15 @@ func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32
 
 ### Five States
 
-1. **StatePatrol** (`CanMove: true`)
-   - Fires projectiles on cooldown
-   - Decrements AOE cooldown
-   - Transitions to StateWindup when AOE ready (Phase 2+)
+1. **StatePatrol** — Moves left-right, fires projectiles on cooldown, decrements AOE cooldown, transitions to StateWindup when AOE ready (Phase 2+)
 
-2. **StateWindup** (`CanMove: false`)
-   - Duration: `WindupDuration` (1.0s)
-   - Determines slam count (1 or 2 in Phase 3)
-   - Records AOE position at boss's feet
-   - Transitions to StateSlam
+2. **StateWindup** — Duration: `WindupDuration` (1.0s). Determines slam count (1 or 2 in Phase 3), records AOE position at boss's feet. Transitions to StateSlam.
 
-3. **StateWindupBetween** (`CanMove: false`)
-   - Duration: `DoubleSlamPause` (0.4s)
-   - Pause between slams in double-slam
-   - Transitions to StateSlam
+3. **StateWindupBetween** — Duration: `DoubleSlamPause` (0.4s). Pause between slams in double-slam. Transitions to StateSlam.
 
-4. **StateSlam** (`CanMove: false`)
-   - Duration: `SlamDuration` (0.3s)
-   - Damages player if in AOE radius
-   - If more slams: → StateWindupBetween
-   - Else: → StateVulnerable
+4. **StateSlam** — Duration: `SlamDuration` (0.3s). Damages player if in AOE radius. If more slams: → StateWindupBetween, else → StateVulnerable.
 
-5. **StateVulnerable** (`CanMove: false`)
-   - Duration: Phase-dependent (2-3s)
-   - Boss has hurtbox, can take damage
-   - On damage: transitions to StatePatrol immediately
-   - On timeout: transitions to StatePatrol, resets AOE cooldown
+5. **StateVulnerable** — Duration: Phase-dependent (2-3s). Boss has hurtbox, can take damage. On damage: transitions to StatePatrol immediately. On timeout: transitions to StatePatrol, resets AOE cooldown.
 
 ---
 
@@ -819,8 +799,7 @@ func (s *BossFightSystem) IsBossFightActive() bool             // Delegates to b
    func (b *MyBoss) buildStates() map[statemachine.StateID]*statemachine.State {
        return map[statemachine.StateID]*statemachine.State{
            StateIdle: {
-               ID:      StateIdle,
-               CanMove: true,
+               ID: StateIdle,
                OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
                    // Direct field access
                    b.someField = someValue

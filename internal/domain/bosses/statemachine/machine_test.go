@@ -10,14 +10,12 @@ import (
 const (
 	testStateIdle StateID = iota
 	testStateActive
-	testStatePatrol
-	testStateStunned
 	testStateShooting
 )
 
 func TestStateMachine_StartsInInitialState(t *testing.T) {
 	states := map[StateID]*State{
-		testStateIdle: {ID: testStateIdle, CanMove: false},
+		testStateIdle: {ID: testStateIdle},
 	}
 	sm := NewStateMachine(states, testStateIdle)
 
@@ -31,7 +29,6 @@ func TestStateMachine_CallsOnEnterOnInit(t *testing.T) {
 	states := map[StateID]*State{
 		testStateIdle: {
 			ID:      testStateIdle,
-			CanMove: false,
 			OnEnter: func(ctx *StateContext) { enterCalled = true },
 		},
 	}
@@ -44,7 +41,7 @@ func TestStateMachine_CallsOnEnterOnInit(t *testing.T) {
 
 func TestStateMachine_ElapsedIncrements(t *testing.T) {
 	states := map[StateID]*State{
-		testStateIdle: {ID: testStateIdle, CanMove: false},
+		testStateIdle: {ID: testStateIdle},
 	}
 	sm := NewStateMachine(states, testStateIdle)
 
@@ -65,8 +62,8 @@ func TestStateMachine_ElapsedIncrements(t *testing.T) {
 
 func TestStateMachine_TransitionResetsElapsed(t *testing.T) {
 	states := map[StateID]*State{
-		testStateIdle:   {ID: testStateIdle, CanMove: false},
-		testStateActive: {ID: testStateActive, CanMove: true},
+		testStateIdle:   {ID: testStateIdle},
+		testStateActive: {ID: testStateActive},
 	}
 	sm := NewStateMachine(states, testStateIdle)
 
@@ -169,23 +166,6 @@ func TestStateMachine_OnUpdateReturnsSpawnRequests(t *testing.T) {
 	}
 	if result.SpawnRequests[0].Damage != 10 {
 		t.Error("spawn request damage mismatch")
-	}
-}
-
-func TestStateMachine_CanMove(t *testing.T) {
-	states := map[StateID]*State{
-		testStatePatrol:  {ID: testStatePatrol, CanMove: true},
-		testStateStunned: {ID: testStateStunned, CanMove: false},
-	}
-
-	sm := NewStateMachine(states, testStatePatrol)
-	if sm.CanMove() == false {
-		t.Error("patrol should allow movement")
-	}
-
-	sm.TransitionTo(testStateStunned, &StateContext{})
-	if sm.CanMove() == true {
-		t.Error("stunned should not allow movement")
 	}
 }
 

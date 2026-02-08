@@ -71,11 +71,3 @@ func (sm *StateMachine) CurrentState() StateID {
 func (sm *StateMachine) Elapsed() float32 {
 	return sm.elapsed
 }
-
-// CanMove returns whether movement is allowed in the current state
-func (sm *StateMachine) CanMove() bool {
-	if state, ok := sm.states[sm.current]; ok {
-		return state.CanMove
-	}
-	return false
-}

@@ -27,8 +27,7 @@ type StateResult struct {
 
 // State defines a declarative state with lifecycle hooks
 type State struct {
-	ID      StateID
-	CanMove bool // Movement behavior active in this state
+	ID StateID
 
 	OnEnter  func(ctx *StateContext)
 	OnUpdate func(ctx *StateContext) StateResult

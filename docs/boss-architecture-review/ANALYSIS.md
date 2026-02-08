@@ -108,15 +108,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 10. `State.CanMove` Is Purely Informational
+### ~~10. `State.CanMove` Is Purely Informational~~ (Resolved)
 
-**Location:** `internal/domain/bosses/statemachine/types.go:31`
-
-**Issue:** The `CanMove` field on `State` is exposed via `StateMachine.CanMove()` but the state machine doesn't enforce anything with it. Movement is handled manually in the StatePatrol `OnUpdate` callback. No code outside TestBoss's `buildStates()` reads `CanMove`.
-
-This is documentation masquerading as data. If movement were handled by BaseBoss (move when `CanMove` is true, skip when false), it would be useful infrastructure. Currently it's just a label.
-
-**Severity:** Low — harmless, but could mislead future boss authors into thinking movement is handled automatically.
+**Resolution:** Removed `CanMove` field from `State`, `CanMove()` method from `StateMachine`, and the dedicated test. No production code read this value — movement was (and remains) handled directly in each state's `OnUpdate` callback. Removing the field eliminates the misleading suggestion that movement is handled automatically by infrastructure.
 
 ---
 
@@ -165,7 +159,7 @@ These issues were identified in earlier reviews and have been addressed:
 | ~~7~~ | ~~Boss update called when inactive~~ | ~~Low~~ | ~~Layering~~ (Resolved) |
 | 8 | No boss reset mechanism | Low | Lifecycle |
 | ~~9~~ | ~~Test coverage ~25-30%~~ | ~~Medium~~ | ~~Testing~~ (Resolved) |
-| 10 | `State.CanMove` purely informational | Low | API clarity |
+| ~~10~~ | ~~`State.CanMove` purely informational~~ | ~~Low~~ | ~~API clarity~~ (Resolved) |
 | 11 | `MovementBehavior` not used polymorphically | Low | Premature abstraction |
 
 ---

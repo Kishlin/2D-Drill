@@ -193,8 +193,7 @@ func (b *TestBoss) OnDamageReceived(hurtboxID string, damage float32) {
 func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 	return map[statemachine.StateID]*statemachine.State{
 		StatePatrol: {
-			ID:      StatePatrol,
-			CanMove: true,
+			ID: StatePatrol,
 			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
 				b.Position = b.movement.Update(b.Position, ctx.Dt)
 				spawnRequests := b.updateProjectileAttack(ctx.Dt)
@@ -215,8 +214,7 @@ func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 		},
 
 		StateWindup: {
-			ID:      StateWindup,
-			CanMove: false,
+			ID: StateWindup,
 			OnEnter: func(ctx *statemachine.StateContext) {
 				b.slamCount = 0
 				b.determineMaxSlams()
@@ -230,8 +228,7 @@ func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 		},
 
 		StateWindupBetween: {
-			ID:      StateWindupBetween,
-			CanMove: false,
+			ID: StateWindupBetween,
 			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
 				if ctx.Elapsed >= DoubleSlamPause {
 					return statemachine.StateResult{NextState: StateSlam}
@@ -241,8 +238,7 @@ func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 		},
 
 		StateSlam: {
-			ID:      StateSlam,
-			CanMove: false,
+			ID: StateSlam,
 			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
 				b.dealAOEDamage(ctx.Dt)
 
@@ -262,8 +258,7 @@ func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 		},
 
 		StateVulnerable: {
-			ID:      StateVulnerable,
-			CanMove: false,
+			ID: StateVulnerable,
 			OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
 				if ctx.Elapsed >= b.vulnerableDuration() {
 					return statemachine.StateResult{NextState: StatePatrol}

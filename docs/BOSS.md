@@ -231,8 +231,7 @@ States are declarative structs with lifecycle hooks:
 
 ```go
 type State struct {
-    ID      StateID
-    CanMove bool  // Movement behavior active in this state
+    ID StateID
 
     OnEnter  func(ctx *StateContext)
     OnUpdate func(ctx *StateContext) StateResult
@@ -291,8 +290,7 @@ States are defined in a `buildStates()` method on the boss, with direct access t
 func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
     return map[statemachine.StateID]*statemachine.State{
         StatePatrol: {
-            ID:      StatePatrol,
-            CanMove: true,
+            ID: StatePatrol,
             OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
                 b.Position = b.movement.Update(b.Position, ctx.Dt)
                 // Direct field access - no callbacks needed
@@ -607,8 +605,7 @@ State definitions go in `boss.go` as a method with direct field access:
 func (b *MyBoss) buildStates() map[statemachine.StateID]*statemachine.State {
     return map[statemachine.StateID]*statemachine.State{
         StateIdle: {
-            ID:      StateIdle,
-            CanMove: true,
+            ID: StateIdle,
             OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
                 // Direct field access
                 b.someField = someValue
