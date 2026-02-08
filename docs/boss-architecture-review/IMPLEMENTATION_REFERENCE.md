@@ -23,10 +23,8 @@ internal/domain/
 │   │   ├── machine.go               # StateMachine implementation
 │   │   └── machine_test.go
 │   ├── attacks/
-│   │   ├── attack.go                # Historical note (Attack interface removed)
 │   │   ├── projectile_attack.go     # Cooldown-based projectile volleys
-│   │   ├── projectile_attack_test.go
-│   │   └── aoe_attack.go            # AOE attack with telegraph/damage/vulnerable phases
+│   │   └── projectile_attack_test.go
 │   └── movement/
 │       ├── grounded.go              # Left-right patrol movement
 │       └── grounded_test.go
@@ -180,6 +178,9 @@ type BaseBoss struct {
     StateMachine  *statemachine.StateMachine
     PhaseManager  *phases.Manager
     CurrentPlayer *entities.Player
+
+    // Virtual dispatch (set to concrete boss: b.Self = b)
+    Self Boss
 
     // Optional handlers (nil = skip)
     PhaseChangeHandler    PhaseChangeHandler
@@ -441,48 +442,6 @@ func (a *ProjectileAttack) GetCooldown() float32
 func (a *ProjectileAttack) Reset()
 ```
 
-### AOEAttack (`aoe_attack.go`)
-
-Standalone AOE attack helper with its own state machine (telegraph → damage → vulnerable). Available for bosses that want a self-contained AOE component rather than handling AOE through the boss state machine.
-
-**Note:** The TestBoss does NOT use this component — it manages AOE phases directly through its boss state machine states instead. This component exists as a reusable building block for future bosses.
-
-```go
-type AOEState int
-const (
-    AOEStateIdle AOEState = iota
-    AOEStateTelegraph
-    AOEStateDamage
-    AOEStateVulnerable
-)
-
-type AOEAttackConfig struct {
-    Cooldown           float32
-    TelegraphDuration  float32
-    DamageDuration     float32
-    VulnerableDuration float32
-    Radius             float32
-    Damage             float32
-}
-
-type AOEAttack struct { ... }
-
-func NewAOEAttack(cfg AOEAttackConfig) *AOEAttack
-func (a *AOEAttack) Update(dt float32)
-func (a *AOEAttack) StartAttack(bossAABB types.AABB)
-func (a *AOEAttack) GetDamageToPlayer(playerAABB types.AABB) float32
-func (a *AOEAttack) IsReady() bool
-func (a *AOEAttack) GetCooldown() float32
-func (a *AOEAttack) Reset()
-func (a *AOEAttack) GetState() AOEState
-func (a *AOEAttack) IsVulnerableWindow() bool
-func (a *AOEAttack) IsTelegraphing() bool
-func (a *AOEAttack) IsDamaging() bool
-func (a *AOEAttack) GetPosition() types.Vec2
-func (a *AOEAttack) GetRadius() float32
-func (a *AOEAttack) GetStateTimer() float32
-```
-
 ---
 
 ## Effects System
@@ -656,13 +615,9 @@ func (b *TestBoss) GetState() statemachine.StateID   // Current state ID
 func (b *TestBoss) GetStateTimer() float32           // Remaining time in current state (0 for StatePatrol)
 ```
 
-### TakeDamageAt Override
+### TakeDamageAt (via Self dispatch)
 
-TestBoss overrides `BaseBoss.TakeDamageAt` to check vulnerability via its own `GetHurtboxes()` first (which is phase/state-dependent), then delegates damage application and handler notification:
-
-```go
-func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32
-```
+TestBoss does NOT override `TakeDamageAt`. Instead, `BaseBoss.TakeDamageAt` dispatches through `b.Self.GetHurtboxes()`, which resolves to `TestBoss.GetHurtboxes()` (phase/state-dependent vulnerability). This is enabled by setting `b.Self = b` during construction.
 
 ### Five States
 

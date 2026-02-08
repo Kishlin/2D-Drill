@@ -102,7 +102,9 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
     // 7. Boss fight system
     if g.bossFightSystem != nil {
-        g.GameState = g.bossFightSystem.Update(g.Player, dt)
+        result := g.bossFightSystem.Update(g.Player, dt)
+        g.GameState = result.GameState
+        systems.SpawnProjectiles(g.projectilePool, result.SpawnRequests)
     }
 
     return nil
@@ -930,37 +932,40 @@ Orchestrates boss encounters. For detailed boss mechanics, see [BOSS.md](BOSS.md
 
 ```go
 type BossFightSystem struct {
-    boss              bosses.Boss
-    bossRoomStartY    float32
-    playerInBossRoom  bool
+    boss            bosses.Boss
+    bossRoomStartY  float32
+    bossRoomEndY    float32
+    floorStartY     float32
+    floorEndY       float32
+    floorType       config.FloorType
+    bossRoomCfg     config.BossRoomConfig
+    wasPlayerInRoom bool
 }
 
-func (bfs *BossFightSystem) Update(player *entities.Player, dt float32) entities.GameState {
-    // Track player entry/exit
-    playerY := player.AABB.Y + player.AABB.Height
-    inRoom := playerY >= bfs.bossRoomStartY
+type BossFightResult struct {
+    GameState     entities.GameState
+    SpawnRequests []projectiles.SpawnRequest
+}
 
-    if inRoom && !bfs.playerInBossRoom {
-        bfs.boss.Activate()
-    } else if !inRoom && bfs.playerInBossRoom {
-        bfs.boss.Deactivate()
+func (s *BossFightSystem) Update(player *entities.Player, dt float32) BossFightResult {
+    // Track player entry/exit
+    playerInRoom := s.IsPlayerInBossRoom(player)
+
+    if playerInRoom && s.wasPlayerInRoom == false {
+        s.boss.Activate()
+    } else if playerInRoom == false && s.wasPlayerInRoom {
+        s.boss.Deactivate()
     }
-    bfs.playerInBossRoom = inRoom
+    s.wasPlayerInRoom = playerInRoom
 
     // Update boss if active
-    if bfs.boss.IsActive() {
-        bfs.boss.Update(player, dt)
-        bfs.handleProjectileCollisions(player)
-        bfs.handleContactDamage(player, dt)
+    if s.boss.IsActive() {
+        spawnRequests = s.boss.Update(player, dt)
+        s.handleContactDamage(player, dt)
+        s.handleFloorDamage(player, dt)  // Lava floor uses bossRoomCfg.FloorDamage
     }
 
-    // Check win/lose conditions
-    if bfs.boss.IsDefeated() {
-        return entities.GameStateVictory
-    }
-    if player.HP <= 0 {
-        return entities.GameStateDefeat
-    }
-    return entities.GameStatePlaying
+    // Check win/lose conditions and return result with spawn requests
+    return BossFightResult{GameState: gameState, SpawnRequests: spawnRequests}
 }
 ```

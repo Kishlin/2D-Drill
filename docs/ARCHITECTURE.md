@@ -122,7 +122,8 @@ Pure game logic with zero framework dependencies:
 | `input/` | InputState struct |
 | `config/` | Configuration structs |
 | `levels/` | Level definitions |
-| `bosses/` | Boss implementations |
+| `bosses/` | Boss infrastructure (interfaces, base types, state machine) |
+| `boss_catalog/` | Boss implementations (one package per boss) |
 | `components/` | Position, Interactable, Damageable |
 
 ---
@@ -153,7 +154,8 @@ drill-game/
 │       ├── input/                # InputState
 │       ├── config/               # Configuration structs
 │       ├── levels/               # Level definitions
-│       ├── bosses/               # Boss implementations
+│       ├── bosses/               # Boss infrastructure
+│       ├── boss_catalog/         # Boss implementations
 │       └── components/           # Position, Interactable, Damageable
 │
 └── docs/                         # Documentation

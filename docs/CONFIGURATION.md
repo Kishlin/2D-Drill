@@ -344,6 +344,7 @@ type ItemConfig struct {
 type BossRoomConfig struct {
     BossType    string    // Boss type identifier
     FloorType   FloorType // Concrete or Lava
+    FloorDamage float32   // Damage per frame on hazardous floor (e.g., lava)
     RoomHeight  float32   // Height of boss room in pixels
     FloorHeight float32   // Height of floor in tiles
 }
@@ -417,6 +418,7 @@ func GetLevel1Config() *config.GameConfig {
             BossRoom: config.BossRoomConfig{
                 BossType:    "test_boss",
                 FloorType:   config.FloorConcrete,
+                FloorDamage: 10.0,
                 RoomHeight:  680.0,
                 FloorHeight: 6.0,
             },

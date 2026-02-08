@@ -43,8 +43,7 @@ internal/domain/
 │   │   ├── types.go             # StateID (int), StateContext, StateResult
 │   │   └── machine.go
 │   ├── attacks/                 # Attack components
-│   │   ├── projectile_attack.go # Cooldown-based projectile volleys
-│   │   └── aoe_attack.go        # Reusable AOE attack (telegraph/damage/vulnerable)
+│   │   └── projectile_attack.go # Cooldown-based projectile volleys
 │   └── movement/                # Movement behaviors
 │       └── grounded.go          # Left-right patrol movement
 ├── boss_catalog/                # Boss implementations

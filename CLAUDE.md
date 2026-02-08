@@ -34,7 +34,8 @@ internal/
     ├── ui/                # Shop interfaces
     ├── world/             # Chunk-based procedural generation
     ├── physics/           # Movement, collision, damage
-    ├── bosses/            # Boss implementations
+    ├── bosses/            # Boss infrastructure (interfaces, base types, state machine)
+    ├── boss_catalog/      # Boss implementations (one package per boss)
     ├── config/            # Configuration structs
     ├── levels/            # Level definitions
     ├── types/             # Vec2, AABB

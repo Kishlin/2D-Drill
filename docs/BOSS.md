@@ -23,9 +23,7 @@ internal/domain/bosses/              # Boss infrastructure
 ├── phases/                          # Phase management package
 │   └── phase.go                     # phases.Config, phases.Manager
 ├── attacks/                         # Reusable attack patterns
-│   ├── attack.go                    # Attack interface
-│   ├── projectile_attack.go         # Fires projectiles at player
-│   └── aoe_attack.go                # Ground slam with telegraph
+│   └── projectile_attack.go         # Fires projectiles at player
 ├── movement/                        # Reusable movement behaviors
 │   └── grounded.go                  # Left-right patrol on floor
 └── statemachine/                    # Generic state machine framework
@@ -91,6 +89,8 @@ type BaseBoss struct {
     PhaseManager  *phases.Manager
     CurrentPlayer *entities.Player
 
+    Self Boss  // Enables virtual dispatch (set to concrete boss: b.Self = b)
+
     PhaseChangeHandler    PhaseChangeHandler
     DamageReactionHandler DamageReactionHandler
 }
@@ -113,6 +113,8 @@ type DamageReactionHandler interface {
 - `BaseUpdate()` (handles phase transitions, state machine, box positions)
 
 **No-op handler defaults:** `NewBaseBoss` initializes both `PhaseChangeHandler` and `DamageReactionHandler` with no-op defaults. Concrete bosses only need to set `b.PhaseChangeHandler = b` or `b.DamageReactionHandler = b` if they want to react to those events.
+
+**Virtual dispatch via `Self`:** The `Self Boss` field enables `BaseBoss.TakeDamageAt` to call the concrete boss's `GetHurtboxes()` override. Concrete bosses set `b.Self = b` during construction so that vulnerability checks dispatch correctly through the interface.
 
 ### Box Types
 
@@ -390,22 +392,52 @@ The `BossFightSystem` orchestrates encounters:
 
 ```go
 type BossFightSystem struct {
-    boss              bosses.Boss
-    bossRoomStartY    float32
-    playerInBossRoom  bool
+    boss            bosses.Boss
+    bossRoomStartY  float32
+    bossRoomEndY    float32
+    floorStartY     float32
+    floorEndY       float32
+    floorType       config.FloorType
+    bossRoomCfg     config.BossRoomConfig
+    wasPlayerInRoom bool
+}
+
+type BossFightResult struct {
+    GameState     entities.GameState
+    SpawnRequests []projectiles.SpawnRequest
+}
+```
+
+### Update Flow
+
+```go
+func (s *BossFightSystem) Update(player *entities.Player, dt float32) BossFightResult {
+    // 1. Track player entry/exit
+    // 2. Activate/deactivate boss
+    // 3. If active: boss.Update(), handle contact damage, handle floor damage
+    // 4. Return game state + spawn requests
 }
 ```
 
 ### Contact Damage (Hitboxes)
 
+Hitboxes deal damage per second on player contact:
+
 ```go
-func (bfs *BossFightSystem) handleHitboxDamage(player *entities.Player, dt float32) {
-    for _, hitbox := range bfs.boss.GetHitboxes() {
-        hitboxAABB := types.AABB{X: hitbox.X, Y: hitbox.Y, Width: hitbox.Width, Height: hitbox.Height}
-        if player.AABB.Intersects(hitboxAABB) {
-            player.DealDamage(hitbox.DamagePerSec * dt)
-        }
+for _, hitbox := range boss.GetHitboxes() {
+    if player.AABB.Intersects(hitbox.AABB()) {
+        player.DealDamage(hitbox.DamagePerSec * dt)
     }
+}
+```
+
+### Floor Damage
+
+Lava floors deal configurable damage from `BossRoomConfig.FloorDamage`:
+
+```go
+if s.floorType == config.FloorLava {
+    player.DealDamage(s.bossRoomCfg.FloorDamage * dt)
 }
 ```
 
@@ -414,13 +446,10 @@ func (bfs *BossFightSystem) handleHitboxDamage(player *entities.Player, dt float
 Bombs damage bosses through hurtboxes. Empty hurtbox list = invulnerable:
 
 ```go
-func (bfs *BossFightSystem) handleBombDamage(blastAABB types.AABB, damage float32) {
-    for _, hurtbox := range bfs.boss.GetHurtboxes() {
-        hurtboxAABB := types.AABB{X: hurtbox.X, Y: hurtbox.Y, Width: hurtbox.Width, Height: hurtbox.Height}
-        if blastAABB.Intersects(hurtboxAABB) {
-            bfs.boss.TakeDamageAt(hurtbox.ID, damage)
-            break  // Only damage once per blast
-        }
+for _, hurtbox := range boss.GetHurtboxes() {
+    if blastAABB.Intersects(hurtbox.AABB()) {
+        boss.TakeDamageAt(hurtbox.ID, damage)
+        break  // Only damage once per blast
     }
 }
 ```
@@ -558,6 +587,7 @@ func New(roomStartY, worldWidth float32) *MyBoss {
     })
 
     b := &MyBoss{BaseBoss: baseBoss}
+    b.Self = b  // Required: enables virtual dispatch for GetHurtboxes/TakeDamageAt
     // Optional: override no-op defaults only if the boss needs to react to these events
     b.PhaseChangeHandler = b
     b.DamageReactionHandler = b
@@ -616,19 +646,9 @@ func (b *MyBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 }
 ```
 
-### 2. Import in Game Engine
+### 2. Registration via Renderer Import
 
-`internal/domain/engine/game.go`:
-
-```go
-import (
-    "github.com/Kishlin/drill-game/internal/domain/bosses"
-    _ "github.com/Kishlin/drill-game/internal/domain/boss_catalog/my_boss"  // Register my_boss
-)
-
-// Boss creation uses registry (no switch statement needed)
-boss, err := bosses.Create(bossType, roomStartY, worldWidth)
-```
+The boss registers automatically when its renderer package imports the concrete type. No changes to `engine/game.go` required — `bosses.Create()` finds the registered constructor at runtime.
 
 ### 3. Create Boss Renderer
 
@@ -660,6 +680,7 @@ func init() {
 BossRoom: config.BossRoomConfig{
     BossType:    "my_boss",
     FloorType:   config.FloorConcrete,
+    FloorDamage: 10.0,
     RoomHeight:  680.0,
     FloorHeight: 6.0,
 }
