@@ -31,9 +31,6 @@ func TestGaussianWeight_Symmetry(t *testing.T) {
 
 	// Test with gold ore
 	goldCfg := genCfg.GetOreByID("gold")
-	if goldCfg == nil {
-		t.Skip("Gold ore not found in config")
-	}
 
 	// Weight should be equal at equal distance from peak (230)
 	// Test at ±50 tiles from peak: 180 and 280
@@ -52,9 +49,6 @@ func TestGaussianWeight_FarFromPeak(t *testing.T) {
 
 	// Test with diamond ore (peaks deep)
 	diamondCfg := genCfg.GetOreByID("diamond")
-	if diamondCfg == nil {
-		t.Skip("Diamond ore not found in config")
-	}
 
 	// Diamond peaks at 600, should have very low weight at 100 (500px away)
 	weight := gen.gaussianWeight(100, diamondCfg.Distribution)
@@ -70,9 +64,6 @@ func TestCalculateAllTileWeights_MultipleOres(t *testing.T) {
 
 	// Get gold's peak depth
 	goldCfg := genCfg.GetOreByID("gold")
-	if goldCfg == nil {
-		t.Skip("Gold ore not found in config")
-	}
 
 	// At depth near gold's peak, multiple ores should have weights
 	tileY := int(goldCfg.Distribution.PeakDepth)

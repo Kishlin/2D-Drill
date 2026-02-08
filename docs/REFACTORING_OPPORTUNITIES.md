@@ -3,7 +3,7 @@
 **Date:** January 2026
 **Last updated:** February 2026
 
-This document catalogs refactoring opportunities found during a codebase audit. Items 1-7 have been completed. Item 8 remains open.
+This document catalogs refactoring opportunities found during a codebase audit. All items have been completed.
 
 ---
 
@@ -87,17 +87,11 @@ Used the null-object pattern: `NewBaseBoss` now initializes both handlers with n
 
 ---
 
-## Remaining Opportunities
+### 8. Config Validation Timing — Done
 
-### 8. Config Validation Timing
-
-**Priority:** Low
-**Effort:** Small
-**Files:** `internal/domain/systems/drilling.go`, `internal/domain/config/game_config.go`
-
-**Issue:** A `Validate()` method exists on `GameConfig` and is called at startup. The defensive panics in `drilling.go` were replaced with safe fallthrough behavior (item 3), but the code still does redundant runtime checks for config that was already validated at load time.
-
-**Remaining Fix:** Remove the redundant runtime checks in `drilling.go`, trusting the upfront validation.
+**Files changed:**
+- `internal/domain/config/generation_config.go` — `GetOreByID` and `GetHazardByID` now panic on unknown IDs instead of returning nil (a missing ID is a programming bug, not a runtime condition)
+- `internal/domain/systems/drilling.go` — Removed 3 redundant nil checks and fallbacks in `createOnDrillEffect`, `calculateDrillingDuration`, and `getHardness`, trusting upfront `GameConfig.Validate()` and the panic-on-missing contract
 
 ---
 
@@ -112,4 +106,4 @@ Used the null-object pattern: `NewBaseBoss` now initializes both handlers with n
 | 5 | Getter methods + Game struct cleanup | Medium | Small | Done |
 | 6 | First frame pattern | Low | Small | Done |
 | 7 | Optional handler nil checks | Low | Small | Done |
-| 8 | Config validation timing | Low | Small | Open |
+| 8 | Config validation timing | Low | Small | Done |

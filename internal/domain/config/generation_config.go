@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 type TileDistribution struct {
 	PeakDepth float32 // Tile Y coordinate where this type is most common
 	Sigma     float32 // Standard deviation (spread of distribution)
@@ -52,20 +54,20 @@ type GenerationConfig struct {
 	Hazards      []HazardConfig   // Dynamic list of hazards (varies per level)
 }
 
-func (g *GenerationConfig) GetOreByID(id string) *OreConfig {
-	for i := range g.Ores {
-		if g.Ores[i].ID == id {
-			return &g.Ores[i]
+func (g *GenerationConfig) GetOreByID(id string) OreConfig {
+	for _, ore := range g.Ores {
+		if ore.ID == id {
+			return ore
 		}
 	}
-	return nil
+	panic(fmt.Sprintf("unknown ore ID: %s", id))
 }
 
-func (g *GenerationConfig) GetHazardByID(id string) *HazardConfig {
-	for i := range g.Hazards {
-		if g.Hazards[i].ID == id {
-			return &g.Hazards[i]
+func (g *GenerationConfig) GetHazardByID(id string) HazardConfig {
+	for _, hazard := range g.Hazards {
+		if hazard.ID == id {
+			return hazard
 		}
 	}
-	return nil
+	panic(fmt.Sprintf("unknown hazard ID: %s", id))
 }

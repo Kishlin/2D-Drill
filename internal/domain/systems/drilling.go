@@ -262,9 +262,6 @@ func (ds *DrillingSystem) collectOreIfPresent(player *entities.Player, dugTile *
 // createOnDrillEffect creates the appropriate effect for a hazard tile based on config
 func (ds *DrillingSystem) createOnDrillEffect(tile *entities.Tile) effects.Effect {
 	hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID)
-	if hazardCfg == nil {
-		return nil
-	}
 
 	switch hazardCfg.OnDrillEffect.Type {
 	case config.HazardEffectDamage:
@@ -292,11 +289,7 @@ func (ds *DrillingSystem) createOnDrillEffect(tile *entities.Tile) effects.Effec
 func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entities.Tile) float32 {
 	// Hazard tiles use fixed duration (depth-independent) since effects are the penalty
 	if tile.Type == entities.TileTypeHazard {
-		hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID)
-		if hazardCfg != nil && hazardCfg.FixedDuration > 0 {
-			return hazardCfg.FixedDuration
-		}
-		// Fall through to normal duration calculation if config is missing
+		return ds.genCfg.GetHazardByID(tile.HazardID).FixedDuration
 	}
 
 	hardness := ds.getHardness(tile)
@@ -309,10 +302,7 @@ func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entitie
 func (ds *DrillingSystem) getHardness(tile *entities.Tile) float32 {
 	switch tile.Type {
 	case entities.TileTypeOre:
-		if oreCfg := ds.genCfg.GetOreByID(tile.OreID); oreCfg != nil {
-			return oreCfg.Hardness
-		}
-		return 1.5 // Fallback for unknown ore types
+		return ds.genCfg.GetOreByID(tile.OreID).Hardness
 	case entities.TileTypeDirt:
 		return ds.genCfg.DirtHardness
 	default:
