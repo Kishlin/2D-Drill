@@ -732,8 +732,9 @@ func (s *BossFightSystem) IsBossFightActive() bool             // Delegates to b
    })
 
    b := &MyBoss{BaseBoss: baseBoss, ...}
-   b.PhaseChangeHandler = b
-   b.DamageReactionHandler = b
+   b.Self = b                      // Enable virtual dispatch for GetHurtboxes()
+   b.PhaseChangeHandler = b        // Optional: implement OnPhaseChange(phaseIndex int)
+   b.DamageReactionHandler = b     // Optional: implement OnDamageReceived(hurtboxID, damage)
    b.SetStateMachine(statemachine.NewStateMachine(b.buildStates(), StateIdle))
    ```
 

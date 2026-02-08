@@ -14,7 +14,7 @@ This folder contains a comprehensive analysis of the boss fight system, created 
 
 **Goal:** Make adding new bosses as simple as "create a subpackage with states and transitions."
 
-**Current State:** 8/10 - Strong foundations, but some abstractions are unvalidated by a second boss.
+**Current State:** 9/10 - Production-ready. All actionable issues from previous reviews resolved. One deferred item (no reset mechanism). True extensibility validation awaits boss #2.
 
 **What's Been Implemented:**
 - Registration pattern (boss packages self-register via `init()`)
@@ -22,9 +22,12 @@ This folder contains a comprehensive analysis of the boss fight system, created 
 - BoxSet system (pre-allocated boxes, zero GC pressure)
 - Config constants per boss (all timing values at top of file)
 - Single vulnerability source (`GetHurtboxes()` as source of truth)
-- **BaseBoss struct** (reduces ~80 lines of boilerplate per boss)
-- **Phases package** (clean separation of phase management)
-- **Boss catalog** (boss implementations separate from infrastructure)
+- BaseBoss struct (reduces ~80 lines of boilerplate per boss)
+- Virtual dispatch via `Self` field (polymorphic hurtbox access)
+- Phases package (clean separation of phase management)
+- Boss catalog (boss implementations separate from infrastructure)
+- No-op handler defaults (concrete bosses override only what they need)
+- YAGNI cleanup (removed `MovementBehavior`, `AOEAttack`, `State.CanMove`)
 
 ## Key Files to Read
 
@@ -75,13 +78,14 @@ internal/domain/boss_catalog/test_boss/
 1. Create package: `internal/domain/boss_catalog/my_boss/`
 2. Define config constants and phase configs at top of `boss.go`
 3. Create boss struct embedding `*bosses.BaseBoss`
-4. Register via `init()`: `bosses.Register("my_boss", func(...) { return New(...) })`
-5. Implement `PhaseChangeHandler` and `DamageReactionHandler` interfaces
-6. Override `GetHurtboxes()` for custom vulnerability logic
-7. Define typed state IDs with `iota` in `states.go`
-8. Build states via `buildStates()` method with direct field access
+4. Set `b.Self = b` for virtual dispatch
+5. Register via `init()`: `bosses.Register("my_boss", func(...) { return New(...) })`
+6. Implement `PhaseChangeHandler` and/or `DamageReactionHandler` if needed
+7. Override `GetHurtboxes()` for custom vulnerability logic
+8. Define typed state IDs with `iota` in `states.go`
+9. Build states via `buildStates()` method with direct field access
 
-No modifications to `game.go` or other core files required.
+No modifications to `game.go` or other core files required (besides a blank import).
 
 ## Related Documentation
 
