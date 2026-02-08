@@ -78,17 +78,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 7. Boss Update Called When Inactive
+### ~~7. Boss Update Called When Inactive~~ (Resolved)
 
-**Location:** `internal/domain/systems/boss_fight.go:69`
-
-**Issue:** `BossFightSystem.Update` calls `s.boss.Update(player, dt)` unconditionally, even when the boss is deactivated. `BaseUpdate` early-returns when inactive, so there's no bug, but the system is delegating a responsibility it should own.
-
-```go
-spawnRequests := s.boss.Update(player, dt) // Called even after Deactivate()
-```
-
-**Severity:** Low — no behavioral impact, but the system should guard this.
+**Resolution:** `BossFightSystem.Update` now guards `boss.Update()`, `handleContactDamage()`, and `handleFloorDamage()` behind an `s.boss.IsActive()` check. The system owns the responsibility of skipping updates for inactive bosses, rather than relying on `BaseUpdate`'s internal early-return.
 
 ---
 
@@ -177,7 +169,7 @@ These issues were identified in earlier reviews and have been addressed:
 | ~~4~~ | ~~`AOEAttack` component unused and untested~~ | ~~Low~~ | ~~Dead code~~ (Resolved) |
 | ~~5~~ | ~~Lava floor damage hardcoded~~ | ~~Low~~ | ~~Data-driven~~ (Resolved) |
 | ~~6~~ | ~~`GetAOEInfo` allocates per frame~~ | ~~Low~~ | ~~Allocation~~ (Resolved) |
-| 7 | Boss update called when inactive | Low | Layering |
+| ~~7~~ | ~~Boss update called when inactive~~ | ~~Low~~ | ~~Layering~~ (Resolved) |
 | 8 | No boss reset mechanism | Low | Lifecycle |
 | 9 | Test coverage ~25-30% | Medium | Testing |
 | 10 | `State.CanMove` purely informational | Low | API clarity |

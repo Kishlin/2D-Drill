@@ -66,11 +66,15 @@ func (s *BossFightSystem) Update(player *entities.Player, dt float32) BossFightR
 
 	s.wasPlayerInRoom = playerInRoom
 
-	spawnRequests := s.boss.Update(player, dt)
+	var spawnRequests []projectiles.SpawnRequest
 
-	s.handleContactDamage(player, dt)
+	if s.boss.IsActive() {
+		spawnRequests = s.boss.Update(player, dt)
 
-	s.handleFloorDamage(player)
+		s.handleContactDamage(player, dt)
+
+		s.handleFloorDamage(player)
+	}
 
 	var gameState entities.GameState
 	if s.boss.IsDefeated() {
