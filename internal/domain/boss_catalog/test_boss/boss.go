@@ -41,6 +41,12 @@ const (
 	// Vulnerability durations per phase (after slam)
 	Phase2VulnerableDuration = 3.0
 	Phase3VulnerableDuration = 2.0
+
+	// Projectile parameters
+	ProjectileCount = 3
+	ProjectileSpeed = 200.0
+	ProjectileSize  = 16.0
+	ProjectileDamage = 5.0
 )
 
 // HP thresholds for the phase manager (generic infrastructure)
@@ -95,10 +101,10 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 	// Create projectile attack
 	projCfg := attacks.ProjectileAttackConfig{
 		Cooldown:        phaseConfigs[0].ProjectileCooldown,
-		ProjectileCount: 3,
-		ProjectileSpeed: 200.0,
-		ProjectileSize:  16.0,
-		Damage:          5.0,
+		ProjectileCount: ProjectileCount,
+		ProjectileSpeed: ProjectileSpeed,
+		ProjectileSize:  ProjectileSize,
+		Damage:          ProjectileDamage,
 	}
 	projAttack := attacks.NewProjectileAttack(projCfg)
 
@@ -162,10 +168,10 @@ func (b *TestBoss) OnPhaseChange(phaseIndex int) {
 	// Update projectile cooldown
 	b.projectileAttack = attacks.NewProjectileAttack(attacks.ProjectileAttackConfig{
 		Cooldown:        cfg.ProjectileCooldown,
-		ProjectileCount: 3,
-		ProjectileSpeed: 200.0,
-		ProjectileSize:  16.0,
-		Damage:          5.0,
+		ProjectileCount: ProjectileCount,
+		ProjectileSpeed: ProjectileSpeed,
+		ProjectileSize:  ProjectileSize,
+		Damage:          ProjectileDamage,
 	})
 
 	// Reset slam cooldown for new phase

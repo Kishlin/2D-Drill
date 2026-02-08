@@ -54,25 +54,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 3. Hardcoded Projectile Parameters in `OnPhaseChange`
+### ~~3. Hardcoded Projectile Parameters in `OnPhaseChange`~~ (Resolved)
 
-**Location:** `internal/domain/boss_catalog/test_boss/boss.go:161-167`
-
-**Issue:** When a phase changes, TestBoss creates a brand-new `ProjectileAttack` with hardcoded values:
-
-```go
-b.projectileAttack = attacks.NewProjectileAttack(attacks.ProjectileAttackConfig{
-    Cooldown:        phaseCfg.ProjectileCooldown,
-    ProjectileCount: 3,          // hardcoded
-    ProjectileSpeed: 200.0,      // hardcoded
-    ProjectileSize:  16.0,       // hardcoded
-    Damage:          5.0,        // hardcoded
-})
-```
-
-Only `Cooldown` comes from the phase config. The rest should be constants at minimum, or part of the phase configuration if they're intended to change per phase.
-
-**Severity:** Low — contained to TestBoss, but sets a bad example for future bosses.
+**Resolution:** Extracted `ProjectileCount`, `ProjectileSpeed`, `ProjectileSize`, and `ProjectileDamage` as named constants in the TestBoss package. Both `New()` and `OnPhaseChange()` now reference these constants instead of magic numbers.
 
 ---
 
@@ -197,6 +181,7 @@ These issues were identified in earlier reviews and have been addressed:
 | No BaseBoss struct | Implemented, ~80 lines boilerplate reduction |
 | `phases.Config` is TestBoss-specific | `Config` reduced to `HPThreshold` only; boss-specific params in concrete boss |
 | `TakeDamageAt` bypasses overrides | `Self Boss` field on BaseBoss enables virtual dispatch; concrete bosses set `b.Self = b` |
+| Hardcoded projectile params in `OnPhaseChange` | Extracted as named constants (`ProjectileCount`, `ProjectileSpeed`, `ProjectileSize`, `ProjectileDamage`) |
 | StateBehaviors callback pattern | Removed — closures with direct field access |
 | Scattered vulnerability logic | `GetHurtboxes()` as single source of truth |
 | Hardcoded duration values | Package-level constants |
@@ -212,7 +197,7 @@ These issues were identified in earlier reviews and have been addressed:
 |---|-------|----------|----------|
 | ~~1~~ | ~~`phases.Config` is TestBoss-specific~~ | ~~Medium~~ | ~~Extensibility~~ (Resolved) |
 | ~~2~~ | ~~`BaseBoss.TakeDamageAt` bypasses overrides~~ | ~~Medium~~ | ~~Go composition~~ (Resolved) |
-| 3 | Hardcoded projectile params in `OnPhaseChange` | Low | Data-driven |
+| ~~3~~ | ~~Hardcoded projectile params in `OnPhaseChange`~~ | ~~Low~~ | ~~Data-driven~~ (Resolved) |
 | 4 | `AOEAttack` component unused and untested | Low | Dead code |
 | 5 | Lava floor damage hardcoded | Low | Data-driven |
 | 6 | `GetAOEInfo` allocates per frame | Low | Allocation |
