@@ -72,15 +72,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 6. `GetAOEInfo` Allocates Per Frame
+### ~~6. `GetAOEInfo` Allocates Per Frame~~ (Resolved)
 
-**Location:** `internal/domain/boss_catalog/test_boss/boss.go:367-399`
-
-**Issue:** `GetAOEInfo()` returns `&bosses.AOEInfo{...}`, heap-allocating a new struct every frame it's called. This is inconsistent with the zero-allocation philosophy behind `BoxSet`.
-
-**Suggestion:** Store `AOEInfo` as a field on TestBoss and return a pointer to it (same pattern as `BoxSet`), or return by value.
-
-**Severity:** Low — one small allocation per frame is negligible, but inconsistent.
+**Resolution:** `AOEInfo` is now stored as a pre-allocated field on `TestBoss`. `GetAOEInfo()` updates the field in-place and returns a pointer to it, consistent with the `BoxSet` zero-allocation pattern. Returns `nil` when no AOE is active (default case unchanged).
 
 ---
 
@@ -182,7 +176,7 @@ These issues were identified in earlier reviews and have been addressed:
 | ~~3~~ | ~~Hardcoded projectile params in `OnPhaseChange`~~ | ~~Low~~ | ~~Data-driven~~ (Resolved) |
 | ~~4~~ | ~~`AOEAttack` component unused and untested~~ | ~~Low~~ | ~~Dead code~~ (Resolved) |
 | ~~5~~ | ~~Lava floor damage hardcoded~~ | ~~Low~~ | ~~Data-driven~~ (Resolved) |
-| 6 | `GetAOEInfo` allocates per frame | Low | Allocation |
+| ~~6~~ | ~~`GetAOEInfo` allocates per frame~~ | ~~Low~~ | ~~Allocation~~ (Resolved) |
 | 7 | Boss update called when inactive | Low | Layering |
 | 8 | No boss reset mechanism | Low | Lifecycle |
 | 9 | Test coverage ~25-30% | Medium | Testing |

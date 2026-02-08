@@ -82,6 +82,7 @@ type TestBoss struct {
 	aoeRadius   float32
 	aoeDamage   float32
 	aoePosition types.Vec2
+	aoeInfo     bosses.AOEInfo
 }
 
 func New(roomStartY, worldWidth float32) *TestBoss {
@@ -364,29 +365,26 @@ func (b *TestBoss) GetAOEInfo() *bosses.AOEInfo {
 
 	switch currentState {
 	case StateWindup:
-		return &bosses.AOEInfo{
-			Position:    b.aoePosition,
-			Radius:      b.aoeRadius,
-			IsTelegraph: true,
-			IsDamaging:  false,
-			StateTimer:  WindupDuration - elapsed,
-		}
+		b.aoeInfo.Position = b.aoePosition
+		b.aoeInfo.Radius = b.aoeRadius
+		b.aoeInfo.IsTelegraph = true
+		b.aoeInfo.IsDamaging = false
+		b.aoeInfo.StateTimer = WindupDuration - elapsed
+		return &b.aoeInfo
 	case StateWindupBetween:
-		return &bosses.AOEInfo{
-			Position:    b.aoePosition,
-			Radius:      b.aoeRadius,
-			IsTelegraph: true,
-			IsDamaging:  false,
-			StateTimer:  DoubleSlamPause - elapsed,
-		}
+		b.aoeInfo.Position = b.aoePosition
+		b.aoeInfo.Radius = b.aoeRadius
+		b.aoeInfo.IsTelegraph = true
+		b.aoeInfo.IsDamaging = false
+		b.aoeInfo.StateTimer = DoubleSlamPause - elapsed
+		return &b.aoeInfo
 	case StateSlam:
-		return &bosses.AOEInfo{
-			Position:    b.aoePosition,
-			Radius:      b.aoeRadius,
-			IsTelegraph: false,
-			IsDamaging:  true,
-			StateTimer:  SlamDuration - elapsed,
-		}
+		b.aoeInfo.Position = b.aoePosition
+		b.aoeInfo.Radius = b.aoeRadius
+		b.aoeInfo.IsTelegraph = false
+		b.aoeInfo.IsDamaging = true
+		b.aoeInfo.StateTimer = SlamDuration - elapsed
+		return &b.aoeInfo
 	default:
 		return nil
 	}
