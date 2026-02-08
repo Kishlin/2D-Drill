@@ -48,7 +48,7 @@ func (u *ItemShopUI) Process(player *entities.Player, inputState input.InputStat
 }
 
 func (u *ItemShopUI) tryPurchase(player *entities.Player) []effects.Effect {
-	catalogEntry := u.catalog.GetItem(u.state.SelectedIndex)
+	catalogEntry := u.catalog.GetItem(u.state.Selected)
 	if catalogEntry == nil {
 		return nil
 	}

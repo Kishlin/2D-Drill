@@ -56,11 +56,11 @@ func (u *UpgradeShopUI) Process(player *entities.Player, inputState input.InputS
 
 func (u *UpgradeShopUI) tryPurchase(player *entities.Player) []effects.Effect {
 	currentTier := player.GetUpgradeTier(u.state.ActiveTab)
-	if u.state.SelectedTier <= currentTier {
+	if u.state.Selected <= currentTier {
 		return nil
 	}
 
-	entry := u.catalog.GetEntry(u.state.ActiveTab, u.state.SelectedTier)
+	entry := u.catalog.GetEntry(u.state.ActiveTab, u.state.Selected)
 	if entry == nil || player.CanAfford(entry.Price) == false {
 		return nil
 	}

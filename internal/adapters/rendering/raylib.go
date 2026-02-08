@@ -495,7 +495,7 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 		cellX := gridStartX + float32(col)*(cellSize+cellGap)
 		cellY := gridStartY + float32(row)*(cellSize+cellGap)
 
-		isSelected := uiState.SelectedTier == tier
+		isSelected := uiState.Selected == tier
 		isOwned := tier <= currentTier
 
 		// Cell background: owned (green) or check affordability for others
@@ -576,17 +576,17 @@ func (r *RaylibRenderer) renderUpgradeShopModal(uiState *ui.UpgradeShopState, ca
 	)
 
 	// Selected upgrade details
-	selectedName := catalog.GetName(uiState.ActiveTab, uiState.SelectedTier)
+	selectedName := catalog.GetName(uiState.ActiveTab, uiState.Selected)
 	rl.DrawText(selectedName, int32(detailsX)+10, int32(detailsY)+10, 24, rl.White)
 
 	// Stats based on upgrade type
 	statsY := int32(detailsY) + 45
-	r.renderUpgradeStats(catalog, uiState.ActiveTab, uiState.SelectedTier, int32(detailsX)+10, statsY)
+	r.renderUpgradeStats(catalog, uiState.ActiveTab, uiState.Selected, int32(detailsX)+10, statsY)
 
 	// Price
-	selectedPrice := catalog.GetPrice(uiState.ActiveTab, uiState.SelectedTier)
+	selectedPrice := catalog.GetPrice(uiState.ActiveTab, uiState.Selected)
 	priceText := fmt.Sprintf("Price: $%d", selectedPrice)
-	if uiState.SelectedTier <= currentTier {
+	if uiState.Selected <= currentTier {
 		priceText = "Already owned"
 	}
 	rl.DrawText(priceText, int32(detailsX)+10, int32(detailsY)+160, 20, rl.Yellow)
@@ -692,7 +692,7 @@ func (r *RaylibRenderer) renderItemShopModal(uiState *ui.ItemShopState, catalog 
 			continue
 		}
 
-		isSelected := uiState.SelectedIndex == index
+		isSelected := uiState.Selected == index
 
 		// Get item info
 		catalogEntry := catalog.GetItem(index)
@@ -768,16 +768,16 @@ func (r *RaylibRenderer) renderItemShopModal(uiState *ui.ItemShopState, catalog 
 	)
 
 	// Selected item details
-	selectedEntry := catalog.GetItem(uiState.SelectedIndex)
+	selectedEntry := catalog.GetItem(uiState.Selected)
 	if selectedEntry != nil {
-		selectedName := itemNames[uiState.SelectedIndex]
+		selectedName := itemNames[uiState.Selected]
 		rl.DrawText(selectedName, int32(detailsX)+10, int32(detailsY)+10, 24, rl.White)
 
 		// Item effect text
 		effectX := int32(detailsX) + 10
 		effectY := int32(detailsY) + 50
 		effectText := ""
-		switch uiState.SelectedIndex {
+		switch uiState.Selected {
 		case 0:
 			effectText = "Teleport to surface"
 		case 1:
