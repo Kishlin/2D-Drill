@@ -3,7 +3,7 @@
 **Date:** January 2026
 **Last updated:** February 2026
 
-This document catalogs refactoring opportunities found during a codebase audit. Items 1-5 have been completed. Items 6-8 remain open.
+This document catalogs refactoring opportunities found during a codebase audit. Items 1-6 have been completed. Items 7-8 remain open.
 
 ---
 
@@ -67,21 +67,17 @@ Changes made:
 
 ---
 
-## Remaining Opportunities
+### 6. First Frame Pattern — Done
 
-### 6. First Frame Pattern
+**Files changed:**
+- `internal/domain/ui/first_frame_tracker.go` (new) — Shared `FirstFrameTracker` struct with `IsFirstFrame`, `ClearFirstFrame`, `ResetFirstFrame`
+- `internal/domain/ui/state.go` — `MarketState`, `ModalServiceState`, and `InventoryState` embed `FirstFrameTracker`
 
-**Priority:** Low
-**Effort:** Small
-**Files:**
-- `internal/domain/ui/market.go`
-- `internal/domain/ui/modal_service.go`
-
-**Issue:** Multiple UI types use the same "skip first frame" pattern with `IsFirstFrame()` and `ClearFirstFrame()` methods.
-
-**Suggested Fix:** Extract a `FirstFrameSkipper` helper if this pattern spreads to more UI types. Currently manageable.
+Extracted a reusable `FirstFrameTracker` type that handles the "skip first frame" pattern. All three state types that used the pattern now embed it, removing 6 duplicate methods and 3 duplicate fields.
 
 ---
+
+## Remaining Opportunities
 
 ### 7. Optional Handler Nil Checks
 
@@ -120,6 +116,6 @@ func (noOpPhaseHandler) OnPhaseChange(int, phases.Config) {}
 | 3 | Panic error handling | High | Medium | Done |
 | 4 | Type assertion boilerplate | Medium | Small | Done |
 | 5 | Getter methods + Game struct cleanup | Medium | Small | Done |
-| 6 | First frame pattern | Low | Small | Open |
+| 6 | First frame pattern | Low | Small | Done |
 | 7 | Optional handler nil checks | Low | Small | Open |
 | 8 | Config validation timing | Low | Small | Open |

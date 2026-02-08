@@ -84,42 +84,34 @@ func (s *ItemShopState) NavigateRight() {
 }
 
 type MarketState struct {
-	firstFrame bool
+	FirstFrameTracker
 }
 
 func NewMarketState() *MarketState {
-	return &MarketState{firstFrame: true}
+	return &MarketState{FirstFrameTracker: NewFirstFrameTracker()}
 }
 
 func (s *MarketState) Reset() {
-	s.firstFrame = true
-}
-
-func (s *MarketState) IsFirstFrame() bool {
-	return s.firstFrame
-}
-
-func (s *MarketState) ClearFirstFrame() {
-	s.firstFrame = false
+	s.ResetFirstFrame()
 }
 
 const ModalServiceOptionCount = 4
 
 type ModalServiceState struct {
 	SelectedIndex int
-	firstFrame    bool
+	FirstFrameTracker
 }
 
 func NewModalServiceState() *ModalServiceState {
 	return &ModalServiceState{
-		SelectedIndex: 0,
-		firstFrame:    true,
+		SelectedIndex:     0,
+		FirstFrameTracker: NewFirstFrameTracker(),
 	}
 }
 
 func (s *ModalServiceState) Reset() {
 	s.SelectedIndex = 0
-	s.firstFrame = true
+	s.ResetFirstFrame()
 }
 
 func (s *ModalServiceState) NavigateUp() {
@@ -136,30 +128,14 @@ func (s *ModalServiceState) NavigateDown() {
 	}
 }
 
-func (s *ModalServiceState) IsFirstFrame() bool {
-	return s.firstFrame
-}
-
-func (s *ModalServiceState) ClearFirstFrame() {
-	s.firstFrame = false
-}
-
 type InventoryState struct {
-	firstFrame bool
+	FirstFrameTracker
 }
 
 func NewInventoryState() *InventoryState {
-	return &InventoryState{firstFrame: true}
+	return &InventoryState{FirstFrameTracker: NewFirstFrameTracker()}
 }
 
 func (s *InventoryState) Reset() {
-	s.firstFrame = true
-}
-
-func (s *InventoryState) IsFirstFrame() bool {
-	return s.firstFrame
-}
-
-func (s *InventoryState) ClearFirstFrame() {
-	s.firstFrame = false
+	s.ResetFirstFrame()
 }
