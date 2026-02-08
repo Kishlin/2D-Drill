@@ -129,7 +129,8 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 		aoeDamage:        15.0,
 	}
 
-	// Configure handlers
+	// Configure self reference for virtual dispatch and handlers
+	b.Self = b
 	b.PhaseChangeHandler = b
 	b.DamageReactionHandler = b
 
@@ -332,25 +333,6 @@ func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
 		return b.BoxSet.Hurtboxes
 	}
 	return []bosses.Hurtbox{}
-}
-
-// TakeDamageAt overrides BaseBoss to check vulnerability via GetHurtboxes
-func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32 {
-	hurtboxes := b.GetHurtboxes()
-	if len(hurtboxes) == 0 {
-		return 0
-	}
-
-	for _, hb := range hurtboxes {
-		if hb.ID == hurtboxID {
-			actual := baseDamage * hb.DamageMultiplier
-			b.Damageable.TakeDamage(actual)
-
-			b.DamageReactionHandler.OnDamageReceived(hurtboxID, actual)
-			return actual
-		}
-	}
-	return 0
 }
 
 // IsVulnerable returns true if the boss can currently take damage (for rendering)

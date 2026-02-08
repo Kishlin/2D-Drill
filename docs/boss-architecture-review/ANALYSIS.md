@@ -48,17 +48,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 2. `BaseBoss.TakeDamageAt` Bypasses Vulnerability Override
+### ~~2. `BaseBoss.TakeDamageAt` Bypasses Vulnerability Override~~ (Resolved)
 
-**Location:** `internal/domain/bosses/base_boss.go:129`
-
-**Issue:** `BaseBoss.TakeDamageAt` iterates `b.BoxSet.Hurtboxes` directly instead of calling `b.GetHurtboxes()`. Because Go embedding is not virtual dispatch, calling `TakeDamageAt` on a `BaseBoss` receiver will use the base `GetHurtboxes` even if the concrete boss overrides it.
-
-This means **any boss with conditional vulnerability must override `TakeDamageAt` entirely**, which is exactly what TestBoss does (duplicating the damage logic). This partially defeats the purpose of BaseBoss providing a default.
-
-**Suggestion:** Accept this as a Go limitation and document that `TakeDamageAt` should always be overridden alongside `GetHurtboxes`. Alternatively, store a `self Boss` reference in `BaseBoss` to enable virtual dispatch (common Go pattern for embedding).
-
-**Severity:** Medium — every boss with invulnerability phases will hit this.
+**Resolution:** `BaseBoss` now has a `Self Boss` field that enables virtual dispatch. When set, `TakeDamageAt` calls `Self.GetHurtboxes()` instead of accessing `BoxSet.Hurtboxes` directly. Concrete bosses set `b.Self = b` during construction (alongside the existing handler assignments). TestBoss's duplicated `TakeDamageAt` override was removed — the base implementation now correctly dispatches to `TestBoss.GetHurtboxes()` for phase/state-dependent vulnerability.
 
 ---
 
@@ -204,6 +196,7 @@ These issues were identified in earlier reviews and have been addressed:
 | Large Boss interface (13+ methods) | BaseBoss provides defaults |
 | No BaseBoss struct | Implemented, ~80 lines boilerplate reduction |
 | `phases.Config` is TestBoss-specific | `Config` reduced to `HPThreshold` only; boss-specific params in concrete boss |
+| `TakeDamageAt` bypasses overrides | `Self Boss` field on BaseBoss enables virtual dispatch; concrete bosses set `b.Self = b` |
 | StateBehaviors callback pattern | Removed — closures with direct field access |
 | Scattered vulnerability logic | `GetHurtboxes()` as single source of truth |
 | Hardcoded duration values | Package-level constants |
@@ -218,7 +211,7 @@ These issues were identified in earlier reviews and have been addressed:
 | # | Issue | Severity | Category |
 |---|-------|----------|----------|
 | ~~1~~ | ~~`phases.Config` is TestBoss-specific~~ | ~~Medium~~ | ~~Extensibility~~ (Resolved) |
-| 2 | `BaseBoss.TakeDamageAt` bypasses overrides | Medium | Go composition |
+| ~~2~~ | ~~`BaseBoss.TakeDamageAt` bypasses overrides~~ | ~~Medium~~ | ~~Go composition~~ (Resolved) |
 | 3 | Hardcoded projectile params in `OnPhaseChange` | Low | Data-driven |
 | 4 | `AOEAttack` component unused and untested | Low | Dead code |
 | 5 | Lava floor damage hardcoded | Low | Data-driven |

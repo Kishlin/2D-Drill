@@ -46,6 +46,11 @@ type BaseBoss struct {
 	PhaseManager  *phases.Manager
 	CurrentPlayer *entities.Player
 
+	// Self enables virtual dispatch for methods like GetHurtboxes.
+	// Set this to the concrete boss (e.g. b.Self = b) so that BaseBoss
+	// methods dispatch through the interface to the concrete implementation.
+	Self Boss
+
 	PhaseChangeHandler    PhaseChangeHandler
 	DamageReactionHandler DamageReactionHandler
 }
@@ -126,8 +131,10 @@ func (b *BaseBoss) GetHurtboxes() []Hurtbox {
 }
 
 // TakeDamageAt applies damage to the boss at a specific hurtbox.
+// When Self is set, dispatches through the interface to the concrete boss's
+// GetHurtboxes, enabling conditional vulnerability without overriding this method.
 func (b *BaseBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32 {
-	for _, hb := range b.BoxSet.Hurtboxes {
+	for _, hb := range b.Self.GetHurtboxes() {
 		if hb.ID == hurtboxID {
 			actual := baseDamage * hb.DamageMultiplier
 			b.Damageable.TakeDamage(actual)
