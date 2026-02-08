@@ -103,85 +103,44 @@ func (s *MarketState) ClearFirstFrame() {
 	s.firstFrame = false
 }
 
-const HospitalOptionCount = 4
+const ModalServiceOptionCount = 4
 
-type HospitalState struct {
+type ModalServiceState struct {
 	SelectedIndex int
 	firstFrame    bool
 }
 
-func NewHospitalState() *HospitalState {
-	return &HospitalState{
+func NewModalServiceState() *ModalServiceState {
+	return &ModalServiceState{
 		SelectedIndex: 0,
 		firstFrame:    true,
 	}
 }
 
-func (s *HospitalState) Reset() {
+func (s *ModalServiceState) Reset() {
 	s.SelectedIndex = 0
 	s.firstFrame = true
 }
 
-func (s *HospitalState) NavigateUp() {
+func (s *ModalServiceState) NavigateUp() {
 	s.SelectedIndex--
 	if s.SelectedIndex < 0 {
-		s.SelectedIndex = HospitalOptionCount - 1
+		s.SelectedIndex = ModalServiceOptionCount - 1
 	}
 }
 
-func (s *HospitalState) NavigateDown() {
+func (s *ModalServiceState) NavigateDown() {
 	s.SelectedIndex++
-	if s.SelectedIndex >= HospitalOptionCount {
+	if s.SelectedIndex >= ModalServiceOptionCount {
 		s.SelectedIndex = 0
 	}
 }
 
-func (s *HospitalState) IsFirstFrame() bool {
+func (s *ModalServiceState) IsFirstFrame() bool {
 	return s.firstFrame
 }
 
-func (s *HospitalState) ClearFirstFrame() {
-	s.firstFrame = false
-}
-
-const FuelStationOptionCount = 4
-
-type FuelStationState struct {
-	SelectedIndex int
-	firstFrame    bool
-}
-
-func NewFuelStationState() *FuelStationState {
-	return &FuelStationState{
-		SelectedIndex: 0,
-		firstFrame:    true,
-	}
-}
-
-func (s *FuelStationState) Reset() {
-	s.SelectedIndex = 0
-	s.firstFrame = true
-}
-
-func (s *FuelStationState) NavigateUp() {
-	s.SelectedIndex--
-	if s.SelectedIndex < 0 {
-		s.SelectedIndex = FuelStationOptionCount - 1
-	}
-}
-
-func (s *FuelStationState) NavigateDown() {
-	s.SelectedIndex++
-	if s.SelectedIndex >= FuelStationOptionCount {
-		s.SelectedIndex = 0
-	}
-}
-
-func (s *FuelStationState) IsFirstFrame() bool {
-	return s.firstFrame
-}
-
-func (s *FuelStationState) ClearFirstFrame() {
+func (s *ModalServiceState) ClearFirstFrame() {
 	s.firstFrame = false
 }
 

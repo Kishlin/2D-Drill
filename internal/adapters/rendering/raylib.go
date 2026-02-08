@@ -397,12 +397,12 @@ func (r *RaylibRenderer) renderUI(uiType components.InteractableType, state inte
 			r.renderMarketModal(marketUI.GetOreConfigs(), game.GetPlayer())
 		}
 	case components.InteractableHospital:
-		if s, ok := state.(*ui.HospitalState); ok {
+		if s, ok := state.(*ui.ModalServiceState); ok {
 			hospitalUI := game.GetUIManager().GetActiveUI().(*ui.HospitalUI)
 			r.renderHospitalModal(s, hospitalUI, game.GetPlayer())
 		}
 	case components.InteractableFuelStation:
-		if s, ok := state.(*ui.FuelStationState); ok {
+		if s, ok := state.(*ui.ModalServiceState); ok {
 			fuelStationUI := game.GetUIManager().GetActiveUI().(*ui.FuelStationUI)
 			r.renderFuelStationModal(s, fuelStationUI, game.GetPlayer())
 		}
@@ -925,7 +925,7 @@ func (r *RaylibRenderer) renderMarketModal(oreConfigs []config.OreConfig, player
 }
 
 // renderHospitalModal draws the hospital modal UI
-func (r *RaylibRenderer) renderHospitalModal(uiState *ui.HospitalState, hospitalUI *ui.HospitalUI, player *entities.Player) {
+func (r *RaylibRenderer) renderHospitalModal(uiState *ui.ModalServiceState, hospitalUI *ui.HospitalUI, player *entities.Player) {
 	// Modal dimensions
 	modalWidth := float32(400)
 	modalHeight := float32(350)
@@ -971,11 +971,11 @@ func (r *RaylibRenderer) renderHospitalModal(uiState *ui.HospitalState, hospital
 		rl.DrawText(fullHPText, int32(modalX)+(int32(modalWidth)-fullHPWidth)/2, int32(contentY)+60, 24, rl.Green)
 	} else {
 		// Draw 4 healing options
-		for i := 0; i < ui.HospitalOptionCount; i++ {
+		for i := 0; i < ui.ModalServiceOptionCount; i++ {
 			optionY := contentY + float32(i)*(optionHeight+optionPadding)
 			isSelected := uiState.SelectedIndex == i
 
-			healAmount := hospitalUI.GetHealAmount(i, player)
+			healAmount := hospitalUI.GetAmount(i, player)
 			cost := hospitalUI.GetCost(healAmount)
 			canAfford := player.CanAfford(cost) && healAmount > 0
 			label := hospitalUI.GetOptionLabel(i)
@@ -1056,7 +1056,7 @@ func (r *RaylibRenderer) renderHospitalModal(uiState *ui.HospitalState, hospital
 }
 
 // renderFuelStationModal draws the fuel station modal UI
-func (r *RaylibRenderer) renderFuelStationModal(uiState *ui.FuelStationState, fuelStationUI *ui.FuelStationUI, player *entities.Player) {
+func (r *RaylibRenderer) renderFuelStationModal(uiState *ui.ModalServiceState, fuelStationUI *ui.FuelStationUI, player *entities.Player) {
 	// Modal dimensions
 	modalWidth := float32(400)
 	modalHeight := float32(350)
@@ -1102,11 +1102,11 @@ func (r *RaylibRenderer) renderFuelStationModal(uiState *ui.FuelStationState, fu
 		rl.DrawText(fullTankText, int32(modalX)+(int32(modalWidth)-fullTankWidth)/2, int32(contentY)+60, 24, rl.Green)
 	} else {
 		// Draw 4 refuel options
-		for i := 0; i < ui.FuelStationOptionCount; i++ {
+		for i := 0; i < ui.ModalServiceOptionCount; i++ {
 			optionY := contentY + float32(i)*(optionHeight+optionPadding)
 			isSelected := uiState.SelectedIndex == i
 
-			fuelAmount := fuelStationUI.GetFuelAmount(i, player)
+			fuelAmount := fuelStationUI.GetAmount(i, player)
 			cost := fuelStationUI.GetCost(fuelAmount)
 			canAfford := player.CanAfford(cost) && fuelAmount > 0
 			label := fuelStationUI.GetOptionLabel(i)
