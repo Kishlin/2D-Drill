@@ -36,4 +36,7 @@ type UI interface {
 
 	// GetRenderState returns UI-specific state for rendering (nil for instant UIs)
 	GetRenderState() interface{}
+
+	// ResetState resets the UI to its initial state
+	ResetState()
 }

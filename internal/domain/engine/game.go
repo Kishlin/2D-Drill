@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Kishlin/drill-game/internal/domain/bosses"
-	_ "github.com/Kishlin/drill-game/internal/domain/boss_catalog/test_boss" // Register test_boss
 	"github.com/Kishlin/drill-game/internal/domain/components"
 	"github.com/Kishlin/drill-game/internal/domain/config"
 	"github.com/Kishlin/drill-game/internal/domain/effects"
@@ -236,28 +235,7 @@ func (g *Game) resetUIState(interactionType components.InteractableType) {
 		return
 	}
 
-	switch interactionType {
-	case components.InteractableUpgradeShop:
-		if upgradeUI, ok := registeredUI.(*ui.UpgradeShopUI); ok {
-			upgradeUI.ResetState()
-		}
-	case components.InteractableItemShop:
-		if itemUI, ok := registeredUI.(*ui.ItemShopUI); ok {
-			itemUI.ResetState()
-		}
-	case components.InteractableMarket:
-		if marketUI, ok := registeredUI.(*ui.MarketUI); ok {
-			marketUI.ResetState()
-		}
-	case components.InteractableHospital:
-		if hospitalUI, ok := registeredUI.(*ui.HospitalUI); ok {
-			hospitalUI.ResetState()
-		}
-	case components.InteractableFuelStation:
-		if fuelStationUI, ok := registeredUI.(*ui.FuelStationUI); ok {
-			fuelStationUI.ResetState()
-		}
-	}
+	registeredUI.ResetState()
 }
 
 func (g *Game) GetWorld() *world.World {
@@ -314,4 +292,3 @@ func (g *Game) IsBossFightActive() bool {
 	}
 	return g.bossFightSystem.IsBossFightActive()
 }
-
