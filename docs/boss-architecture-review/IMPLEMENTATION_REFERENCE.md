@@ -28,8 +28,7 @@ internal/domain/
 │   │   ├── projectile_attack_test.go
 │   │   └── aoe_attack.go            # AOE attack with telegraph/damage/vulnerable phases
 │   └── movement/
-│       ├── movement.go              # MovementBehavior interface
-│       ├── grounded.go              # Left-right patrol movement (implements MovementBehavior)
+│       ├── grounded.go              # Left-right patrol movement
 │       └── grounded_test.go
 ├── boss_catalog/                    # Boss implementations
 │   └── test_boss/
@@ -391,20 +390,9 @@ func (sm *StateMachine) Elapsed() float32
 
 **Location:** `internal/domain/bosses/movement/`
 
-### MovementBehavior Interface (`movement.go`)
-
-```go
-type MovementBehavior interface {
-    Update(currentPos types.Vec2, dt float32) types.Vec2
-    GetVelocity() types.Vec2
-    SetSpeed(speed float32)
-    GetSpeed() float32
-}
-```
-
 ### Grounded (`grounded.go`)
 
-Left-right patrol movement along the floor. Implements `MovementBehavior`.
+Left-right patrol movement along the floor.
 
 ```go
 type GroundedConfig struct {

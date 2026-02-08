@@ -46,8 +46,7 @@ internal/domain/
 │   │   ├── projectile_attack.go # Cooldown-based projectile volleys
 │   │   └── aoe_attack.go        # Reusable AOE attack (telegraph/damage/vulnerable)
 │   └── movement/                # Movement behaviors
-│       ├── movement.go          # MovementBehavior interface
-│       └── grounded.go          # Left-right patrol (implements MovementBehavior)
+│       └── grounded.go          # Left-right patrol movement
 ├── boss_catalog/                # Boss implementations
 │   └── test_boss/
 │       ├── boss.go              # TestBoss (embeds BaseBoss) + buildStates()

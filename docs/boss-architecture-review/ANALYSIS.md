@@ -114,13 +114,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 11. `MovementBehavior` Interface Is Not Used Polymorphically
+### ~~11. `MovementBehavior` Interface Is Not Used Polymorphically~~ (Resolved)
 
-**Location:** `internal/domain/bosses/movement/movement.go`
-
-**Issue:** The `MovementBehavior` interface exists but TestBoss uses `*movement.Grounded` directly, not the interface. No code accepts `MovementBehavior` as a parameter or field type. The interface is speculative generalization.
-
-**Severity:** Low — doesn't hurt, but premature. Will be validated when a boss needs a different movement type.
+**Resolution:** Removed the `MovementBehavior` interface and `movement.go` file per YAGNI. No code used the interface — TestBoss references `*movement.Grounded` directly. Can be recreated when a boss actually needs polymorphic movement, designed around the real use case.
 
 ---
 
@@ -160,7 +156,7 @@ These issues were identified in earlier reviews and have been addressed:
 | 8 | No boss reset mechanism | Low | Lifecycle |
 | ~~9~~ | ~~Test coverage ~25-30%~~ | ~~Medium~~ | ~~Testing~~ (Resolved) |
 | ~~10~~ | ~~`State.CanMove` purely informational~~ | ~~Low~~ | ~~API clarity~~ (Resolved) |
-| 11 | `MovementBehavior` not used polymorphically | Low | Premature abstraction |
+| ~~11~~ | ~~`MovementBehavior` not used polymorphically~~ | ~~Low~~ | ~~Premature abstraction~~ (Resolved) |
 
 ---
 
@@ -173,4 +169,4 @@ These issues were identified in earlier reviews and have been addressed:
 | +BaseBoss/Phases/Catalog | 9/10 | Boilerplate reduction, package organization |
 | Current reassessment | 8/10 | Strong with one boss; some abstractions unvalidated by a second |
 
-The previous 9/10 was fair given the trajectory of improvements. With a fresh look, the rating accounts for the fact that several design decisions (MovementBehavior, AOEAttack, CanMove) are speculative — they look right for TestBoss but haven't been stress-tested by a second boss with different needs. The true extensibility score will be known when boss #2 arrives.
+The previous 9/10 was fair given the trajectory of improvements. With a fresh look, the rating accounts for the fact that some design decisions haven't been stress-tested by a second boss with different needs. Speculative abstractions (MovementBehavior, AOEAttack, CanMove) have been removed per YAGNI and can be recreated when a real use case arises. The true extensibility score will be known when boss #2 arrives.

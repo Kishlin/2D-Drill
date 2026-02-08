@@ -27,7 +27,6 @@ internal/domain/bosses/              # Boss infrastructure
 │   ├── projectile_attack.go         # Fires projectiles at player
 │   └── aoe_attack.go                # Ground slam with telegraph
 ├── movement/                        # Reusable movement behaviors
-│   ├── movement.go                  # MovementBehavior interface
 │   └── grounded.go                  # Left-right patrol on floor
 └── statemachine/                    # Generic state machine framework
     ├── types.go                     # StateID (int), StateContext, StateResult, State
