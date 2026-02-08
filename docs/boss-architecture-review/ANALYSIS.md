@@ -42,26 +42,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ## Current Issues
 
-### 1. `phases.Config` Is TestBoss-Specific
+### ~~1. `phases.Config` Is TestBoss-Specific~~ (Resolved)
 
-**Location:** `internal/domain/bosses/phases/phase.go`
-
-**Issue:** The `Config` struct hardcodes fields for the TestBoss's specific attack types:
-
-```go
-type Config struct {
-    HPThreshold        float32
-    MovementSpeed      float32
-    ProjectileCooldown float32 // TestBoss-specific
-    AOECooldown        float32 // TestBoss-specific
-}
-```
-
-A boss with different attacks (charge, beam, summon) would need different phase parameters. Options: grow the struct for every boss type (violates separation), ignore irrelevant fields (confusing), or make phase config boss-specific.
-
-**Suggestion:** Reduce `Config` to truly universal fields (`HPThreshold`, `MovementSpeed`) and let each boss define its own phase data alongside it. Alternatively, use a `map[string]float32` or an `any` field for boss-specific parameters.
-
-**Severity:** Medium — not a problem with one boss, becomes friction with two.
+**Resolution:** `phases.Config` now contains only `HPThreshold`. Boss-specific phase parameters (movement speed, cooldowns, etc.) are stored in each boss's own `phaseConfig` struct. The `PhaseChangeHandler.OnPhaseChange` signature was simplified to `OnPhaseChange(phaseIndex int)` — each boss looks up its own config by index.
 
 ---
 
@@ -220,6 +203,7 @@ These issues were identified in earlier reviews and have been addressed:
 | String-based state IDs | `StateID int` with iota constants |
 | Large Boss interface (13+ methods) | BaseBoss provides defaults |
 | No BaseBoss struct | Implemented, ~80 lines boilerplate reduction |
+| `phases.Config` is TestBoss-specific | `Config` reduced to `HPThreshold` only; boss-specific params in concrete boss |
 | StateBehaviors callback pattern | Removed — closures with direct field access |
 | Scattered vulnerability logic | `GetHurtboxes()` as single source of truth |
 | Hardcoded duration values | Package-level constants |
@@ -233,7 +217,7 @@ These issues were identified in earlier reviews and have been addressed:
 
 | # | Issue | Severity | Category |
 |---|-------|----------|----------|
-| 1 | `phases.Config` is TestBoss-specific | Medium | Extensibility |
+| ~~1~~ | ~~`phases.Config` is TestBoss-specific~~ | ~~Medium~~ | ~~Extensibility~~ (Resolved) |
 | 2 | `BaseBoss.TakeDamageAt` bypasses overrides | Medium | Go composition |
 | 3 | Hardcoded projectile params in `OnPhaseChange` | Low | Data-driven |
 | 4 | `AOEAttack` component unused and untested | Low | Dead code |
@@ -256,4 +240,4 @@ These issues were identified in earlier reviews and have been addressed:
 | +BaseBoss/Phases/Catalog | 9/10 | Boilerplate reduction, package organization |
 | Current reassessment | 8/10 | Strong with one boss; some abstractions unvalidated by a second |
 
-The previous 9/10 was fair given the trajectory of improvements. With a fresh look, the rating accounts for the fact that several design decisions (phases.Config, MovementBehavior, AOEAttack, CanMove) are speculative — they look right for TestBoss but haven't been stress-tested by a second boss with different needs. The true extensibility score will be known when boss #2 arrives.
+The previous 9/10 was fair given the trajectory of improvements. With a fresh look, the rating accounts for the fact that several design decisions (MovementBehavior, AOEAttack, CanMove) are speculative — they look right for TestBoss but haven't been stress-tested by a second boss with different needs. The true extensibility score will be known when boss #2 arrives.

@@ -11,7 +11,7 @@ import (
 
 // PhaseChangeHandler is called when the boss transitions to a new phase
 type PhaseChangeHandler interface {
-	OnPhaseChange(phaseIndex int, config phases.Config)
+	OnPhaseChange(phaseIndex int)
 }
 
 // DamageReactionHandler is called when the boss receives damage
@@ -21,7 +21,7 @@ type DamageReactionHandler interface {
 
 type noOpPhaseChangeHandler struct{}
 
-func (noOpPhaseChangeHandler) OnPhaseChange(int, phases.Config) {}
+func (noOpPhaseChangeHandler) OnPhaseChange(int) {}
 
 type noOpDamageReactionHandler struct{}
 
@@ -152,8 +152,7 @@ func (b *BaseBoss) BaseUpdate(player *entities.Player, dt float32) []projectiles
 	// Check for phase transitions
 	if b.PhaseManager.Update(b.Damageable.HP) {
 		phaseIndex := b.PhaseManager.GetCurrentPhase()
-		config := b.PhaseManager.GetCurrentConfig()
-		b.PhaseChangeHandler.OnPhaseChange(phaseIndex, config)
+		b.PhaseChangeHandler.OnPhaseChange(phaseIndex)
 	}
 
 	// Update state machine

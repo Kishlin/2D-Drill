@@ -98,7 +98,7 @@ type BaseBoss struct {
 
 // Handler interfaces
 type PhaseChangeHandler interface {
-    OnPhaseChange(phaseIndex int, config phases.Config)
+    OnPhaseChange(phaseIndex int)
 }
 
 type DamageReactionHandler interface {
@@ -317,10 +317,7 @@ func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 ```go
 // phases/phase.go
 type Config struct {
-    HPThreshold        float32  // Phase ends when HP% drops below this
-    MovementSpeed      float32
-    ProjectileCooldown float32
-    AOECooldown        float32  // 0 = disabled
+    HPThreshold float32  // Phase ends when HP% drops below this
 }
 
 type Manager struct {
@@ -333,7 +330,7 @@ func (pm *Manager) GetCurrentPhase() int           // 0-indexed
 func (pm *Manager) GetCurrentConfig() Config
 ```
 
-**Note:** Vulnerability is boss-specific logic, not part of `phases.Config`. Each boss decides its own vulnerability rules based on phase index and state.
+**Note:** `phases.Config` only contains the HP threshold. Boss-specific phase parameters (speeds, cooldowns, etc.) are stored in the concrete boss's own phase configuration struct. Vulnerability is also boss-specific logic — each boss decides its own vulnerability rules based on phase index and state.
 
 ### TestBoss Phases
 
@@ -527,9 +524,21 @@ func init() {
     })
 }
 
-var phaseConfigs = []phases.Config{
-    {HPThreshold: 0.5, MovementSpeed: 100, ProjectileCooldown: 2.0, AOECooldown: 5.0},
-    {HPThreshold: 0.0, MovementSpeed: 150, ProjectileCooldown: 1.0, AOECooldown: 3.0},
+// HP thresholds for the phase manager (generic infrastructure)
+var phaseThresholds = []phases.Config{
+    {HPThreshold: 0.5},
+    {HPThreshold: 0.0},
+}
+
+// Boss-specific parameters per phase
+type myBossPhaseConfig struct {
+    MovementSpeed      float32
+    ProjectileCooldown float32
+}
+
+var myBossPhaseConfigs = []myBossPhaseConfig{
+    {MovementSpeed: 100, ProjectileCooldown: 2.0},
+    {MovementSpeed: 150, ProjectileCooldown: 1.0},
 }
 
 type MyBoss struct {
@@ -548,7 +557,7 @@ func New(roomStartY, worldWidth float32) *MyBoss {
             DamagePerSec:     20.0,
             DamageMultiplier: 1.0,
         }),
-        Phases: phaseConfigs,
+        Phases: phaseThresholds,
     })
 
     b := &MyBoss{BaseBoss: baseBoss}
@@ -561,7 +570,7 @@ func New(roomStartY, worldWidth float32) *MyBoss {
 }
 
 // Implement handlers (only needed if handlers are set above)
-func (b *MyBoss) OnPhaseChange(phaseIndex int, cfg phases.Config) { ... }
+func (b *MyBoss) OnPhaseChange(phaseIndex int) { ... }
 func (b *MyBoss) OnDamageReceived(hurtboxID string, damage float32) { ... }
 
 // Override for custom vulnerability

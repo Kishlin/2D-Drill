@@ -1,11 +1,10 @@
 package phases
 
-// Config defines a boss phase
+// Config defines a boss phase with only the universal threshold.
+// Boss-specific parameters (speeds, cooldowns, etc.) should be stored
+// in the concrete boss's own phase configuration.
 type Config struct {
-	HPThreshold        float32 // Percentage of HP where this phase ends (e.g., 0.66 = 66%)
-	MovementSpeed      float32 // Movement speed in this phase
-	ProjectileCooldown float32 // Time between projectile attacks
-	AOECooldown        float32 // Time between AOE attacks (0 = disabled)
+	HPThreshold float32 // Percentage of HP where this phase ends (e.g., 0.66 = 66%)
 }
 
 // Manager tracks boss phases based on HP

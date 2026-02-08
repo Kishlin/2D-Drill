@@ -71,20 +71,20 @@ func TestManager_NoChangeAboveThreshold(t *testing.T) {
 
 func TestManager_GetCurrentConfig(t *testing.T) {
 	p := []Config{
-		{HPThreshold: 0.66, MovementSpeed: 80.0},
-		{HPThreshold: 0.33, MovementSpeed: 100.0},
+		{HPThreshold: 0.66},
+		{HPThreshold: 0.33},
 	}
 	pm := NewManager(100.0, p)
 
 	cfg := pm.GetCurrentConfig()
-	if cfg.MovementSpeed != 80.0 {
-		t.Errorf("expected speed 80, got %f", cfg.MovementSpeed)
+	if cfg.HPThreshold != 0.66 {
+		t.Errorf("expected threshold 0.66, got %f", cfg.HPThreshold)
 	}
 
 	pm.Update(50.0) // Transition to phase 1
 
 	cfg = pm.GetCurrentConfig()
-	if cfg.MovementSpeed != 100.0 {
-		t.Errorf("expected speed 100, got %f", cfg.MovementSpeed)
+	if cfg.HPThreshold != 0.33 {
+		t.Errorf("expected threshold 0.33, got %f", cfg.HPThreshold)
 	}
 }

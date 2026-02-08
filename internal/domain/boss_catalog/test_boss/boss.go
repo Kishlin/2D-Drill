@@ -13,6 +13,13 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
+// phaseConfig holds TestBoss-specific parameters that vary per phase.
+type phaseConfig struct {
+	MovementSpeed      float32
+	ProjectileCooldown float32
+	AOECooldown        float32
+}
+
 func init() {
 	bosses.Register("test_boss", func(roomStartY, worldWidth float32) bosses.Boss {
 		return New(roomStartY, worldWidth)
@@ -36,29 +43,21 @@ const (
 	Phase3VulnerableDuration = 2.0
 )
 
-// Phase configurations
-var phaseConfigs = []phases.Config{
-	// Phase 1: 100% - 66% HP
-	{
-		HPThreshold:        0.66,
-		MovementSpeed:      BaseSpeed,
-		ProjectileCooldown: 3.0,
-		AOECooldown:        0, // No AOE in phase 1
-	},
-	// Phase 2: 66% - 33% HP
-	{
-		HPThreshold:        0.33,
-		MovementSpeed:      BaseSpeed * 1.25,
-		ProjectileCooldown: 2.0,
-		AOECooldown:        6.0,
-	},
-	// Phase 3: 33% - 0% HP
-	{
-		HPThreshold:        0.0,
-		MovementSpeed:      BaseSpeed * 1.5,
-		ProjectileCooldown: 1.0,
-		AOECooldown:        4.0,
-	},
+// HP thresholds for the phase manager (generic infrastructure)
+var phaseThresholds = []phases.Config{
+	{HPThreshold: 0.66}, // Phase 1: 100% - 66% HP
+	{HPThreshold: 0.33}, // Phase 2: 66% - 33% HP
+	{HPThreshold: 0.0},  // Phase 3: 33% - 0% HP
+}
+
+// Boss-specific parameters per phase
+var phaseConfigs = []phaseConfig{
+	// Phase 1
+	{MovementSpeed: BaseSpeed, ProjectileCooldown: 3.0, AOECooldown: 0},
+	// Phase 2
+	{MovementSpeed: BaseSpeed * 1.25, ProjectileCooldown: 2.0, AOECooldown: 6.0},
+	// Phase 3
+	{MovementSpeed: BaseSpeed * 1.5, ProjectileCooldown: 1.0, AOECooldown: 4.0},
 }
 
 type TestBoss struct {
@@ -114,7 +113,7 @@ func New(roomStartY, worldWidth float32) *TestBoss {
 			DamagePerSec:     ContactDamage,
 			DamageMultiplier: 1.0,
 		}),
-		Phases: phaseConfigs,
+		Phases: phaseThresholds,
 	})
 
 	b := &TestBoss{
@@ -153,13 +152,15 @@ func (b *TestBoss) vulnerableDuration() float32 {
 }
 
 // OnPhaseChange implements PhaseChangeHandler
-func (b *TestBoss) OnPhaseChange(phaseIndex int, phaseCfg phases.Config) {
+func (b *TestBoss) OnPhaseChange(phaseIndex int) {
+	cfg := phaseConfigs[phaseIndex]
+
 	// Update movement speed
-	b.movement.SetSpeed(phaseCfg.MovementSpeed)
+	b.movement.SetSpeed(cfg.MovementSpeed)
 
 	// Update projectile cooldown
 	b.projectileAttack = attacks.NewProjectileAttack(attacks.ProjectileAttackConfig{
-		Cooldown:        phaseCfg.ProjectileCooldown,
+		Cooldown:        cfg.ProjectileCooldown,
 		ProjectileCount: 3,
 		ProjectileSpeed: 200.0,
 		ProjectileSize:  16.0,
@@ -168,7 +169,7 @@ func (b *TestBoss) OnPhaseChange(phaseIndex int, phaseCfg phases.Config) {
 
 	// Reset slam cooldown for new phase
 	if b.StateMachine.CurrentState() == StatePatrol {
-		b.aoeCooldown = phaseCfg.AOECooldown
+		b.aoeCooldown = cfg.AOECooldown
 	}
 }
 
@@ -262,7 +263,7 @@ func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 				return statemachine.StateResult{NextState: statemachine.StateIDNone}
 			},
 			OnExit: func(ctx *statemachine.StateContext) {
-				b.aoeCooldown = b.PhaseManager.GetCurrentConfig().AOECooldown
+				b.aoeCooldown = b.currentPhaseConfig().AOECooldown
 			},
 		},
 	}
@@ -277,9 +278,14 @@ func (b *TestBoss) updateProjectileAttack(dt float32) []projectiles.SpawnRequest
 	return b.projectileAttack.Update(bossAABB, b.CurrentPlayer.AABB, dt)
 }
 
+// currentPhaseConfig returns the boss-specific config for the current phase
+func (b *TestBoss) currentPhaseConfig() phaseConfig {
+	return phaseConfigs[b.PhaseManager.GetCurrentPhase()]
+}
+
 // hasAOEAttack returns true if the current phase has AOE attacks
 func (b *TestBoss) hasAOEAttack() bool {
-	return b.PhaseManager.GetCurrentConfig().AOECooldown > 0
+	return b.currentPhaseConfig().AOECooldown > 0
 }
 
 // determineMaxSlams sets up the slam sequence for this attack

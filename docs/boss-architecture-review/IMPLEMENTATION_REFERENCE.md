@@ -138,7 +138,7 @@ Embeddable struct that provides default implementations for most Boss interface 
 ```go
 // PhaseChangeHandler is called when the boss transitions to a new phase
 type PhaseChangeHandler interface {
-    OnPhaseChange(phaseIndex int, config phases.Config)
+    OnPhaseChange(phaseIndex int)
 }
 
 // DamageReactionHandler is called when the boss receives damage
@@ -153,7 +153,7 @@ Handlers default to no-ops so concrete bosses only override what they need:
 
 ```go
 type noOpPhaseChangeHandler struct{}
-func (noOpPhaseChangeHandler) OnPhaseChange(int, phases.Config) {}
+func (noOpPhaseChangeHandler) OnPhaseChange(int) {}
 
 type noOpDamageReactionHandler struct{}
 func (noOpDamageReactionHandler) OnDamageReceived(string, float32) {}
@@ -322,14 +322,11 @@ func NewBodyBoxSet(cfg BodyBoxConfig) *BoxSet
 
 ```go
 type Config struct {
-    HPThreshold        float32 // % HP where phase ends (0.66 = 66%)
-    MovementSpeed      float32 // Speed in this phase
-    ProjectileCooldown float32 // Time between projectile attacks
-    AOECooldown        float32 // Time between AOE attacks (0 = disabled)
+    HPThreshold float32 // % HP where phase ends (0.66 = 66%)
 }
 ```
 
-**Note:** Vulnerability is boss-specific logic, not part of Config. Each boss decides its own vulnerability rules based on phase index and state.
+**Note:** `Config` contains only the HP threshold. Boss-specific phase parameters (speeds, cooldowns, etc.) are stored in the concrete boss's own phase configuration struct. Vulnerability is also boss-specific logic — each boss decides its own vulnerability rules based on phase index and state.
 
 ### phases.Manager
 
@@ -559,13 +556,24 @@ const (
     Phase3VulnerableDuration = 2.0
 )
 
-var phaseConfigs = []phases.Config{
-    // Phase 1: 100% - 66% HP
-    {HPThreshold: 0.66, MovementSpeed: BaseSpeed, ProjectileCooldown: 3.0, AOECooldown: 0},
-    // Phase 2: 66% - 33% HP
-    {HPThreshold: 0.33, MovementSpeed: BaseSpeed * 1.25, ProjectileCooldown: 2.0, AOECooldown: 6.0},
-    // Phase 3: 33% - 0% HP
-    {HPThreshold: 0.0, MovementSpeed: BaseSpeed * 1.5, ProjectileCooldown: 1.0, AOECooldown: 4.0},
+// HP thresholds for the phase manager (generic infrastructure)
+var phaseThresholds = []phases.Config{
+    {HPThreshold: 0.66}, // Phase 1: 100% - 66% HP
+    {HPThreshold: 0.33}, // Phase 2: 66% - 33% HP
+    {HPThreshold: 0.0},  // Phase 3: 33% - 0% HP
+}
+
+// Boss-specific parameters per phase
+type phaseConfig struct {
+    MovementSpeed      float32
+    ProjectileCooldown float32
+    AOECooldown        float32
+}
+
+var phaseConfigs = []phaseConfig{
+    {MovementSpeed: BaseSpeed, ProjectileCooldown: 3.0, AOECooldown: 0},
+    {MovementSpeed: BaseSpeed * 1.25, ProjectileCooldown: 2.0, AOECooldown: 6.0},
+    {MovementSpeed: BaseSpeed * 1.5, ProjectileCooldown: 1.0, AOECooldown: 4.0},
 }
 ```
 
@@ -607,8 +615,9 @@ const (
 
 ```go
 // OnPhaseChange implements PhaseChangeHandler
-func (b *TestBoss) OnPhaseChange(phaseIndex int, phaseCfg phases.Config) {
-    b.movement.SetSpeed(phaseCfg.MovementSpeed)
+func (b *TestBoss) OnPhaseChange(phaseIndex int) {
+    cfg := phaseConfigs[phaseIndex]
+    b.movement.SetSpeed(cfg.MovementSpeed)
     // Update projectile attack cooldown
     // Reset slam cooldown if in patrol state
 }
@@ -765,7 +774,12 @@ func (s *BossFightSystem) IsBossFightActive() bool             // Delegates to b
        // timing constants...
    )
 
-   var phaseConfigs = []phases.Config{...}
+   // HP thresholds for the phase manager
+   var phaseThresholds = []phases.Config{...}
+
+   // Boss-specific parameters per phase
+   type myBossPhaseConfig struct { ... }
+   var myBossPhaseConfigs = []myBossPhaseConfig{...}
    ```
 
 3. **Create struct embedding BaseBoss:**
@@ -791,7 +805,7 @@ func (s *BossFightSystem) IsBossFightActive() bool             // Delegates to b
        Position: types.NewVec2(centerX, floorY),
        MaxHP:    MaxHP,
        BoxSet:   bosses.NewBodyBoxSet(...),
-       Phases:   phaseConfigs,
+       Phases:   phaseThresholds,
    })
 
    b := &MyBoss{BaseBoss: baseBoss, ...}
@@ -820,7 +834,7 @@ func (s *BossFightSystem) IsBossFightActive() bool             // Delegates to b
 
 7. **Implement handlers:**
    ```go
-   func (b *MyBoss) OnPhaseChange(phaseIndex int, cfg phases.Config) { ... }
+   func (b *MyBoss) OnPhaseChange(phaseIndex int) { ... }
    func (b *MyBoss) OnDamageReceived(hurtboxID string, damage float32) { ... }
    ```
 
