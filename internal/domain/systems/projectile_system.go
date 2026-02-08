@@ -14,6 +14,14 @@ type Projectile struct {
 	active   bool
 }
 
+func (p *Projectile) IsActive() bool {
+	return p.active
+}
+
+func (p *Projectile) AABB() types.AABB {
+	return p.aabb
+}
+
 // ProjectileBounds defines world bounds for culling
 type ProjectileBounds struct {
 	MinX, MaxX, MinY, MaxY float32
@@ -24,39 +32,23 @@ type CollisionTarget interface {
 	GetAABB() types.AABB
 }
 
-// ProjectileRenderData is read-only data for rendering
-type ProjectileRenderData struct {
-	AABB types.AABB
-}
-
-// ProjectileSystem manages all projectiles centrally
-type ProjectileSystem struct {
-	pool         []Projectile
-	bounds       ProjectileBounds
-	renderBuffer []ProjectileRenderData
-}
-
 const DefaultPoolSize = 64
 
-func NewProjectileSystem(bounds ProjectileBounds) *ProjectileSystem {
-	return &ProjectileSystem{
-		pool:         make([]Projectile, DefaultPoolSize),
-		bounds:       bounds,
-		renderBuffer: make([]ProjectileRenderData, 0, DefaultPoolSize),
-	}
+func NewProjectilePool() []Projectile {
+	return make([]Projectile, DefaultPoolSize)
 }
 
-// SpawnAll spawns projectiles from a slice of requests
-func (ps *ProjectileSystem) SpawnAll(requests []projectiles.SpawnRequest) {
+// SpawnProjectiles spawns projectiles from a slice of requests into the pool
+func SpawnProjectiles(pool []Projectile, requests []projectiles.SpawnRequest) {
 	for _, req := range requests {
-		ps.spawn(req)
+		spawnProjectile(pool, req)
 	}
 }
 
-func (ps *ProjectileSystem) spawn(req projectiles.SpawnRequest) bool {
-	for i := range ps.pool {
-		if ps.pool[i].active == false {
-			ps.pool[i] = Projectile{
+func spawnProjectile(pool []Projectile, req projectiles.SpawnRequest) {
+	for i := range pool {
+		if pool[i].active == false {
+			pool[i] = Projectile{
 				aabb: types.AABB{
 					X:      req.Position.X - req.Size/2,
 					Y:      req.Position.Y - req.Size/2,
@@ -67,17 +59,17 @@ func (ps *ProjectileSystem) spawn(req projectiles.SpawnRequest) bool {
 				damage:   req.Damage,
 				active:   true,
 			}
-			return true
+			return
 		}
 	}
-	return false // Pool exhausted
 }
 
-func (ps *ProjectileSystem) Update(dt float32, targets []CollisionTarget) []effects.Effect {
+// UpdateProjectiles moves, culls, and checks collisions for all active projectiles
+func UpdateProjectiles(pool []Projectile, bounds ProjectileBounds, dt float32, targets []CollisionTarget) []effects.Effect {
 	var result []effects.Effect
 
-	for i := range ps.pool {
-		p := &ps.pool[i]
+	for i := range pool {
+		p := &pool[i]
 		if p.active == false {
 			continue
 		}
@@ -88,7 +80,7 @@ func (ps *ProjectileSystem) Update(dt float32, targets []CollisionTarget) []effe
 		p.aabb.Y = newPos.Y
 
 		// Cull out-of-bounds
-		if ps.isOutOfBounds(p.aabb) {
+		if isProjectileOutOfBounds(p.aabb, bounds) {
 			p.active = false
 			continue
 		}
@@ -106,25 +98,7 @@ func (ps *ProjectileSystem) Update(dt float32, targets []CollisionTarget) []effe
 	return result
 }
 
-func (ps *ProjectileSystem) isOutOfBounds(aabb types.AABB) bool {
-	return aabb.X < ps.bounds.MinX || aabb.X > ps.bounds.MaxX ||
-		aabb.Y < ps.bounds.MinY || aabb.Y > ps.bounds.MaxY
-}
-
-func (ps *ProjectileSystem) GetActiveProjectiles() []ProjectileRenderData {
-	ps.renderBuffer = ps.renderBuffer[:0] // Reuse backing array
-	for i := range ps.pool {
-		if ps.pool[i].active {
-			ps.renderBuffer = append(ps.renderBuffer, ProjectileRenderData{
-				AABB: ps.pool[i].aabb,
-			})
-		}
-	}
-	return ps.renderBuffer
-}
-
-func (ps *ProjectileSystem) Clear() {
-	for i := range ps.pool {
-		ps.pool[i].active = false
-	}
+func isProjectileOutOfBounds(aabb types.AABB, bounds ProjectileBounds) bool {
+	return aabb.X < bounds.MinX || aabb.X > bounds.MaxX ||
+		aabb.Y < bounds.MinY || aabb.Y > bounds.MaxY
 }

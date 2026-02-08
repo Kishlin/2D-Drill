@@ -10,28 +10,41 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/entities"
 	"github.com/Kishlin/drill-game/internal/domain/input"
 	"github.com/Kishlin/drill-game/internal/domain/systems"
+	"github.com/Kishlin/drill-game/internal/domain/types"
 	"github.com/Kishlin/drill-game/internal/domain/ui"
 	"github.com/Kishlin/drill-game/internal/domain/upgrades"
 	"github.com/Kishlin/drill-game/internal/domain/world"
 )
 
 type Game struct {
-	world            *world.World
-	player           *entities.Player
-	buildings        []*entities.Building
-	upgradeCatalog   *upgrades.Catalog
-	itemCatalog      *entities.ItemCatalog
-	drillingSystem   *systems.DrillingSystem
-	projectileSystem *systems.ProjectileSystem
-	uiManager        *ui.Manager
-	inventoryUI      *ui.InventoryUI
-	effectProcessor  *effects.Processor
-	effectContext    *effects.EffectContext
-	damageables      []effects.DamageableEntity
-	boss             bosses.Boss
-	bossFightSystem  *systems.BossFightSystem
-	gameState        entities.GameState
-	config           *config.GameConfig
+	// Core state
+	World     *world.World
+	Player    *entities.Player
+	Buildings []*entities.Building
+	Boss      bosses.Boss
+	GameState entities.GameState
+
+	// UI
+	UIManager   *ui.Manager
+	InventoryUI *ui.InventoryUI
+
+	// Render data
+	Projectiles []types.AABB
+
+	// Systems
+	drillingSystem  *systems.DrillingSystem
+	bossFightSystem *systems.BossFightSystem
+
+	// Projectile internals
+	projectilePool   []systems.Projectile
+	projectileBounds systems.ProjectileBounds
+
+	// Effects
+	effectProcessor *effects.Processor
+	effectContext   *effects.EffectContext
+
+	// Config
+	config *config.GameConfig
 }
 
 func NewGame(gameCfg *config.GameConfig) (*Game, error) {
@@ -80,7 +93,6 @@ func NewGame(gameCfg *config.GameConfig) (*Game, error) {
 	inventoryUI := ui.NewInventoryUI(gameCfg.Generation.Ores)
 
 	// Create boss and boss fight system
-	var damageables []effects.DamageableEntity
 	boss, err := bosses.Create(
 		gameCfg.Level.BossRoom.BossType,
 		worldCfg.Height-gameCfg.Level.BossRoom.RoomHeight-gameCfg.Level.BossRoom.FloorHeight*world.TileSize,
@@ -90,72 +102,67 @@ func NewGame(gameCfg *config.GameConfig) (*Game, error) {
 		return nil, fmt.Errorf("failed to create boss: %w", err)
 	}
 	bossFightSystem := systems.NewBossFightSystem(boss, gameCfg.Level.BossRoom, worldCfg.Height)
-	// Add physical boss to damageables list
+
+	// Build damageables list for effect context
+	var damageables []effects.DamageableEntity
 	if physicalBoss, ok := boss.(effects.DamageableEntity); ok {
 		damageables = append(damageables, physicalBoss)
 	}
 
-	// Create effect context
 	effectContext := &effects.EffectContext{
 		Player:      player,
 		World:       w,
 		Damageables: damageables,
 	}
 
-	// Create projectile system with world bounds
-	projectileBounds := systems.ProjectileBounds{
-		MinX: -100,
-		MaxX: worldCfg.Width + 100,
-		MinY: -100,
-		MaxY: worldCfg.Height + 100,
-	}
-	projectileSystem := systems.NewProjectileSystem(projectileBounds)
-
 	return &Game{
-		world:            w,
-		player:           player,
-		buildings:        buildings,
-		upgradeCatalog:   upgradeCatalog,
-		itemCatalog:      itemCatalog,
-		drillingSystem:   systems.NewDrillingSystemWithConfig(w, gameCfg.Generation, gameCfg.Drilling),
-		projectileSystem: projectileSystem,
-		uiManager:        uiManager,
-		inventoryUI:      inventoryUI,
-		effectProcessor:  effects.NewProcessor(),
-		effectContext:    effectContext,
-		damageables:      damageables,
-		boss:             boss,
-		bossFightSystem:  bossFightSystem,
-		gameState:        entities.GameStatePlaying,
-		config:           gameCfg,
+		World:           w,
+		Player:          player,
+		Buildings:       buildings,
+		Boss:            boss,
+		GameState:       entities.GameStatePlaying,
+		UIManager:       uiManager,
+		InventoryUI:     inventoryUI,
+		drillingSystem:  systems.NewDrillingSystemWithConfig(w, gameCfg.Generation, gameCfg.Drilling),
+		bossFightSystem: bossFightSystem,
+		projectilePool:  systems.NewProjectilePool(),
+		projectileBounds: systems.ProjectileBounds{
+			MinX: -100,
+			MaxX: worldCfg.Width + 100,
+			MinY: -100,
+			MaxY: worldCfg.Height + 100,
+		},
+		effectProcessor: effects.NewProcessor(),
+		effectContext:   effectContext,
+		config:          gameCfg,
 	}, nil
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
 	// 0. Update chunks around player (proactive loading)
-	playerX := g.player.AABB.X + g.player.AABB.Width/2
-	playerY := g.player.AABB.Y + g.player.AABB.Height/2
-	g.world.UpdateChunksAroundPlayer(playerX, playerY)
+	playerX := g.Player.AABB.X + g.Player.AABB.Width/2
+	playerY := g.Player.AABB.Y + g.Player.AABB.Height/2
+	g.World.UpdateChunksAroundPlayer(playerX, playerY)
 
 	// 1a. If inventory UI is active, process it
-	if g.inventoryUI.IsActive() {
-		closed := g.inventoryUI.Process(inputState)
+	if g.InventoryUI.IsActive() {
+		closed := g.InventoryUI.Process(inputState)
 		if closed {
-			g.player.InUI = false
+			g.Player.InUI = false
 			return nil
 		}
 		return nil // Still open (modal) - pause gameplay
 	}
 
 	// 1b. If a building UI is active, process it
-	if g.uiManager.HasActiveUI() {
-		result := g.uiManager.Process(g.player, inputState)
+	if g.UIManager.HasActiveUI() {
+		result := g.UIManager.Process(g.Player, inputState)
 		g.effectProcessor.Apply(g.effectContext, result.Effects)
 
 		// If UI closed, resume gameplay but skip interaction check this frame
 		// to prevent the same key press from reopening the UI
-		if g.uiManager.HasActiveUI() == false {
-			g.player.InUI = false
+		if g.UIManager.HasActiveUI() == false {
+			g.Player.InUI = false
 			return nil
 		}
 		return nil // Still open (modal) - pause gameplay
@@ -163,24 +170,24 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 
 	// 2a. Check for inventory key press (when no UI is active)
 	if inputState.Inventory {
-		g.inventoryUI.Open()
-		g.player.InUI = true
+		g.InventoryUI.Open()
+		g.Player.InUI = true
 		return nil
 	}
 
 	// 2b. Check for new building interactions
-	if interactionType := systems.DetectInteraction(g.player, g.buildings, inputState); interactionType != nil {
+	if interactionType := systems.DetectInteraction(g.Player, g.Buildings, inputState); interactionType != nil {
 		// Reset UI state for modal UIs before opening
 		g.resetUIState(*interactionType)
 
-		if g.uiManager.OpenUI(*interactionType) {
+		if g.UIManager.OpenUI(*interactionType) {
 			// Process immediately (handles both instant and modal first frame)
-			result := g.uiManager.Process(g.player, inputState)
+			result := g.UIManager.Process(g.Player, inputState)
 			g.effectProcessor.Apply(g.effectContext, result.Effects)
 
 			// If still open after first process, it's modal - pause
-			if g.uiManager.HasActiveUI() {
-				g.player.InUI = true
+			if g.UIManager.HasActiveUI() {
+				g.Player.InUI = true
 				return nil
 			}
 			// Otherwise it was instant, continue with gameplay
@@ -188,102 +195,62 @@ func (g *Game) Update(dt float32, inputState input.InputState) error {
 	}
 
 	// 3. Heat damage - applies damage based on depth-based temperature
-	systems.UpdateHeat(g.player, g.world, dt, g.config.Heat)
+	systems.UpdateHeat(g.Player, g.World, dt, g.config.Heat)
 
 	// 4. Physics - handles landing/fall damage before drilling, prevents movement during drilling
-	systems.UpdatePhysics(g.player, g.world, inputState, dt)
+	systems.UpdatePhysics(g.Player, g.World, inputState, dt)
 
 	// 5. Fuel consumption (runs even during drilling animation to maintain resource pressure)
-	systems.ConsumeFuel(g.player, inputState, dt, g.config.Fuel)
+	systems.ConsumeFuel(g.Player, inputState, dt, g.config.Fuel)
 
 	// 6. Drilling animation (vertical + horizontal)
-	drillEffects := g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
+	drillEffects := g.drillingSystem.ProcessDrilling(g.Player, inputState, dt)
 	if len(drillEffects) > 0 {
 		g.effectProcessor.Apply(g.effectContext, drillEffects)
 	}
 
 	// Skip interactions if drilling animation is active
-	if g.player.IsDrilling {
+	if g.Player.IsDrilling {
 		return nil
 	}
 
 	// 7. Handle item usage
-	itemEffects := systems.DetectItemUsage(g.player, inputState, g.config.Items)
+	itemEffects := systems.DetectItemUsage(g.Player, inputState, g.config.Items)
 	if len(itemEffects) > 0 {
 		g.effectProcessor.Apply(g.effectContext, itemEffects)
 	}
 
 	// 8. Update boss fight system - returns spawn requests
 	if g.bossFightSystem != nil {
-		result := g.bossFightSystem.Update(g.player, dt)
-		g.gameState = result.GameState
-		g.projectileSystem.SpawnAll(result.SpawnRequests)
+		result := g.bossFightSystem.Update(g.Player, dt)
+		g.GameState = result.GameState
+		systems.SpawnProjectiles(g.projectilePool, result.SpawnRequests)
 	}
 
 	// 9. Update projectile system (moves, culls, detects collisions)
-	projectileEffects := g.projectileSystem.Update(dt, []systems.CollisionTarget{g.player})
+	projectileEffects := systems.UpdateProjectiles(g.projectilePool, g.projectileBounds, dt, []systems.CollisionTarget{g.Player})
 	if len(projectileEffects) > 0 {
 		g.effectProcessor.Apply(g.effectContext, projectileEffects)
+	}
+
+	// 10. Collect active projectile positions for rendering
+	g.Projectiles = g.Projectiles[:0]
+	for i := range g.projectilePool {
+		if g.projectilePool[i].IsActive() {
+			g.Projectiles = append(g.Projectiles, g.projectilePool[i].AABB())
+		}
 	}
 
 	return nil
 }
 
 func (g *Game) resetUIState(interactionType components.InteractableType) {
-	registeredUI := g.uiManager.GetRegisteredUI(interactionType)
+	registeredUI := g.UIManager.GetRegisteredUI(interactionType)
 	if registeredUI == nil {
 		return
 	}
 
 	registeredUI.ResetState()
-}
-
-func (g *Game) GetWorld() *world.World {
-	return g.world
-}
-
-func (g *Game) GetPlayer() *entities.Player {
-	return g.player
-}
-
-func (g *Game) GetBuildings() []*entities.Building {
-	return g.buildings
-}
-
-func (g *Game) GetUpgradeCatalog() *upgrades.Catalog {
-	return g.upgradeCatalog
-}
-
-func (g *Game) GetItemCatalog() *entities.ItemCatalog {
-	return g.itemCatalog
-}
-
-func (g *Game) GetUIManager() *ui.Manager {
-	return g.uiManager
-}
-
-func (g *Game) GetInventoryUI() *ui.InventoryUI {
-	return g.inventoryUI
-}
-
-func (g *Game) GetConfig() *config.GameConfig {
-	return g.config
-}
-
-func (g *Game) GetBoss() bosses.Boss {
-	return g.boss
-}
-
-func (g *Game) GetBossFightSystem() *systems.BossFightSystem {
-	return g.bossFightSystem
-}
-
-func (g *Game) GetProjectileSystem() *systems.ProjectileSystem {
-	return g.projectileSystem
-}
-
-func (g *Game) GetGameState() entities.GameState {
-	return g.gameState
 }
 
 func (g *Game) IsBossFightActive() bool {

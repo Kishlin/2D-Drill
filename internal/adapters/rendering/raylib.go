@@ -115,7 +115,7 @@ func (r *RaylibRenderer) updateCamera(player *entities.Player, w *world.World) {
 
 func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) {
 	// Update camera position before rendering
-	r.updateCamera(game.GetPlayer(), game.GetWorld())
+	r.updateCamera(game.Player, game.World)
 
 	rl.BeginDrawing()
 	rl.ClearBackground(rl.RayWhite)
@@ -123,19 +123,19 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	// === WORLD SPACE (camera transform applied) ===
 	rl.BeginMode2D(r.camera)
 
-	r.renderWorld(game.GetWorld())
-	r.renderTiles(game.GetWorld())
+	r.renderWorld(game.World)
+	r.renderTiles(game.World)
 
 	// Render buildings
-	for _, building := range game.GetBuildings() {
+	for _, building := range game.Buildings {
 		r.renderBuilding(building)
 	}
 
-	r.renderPlayer(game.GetPlayer())
+	r.renderPlayer(game.Player)
 
 	// Boss rendering
-	if game.GetBoss() != nil {
-		r.renderBoss(game.GetBoss())
+	if game.Boss != nil {
+		r.renderBoss(game.Boss)
 	}
 
 	// Projectile rendering (from central system)
@@ -144,26 +144,26 @@ func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) 
 	rl.EndMode2D()
 
 	// === SCREEN SPACE (no camera, always visible) ===
-	r.renderDebugInfo(game.GetPlayer(), game.GetWorld(), inputState)
+	r.renderDebugInfo(game.Player, game.World, inputState)
 
 	// Boss HP bar
-	if game.GetBoss() != nil {
-		r.renderBossHPBar(game.GetBoss())
+	if game.Boss != nil {
+		r.renderBossHPBar(game.Boss)
 	}
 
 	// Game state overlay (victory/defeat screens)
 	r.renderGameStateOverlay(game)
 
 	// Render inventory UI if active
-	if game.GetInventoryUI().IsActive() {
-		r.renderInventoryModal(game.GetInventoryUI(), game)
+	if game.InventoryUI.IsActive() {
+		r.renderInventoryModal(game.InventoryUI, game)
 	}
 
 	// Render active building UI if it has render state (modal UIs only)
-	if game.GetUIManager().HasActiveUI() {
-		activeUI := game.GetUIManager().GetActiveUI()
+	if game.UIManager.HasActiveUI() {
+		activeUI := game.UIManager.GetActiveUI()
 		if state := activeUI.GetRenderState(); state != nil {
-			r.renderUI(game.GetUIManager().GetActiveType(), state, game)
+			r.renderUI(game.UIManager.GetActiveType(), state, game)
 		}
 	}
 
@@ -383,28 +383,28 @@ func (r *RaylibRenderer) renderUI(uiType components.InteractableType, state inte
 	switch uiType {
 	case components.InteractableUpgradeShop:
 		if s, ok := state.(*ui.UpgradeShopState); ok {
-			upgradeUI := game.GetUIManager().GetActiveUI().(*ui.UpgradeShopUI)
-			r.renderUpgradeShopModal(s, upgradeUI.GetCatalog(), game.GetPlayer())
+			upgradeUI := game.UIManager.GetActiveUI().(*ui.UpgradeShopUI)
+			r.renderUpgradeShopModal(s, upgradeUI.GetCatalog(), game.Player)
 		}
 	case components.InteractableItemShop:
 		if s, ok := state.(*ui.ItemShopState); ok {
-			itemUI := game.GetUIManager().GetActiveUI().(*ui.ItemShopUI)
-			r.renderItemShopModal(s, itemUI.GetCatalog(), game.GetPlayer())
+			itemUI := game.UIManager.GetActiveUI().(*ui.ItemShopUI)
+			r.renderItemShopModal(s, itemUI.GetCatalog(), game.Player)
 		}
 	case components.InteractableMarket:
 		if _, ok := state.(*ui.MarketState); ok {
-			marketUI := game.GetUIManager().GetActiveUI().(*ui.MarketUI)
-			r.renderMarketModal(marketUI.GetOreConfigs(), game.GetPlayer())
+			marketUI := game.UIManager.GetActiveUI().(*ui.MarketUI)
+			r.renderMarketModal(marketUI.GetOreConfigs(), game.Player)
 		}
 	case components.InteractableHospital:
 		if s, ok := state.(*ui.ModalServiceState); ok {
-			hospitalUI := game.GetUIManager().GetActiveUI().(*ui.HospitalUI)
-			r.renderHospitalModal(s, hospitalUI, game.GetPlayer())
+			hospitalUI := game.UIManager.GetActiveUI().(*ui.HospitalUI)
+			r.renderHospitalModal(s, hospitalUI, game.Player)
 		}
 	case components.InteractableFuelStation:
 		if s, ok := state.(*ui.ModalServiceState); ok {
-			fuelStationUI := game.GetUIManager().GetActiveUI().(*ui.FuelStationUI)
-			r.renderFuelStationModal(s, fuelStationUI, game.GetPlayer())
+			fuelStationUI := game.UIManager.GetActiveUI().(*ui.FuelStationUI)
+			r.renderFuelStationModal(s, fuelStationUI, game.Player)
 		}
 	}
 }
@@ -1263,21 +1263,14 @@ func (r *RaylibRenderer) renderBossHPBar(boss bosses.Boss) {
 
 // renderProjectiles renders projectiles from the central system
 func (r *RaylibRenderer) renderProjectiles(game *engine.Game) {
-	projSystem := game.GetProjectileSystem()
-	if projSystem == nil {
-		return
-	}
-
-	projectiles := projSystem.GetActiveProjectiles()
-	for _, proj := range projectiles {
-		// Draw projectile as small circle
-		centerX := proj.AABB.X + proj.AABB.Width/2
-		centerY := proj.AABB.Y + proj.AABB.Height/2
+	for _, aabb := range game.Projectiles {
+		centerX := aabb.X + aabb.Width/2
+		centerY := aabb.Y + aabb.Height/2
 
 		rl.DrawCircle(
 			int32(centerX),
 			int32(centerY),
-			proj.AABB.Width/2,
+			aabb.Width/2,
 			rl.Yellow,
 		)
 	}
@@ -1285,7 +1278,7 @@ func (r *RaylibRenderer) renderProjectiles(game *engine.Game) {
 
 // renderGameStateOverlay renders victory/defeat screens
 func (r *RaylibRenderer) renderGameStateOverlay(game *engine.Game) {
-	state := game.GetGameState()
+	state := game.GameState
 
 	switch state {
 	case entities.GameStateVictory:
@@ -1351,7 +1344,7 @@ func (r *RaylibRenderer) renderDefeatScreen() {
 
 // renderInventoryModal draws the inventory modal UI
 func (r *RaylibRenderer) renderInventoryModal(inventoryUI *ui.InventoryUI, game *engine.Game) {
-	player := game.GetPlayer()
+	player := game.Player
 
 	// Modal dimensions
 	modalWidth := float32(600)
