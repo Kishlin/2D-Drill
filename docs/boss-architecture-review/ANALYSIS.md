@@ -92,26 +92,19 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 9. Test Coverage Is Low (~25-30%)
+### ~~9. Test Coverage Is Low (~25-30%)~~ (Resolved)
 
-**Issue:** The tested components (phase manager, state machine, projectile attack, grounded movement) have reasonable happy-path coverage. But the core infrastructure and the only concrete boss have zero tests:
+**Resolution:** All boss-related packages now have test coverage. The previously untested components (`BaseBoss`, `boxes`, `registry`, `BossFightSystem`, `TestBoss`) all have dedicated test files. Current coverage:
 
 | Component | Coverage |
 |-----------|----------|
-| `phases/` | ~70% (happy path) |
-| `statemachine/` | ~75% (happy path) |
-| `attacks/projectile_attack` | ~60% |
-| `movement/grounded` | ~70% |
-| `base_boss` | 0% |
-| `boxes` | 0% |
-| `registry` | 0% |
-| `boss_fight` (system) | 0% |
-| `test_boss` | 0% |
-| ~~`aoe_attack`~~ | ~~0%~~ (Removed) |
-
-The untested code includes `BaseBoss` (foundation for all bosses), `BossFightSystem` (game state transitions), and `TestBoss` (the only integration of all components).
-
-**Severity:** Medium — the code works in-game, but regression risk is high when adding a second boss.
+| `bosses/` (base_boss, boxes, registry) | 90.3% |
+| `attacks/` | 97.1% |
+| `movement/` | 100.0% |
+| `statemachine/` | 96.2% |
+| `phases/` | 84.6% |
+| `test_boss` | 77.4% |
+| `systems/` (boss_fight) | 66.3% |
 
 ---
 
@@ -171,7 +164,7 @@ These issues were identified in earlier reviews and have been addressed:
 | ~~6~~ | ~~`GetAOEInfo` allocates per frame~~ | ~~Low~~ | ~~Allocation~~ (Resolved) |
 | ~~7~~ | ~~Boss update called when inactive~~ | ~~Low~~ | ~~Layering~~ (Resolved) |
 | 8 | No boss reset mechanism | Low | Lifecycle |
-| 9 | Test coverage ~25-30% | Medium | Testing |
+| ~~9~~ | ~~Test coverage ~25-30%~~ | ~~Medium~~ | ~~Testing~~ (Resolved) |
 | 10 | `State.CanMove` purely informational | Low | API clarity |
 | 11 | `MovementBehavior` not used polymorphically | Low | Premature abstraction |
 
