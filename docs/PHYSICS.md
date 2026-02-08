@@ -282,10 +282,10 @@ func (a AABB) Penetration(b AABB) (dx, dy float32) {
 Players cannot leave the game area:
 
 ```go
-func (ps *PhysicsSystem) constrainPlayerToWorldBounds(player *entities.Player) {
+func constrainPlayerToWorldBounds(player *entities.Player, world *world.World) {
     // Horizontal bounds
     minX := float32(0.0)
-    maxX := ps.world.Width - float32(entities.PlayerWidth)
+    maxX := world.Width - float32(entities.PlayerWidth)
 
     if player.AABB.X < minX {
         player.AABB.X = minX
@@ -492,20 +492,20 @@ func (r *RaylibRenderer) renderTiles(w *world.World) {
 
 ```go
 func (r *RaylibRenderer) Render(game *engine.Game, inputState input.InputState) {
-    r.updateCamera(game.GetPlayer(), game.GetWorld())
+    r.updateCamera(game.Player, game.World)
 
     rl.BeginDrawing()
     rl.ClearBackground(rl.RayWhite)
 
     // World space rendering (camera applied)
     rl.BeginMode2D(r.camera)
-    r.renderWorld(game.GetWorld())
-    r.renderTiles(game.GetWorld())
-    r.renderPlayer(game.GetPlayer())
+    r.renderWorld(game.World)
+    r.renderTiles(game.World)
+    r.renderPlayer(game.Player)
     rl.EndMode2D()
 
     // Screen space rendering (UI, always visible)
-    r.renderDebugInfo(game.GetPlayer(), inputState)
+    r.renderDebugInfo(game.Player, inputState)
 
     rl.EndDrawing()
 }

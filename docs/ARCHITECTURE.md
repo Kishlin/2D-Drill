@@ -64,7 +64,11 @@ func main() {
     renderer.InitWindow(screenWidth, screenHeight, "Drill Game")
     defer renderer.CloseWindow()
 
-    game := engine.NewGame(gameCfg)
+    game, err := engine.NewGame(gameCfg)
+    if err != nil {
+        slog.Error("Failed to create game", "error", err)
+        return
+    }
 
     for renderer.WindowShouldClose() == false {
         dt := renderer.GetFrameTime()
@@ -94,8 +98,8 @@ func (a *RaylibInputAdapter) ReadInput() input.InputState {
 ```go
 func (r *RaylibRenderer) Render(game *engine.Game) {
     rl.BeginDrawing()
-    r.renderWorld(game.GetWorld())
-    r.renderPlayer(game.GetPlayer())
+    r.renderWorld(game.World)
+    r.renderPlayer(game.Player)
     rl.EndDrawing()
 }
 ```
@@ -237,19 +241,25 @@ player.OnGround = true
 player.SetPosition(player.GetPosition().Add(...))
 ```
 
-### 5. Getters for External Access
+### 5. Public Fields for External Access
 
-Adapters access domain data through getters (read-only):
+Externally-accessed Game fields are public for direct access by adapters. Internal-only fields remain private:
 
 ```go
-// Domain provides getters
-func (g *Game) GetWorld() *world.World
-func (g *Game) GetPlayer() *entities.Player
+// Public fields (used by renderer/main)
+game.World       // *world.World
+game.Player      // *entities.Player
+game.Buildings   // []*entities.Building
+game.Boss        // bosses.Boss
+game.GameState   // entities.GameState
+game.UIManager   // *ui.Manager
+game.InventoryUI // *ui.InventoryUI
+game.Projectiles // []types.AABB
 
-// Adapter reads via getters
+// Adapter reads via direct field access
 func (r *RaylibRenderer) Render(game *engine.Game) {
-    world := game.GetWorld()
-    player := game.GetPlayer()
+    r.renderWorld(game.World)
+    r.renderPlayer(game.Player)
 }
 ```
 

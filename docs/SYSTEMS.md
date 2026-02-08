@@ -29,17 +29,34 @@ The `Game` struct orchestrates all systems:
 
 ```go
 type Game struct {
-    world           *world.World
-    player          *entities.Player
-    buildings       []*entities.Building
-    uiManager       *ui.Manager
+    // Core state (public — used by renderer/main)
+    World      *world.World
+    Player     *entities.Player
+    Buildings  []*entities.Building
+    Boss       bosses.Boss
+    GameState  entities.GameState
+
+    // UI (public)
+    UIManager   *ui.Manager
+    InventoryUI *ui.InventoryUI
+
+    // Render data (public — snapshot for renderer each frame)
+    Projectiles []types.AABB
+
+    // Systems (private — internal only)
+    drillingSystem  *systems.DrillingSystem
+    bossFightSystem *systems.BossFightSystem
+
+    // Projectile internals (private)
+    projectilePool   []systems.Projectile
+    projectileBounds systems.ProjectileBounds
+
+    // Effects (private)
     effectProcessor *effects.Processor
     effectContext   *effects.EffectContext
-    damageables     []effects.DamageableEntity
-    physicsSystem   *systems.PhysicsSystem
-    drillingSystem  *systems.DrillingSystem
-    fuelSystem      *systems.FuelSystem
-    bossFightSystem *systems.BossFightSystem
+
+    // Config (private)
+    config *config.GameConfig
 }
 ```
 
@@ -48,44 +65,44 @@ type Game struct {
 ```go
 func (g *Game) Update(dt float32, inputState input.InputState) error {
     // 0. Update chunks around player (proactive loading)
-    g.world.UpdateChunksAroundPlayer(playerX, playerY)
+    g.World.UpdateChunksAroundPlayer(playerX, playerY)
 
     // 1. Process active UI (modal pause if open)
-    if g.uiManager.HasActiveUI() {
-        result := g.uiManager.Process(g.player, inputState)
+    if g.UIManager.HasActiveUI() {
+        result := g.UIManager.Process(g.Player, inputState)
         g.effectProcessor.Apply(g.effectContext, result.Effects)
-        if g.uiManager.HasActiveUI() {
+        if g.UIManager.HasActiveUI() {
             return nil  // Modal UI open - pause gameplay
         }
     }
 
     // 2. Detect building interactions (E key + overlap)
     if interactionType := systems.DetectInteraction(...); interactionType != nil {
-        g.uiManager.OpenUI(*interactionType)
+        g.UIManager.OpenUI(*interactionType)
         // ... process and apply effects via effectContext
     }
 
     // 3. Physics - handles movement, collision, fall/heat damage
-    g.physicsSystem.UpdatePhysics(g.player, inputState, dt)
+    physics.UpdatePhysics(g.Player, g.World, inputState, dt, g.config)
 
     // 4. Fuel consumption (runs even during drilling)
-    g.fuelSystem.ConsumeFuel(g.player, inputState, dt)
+    systems.ConsumeFuel(g.Player, inputState, dt, g.config.Fuel)
 
     // 5. Drilling animation
-    g.drillingSystem.ProcessDrilling(g.player, inputState, dt)
-    if g.player.IsDrilling {
+    g.drillingSystem.ProcessDrilling(g.Player, inputState, dt)
+    if g.Player.IsDrilling {
         return nil  // Skip interactions during drill
     }
 
     // 6. Item usage (returns effects, applied via effectContext)
-    itemEffects := systems.DetectItemUsage(g.player, inputState, g.config.Items)
+    itemEffects := systems.DetectItemUsage(g.Player, inputState, g.config.Items)
     if len(itemEffects) > 0 {
         g.effectProcessor.Apply(g.effectContext, itemEffects)
     }
 
     // 7. Boss fight system
     if g.bossFightSystem != nil {
-        g.gameState = g.bossFightSystem.Update(g.player, dt)
+        g.GameState = g.bossFightSystem.Update(g.Player, dt)
     }
 
     return nil
@@ -326,17 +343,16 @@ if player.IsDrilling {
 
 ---
 
-## Physics System (`systems/physics.go`)
+## Physics System (`physics/`)
 
 Orchestrates pure physics functions with axis-separated collision. For collision details, see [PHYSICS.md](PHYSICS.md).
 
-```go
-type PhysicsSystem struct {
-    world *world.World
-}
+Physics is implemented as stateless package-level functions rather than a struct-based system:
 
-func (ps *PhysicsSystem) UpdatePhysics(
+```go
+func UpdatePhysics(
     player *entities.Player,
+    world *world.World,
     inputState input.InputState,
     dt float32,
 ) {
@@ -351,12 +367,12 @@ func (ps *PhysicsSystem) UpdatePhysics(
     // 2. AXIS-SEPARATED COLLISION RESOLUTION
     // X-axis: integrate → check → resolve
     player.AABB.X += player.Velocity.X * dt
-    collisionsX := physics.CheckCollisions(player.AABB, ps.world)
+    collisionsX := physics.CheckCollisions(player.AABB, world)
     player.AABB, player.Velocity = physics.ResolveCollisionsX(...)
 
     // Y-axis: integrate → check → resolve
     player.AABB.Y += player.Velocity.Y * dt
-    collisionsY := physics.CheckCollisions(player.AABB, ps.world)
+    collisionsY := physics.CheckCollisions(player.AABB, world)
 
     // Capture state for fall damage
     wasAirborne := !player.OnGround
@@ -366,11 +382,11 @@ func (ps *PhysicsSystem) UpdatePhysics(
 
     // Apply fall damage on landing transition
     if wasAirborne && player.OnGround {
-        ps.applyFallDamage(player, ySpeedBeforeLanding)
+        applyFallDamage(player, ySpeedBeforeLanding)
     }
 
     // Apply heat damage (continuous)
-    physics.ApplyHeatDamage(player, dt)
+    applyHeatDamage(player, world, dt, heatCfg)
 }
 ```
 
@@ -648,6 +664,7 @@ func CloseWithEffects(effs ...effects.Effect) Result { return Result{ShouldClose
 type UI interface {
     Process(player *entities.Player, inputState input.InputState) Result
     GetRenderState() interface{}
+    ResetState()
 }
 ```
 
@@ -667,7 +684,7 @@ func (m *Manager) HasActiveUI() bool
 func (m *Manager) GetActiveUI() UI
 ```
 
-### Modal UIs (UpgradeShopUI, ItemShopUI, MarketUI, HospitalUI)
+### Modal UIs (UpgradeShopUI, ItemShopUI, MarketUI, HospitalUI, FuelStationUI)
 
 - Return `NoChange()` to stay open
 - Return `WithEffects(...)` on purchase (stay open, for repeated purchases)
@@ -675,13 +692,68 @@ func (m *Manager) GetActiveUI() UI
 - Return `Close()` on Q/Escape
 - Have render state for display
 
-**MarketUI Specifics:**
+### Shared UI Abstractions
+
+**GridNavigator** (`ui/grid_navigator.go`) — Reusable grid-based selection with wrapping navigation:
+```go
+type GridNavigator struct {
+    Selected int
+    cols     int
+    rows     int
+}
+
+func NewGridNavigator(cols, rows int) GridNavigator
+func (g *GridNavigator) NavigateUp()
+func (g *GridNavigator) NavigateDown()
+func (g *GridNavigator) NavigateLeft()
+func (g *GridNavigator) NavigateRight()
+func (g *GridNavigator) GetSelectedRow() int
+func (g *GridNavigator) GetSelectedCol() int
+```
+
+Embedded by `UpgradeShopState` and `ItemShopState`. `ItemShopState` overrides navigation methods to skip empty cells.
+
+**FirstFrameTracker** (`ui/first_frame_tracker.go`) — Handles the "skip first frame" pattern to prevent the input that opened a UI from being processed as a UI action:
+```go
+type FirstFrameTracker struct {
+    firstFrame bool
+}
+
+func NewFirstFrameTracker() FirstFrameTracker
+func (f *FirstFrameTracker) IsFirstFrame() bool
+func (f *FirstFrameTracker) ClearFirstFrame()
+func (f *FirstFrameTracker) ResetFirstFrame()
+```
+
+Embedded by `MarketState`, `ModalServiceState`, and `InventoryState`.
+
+**ModalServiceProvider** (`ui/modal_service.go`) — Shared interface and control flow for modal service UIs (Hospital, Fuel Station):
+```go
+type ModalServiceProvider interface {
+    GetAmount(index int, player *entities.Player) float32
+    GetCost(amount float32) int
+    BuildEffect(amount float32, player *entities.Player) effects.Effect
+}
+```
+
+A shared `processModalService` function handles the common control flow (close check, first frame skip, navigation, interaction). Hospital and Fuel Station both implement `ModalServiceProvider` and delegate `Process()` to this shared function, eliminating duplicated modal logic.
+
+**ModalServiceState** (`ui/state.go`) — Unified state for Hospital and Fuel Station modals:
+```go
+type ModalServiceState struct {
+    SelectedIndex int
+    FirstFrameTracker
+}
+```
+
+### MarketUI Specifics
 - Opens modal showing ore inventory with prices
 - Press E to sell all ore and close
 - Press Q/Escape to close without selling
-- Uses `firstFrame` flag to skip the E keypress that opened the modal
+- State embeds `FirstFrameTracker` to skip the E keypress that opened the modal
 
-**HospitalUI Specifics:**
+### HospitalUI Specifics
+- Implements `ModalServiceProvider`, delegates `Process()` to shared `processModalService`
 - Opens modal with 4 healing options (vertical list)
 - Navigate with W/S (up/down), wraps around
 - Options: Restore 1 HP, Restore 10 HP, Restore All HP, Max Affordable
@@ -691,9 +763,9 @@ func (m *Manager) GetActiveUI() UI
 - At full HP: Shows "Already at full health" message, E to close
 - Displays decimals for fractional HP amounts (options 2-3 and when capped)
 - Shows "+0.0 HP for $0" for Max Affordable when broke (greyed out)
-- Uses `firstFrame` flag to skip the E keypress that opened the modal
 
-**FuelStationUI Specifics:**
+### FuelStationUI Specifics
+- Implements `ModalServiceProvider`, delegates `Process()` to shared `processModalService`
 - Opens modal with 4 refuel options (vertical list)
 - Navigate with W/S (up/down), wraps around
 - Options: Refuel 1L, Refuel 10L, Full Tank, Max Affordable
@@ -703,7 +775,6 @@ func (m *Manager) GetActiveUI() UI
 - At full tank: Shows "Already at full fuel" message, E to close
 - Displays decimals for fractional fuel amounts (options 2-3 and when capped)
 - Shows "+0.0 L for $0" for Max Affordable when broke (greyed out)
-- Uses `firstFrame` flag to skip the E keypress that opened the modal
 
 ### Inventory UI (`ui/inventory.go`)
 
@@ -726,23 +797,23 @@ func (u *InventoryUI) GetOreConfigs() []config.OreConfig
 **Close Conditions:**
 - `CloseShop` input (Q or Escape)
 - `HasMovementInput()` (any WASD/Arrow key)
-- `Inventory` input (I key toggle, after first frame)
+- `Inventory` input (I key toggle, after first frame via embedded `FirstFrameTracker`)
 
 **Game Integration:**
 ```go
 // In Game.Update(), before building UI processing:
-if g.inventoryUI.IsActive() {
-    closed := g.inventoryUI.Process(inputState)
+if g.InventoryUI.IsActive() {
+    closed := g.InventoryUI.Process(inputState)
     if closed {
-        g.player.InUI = false
+        g.Player.InUI = false
     }
     return nil  // Pause gameplay while open
 }
 
 // Check for I key to open (when no UI active)
 if inputState.Inventory {
-    g.inventoryUI.Open()
-    g.player.InUI = true
+    g.InventoryUI.Open()
+    g.Player.InUI = true
     return nil
 }
 ```

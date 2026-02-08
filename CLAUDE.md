@@ -65,6 +65,9 @@ Read these docs on-demand when you need details:
 - **Upgrade facade** — Player stats via `player.MaxSpeed()`, upgrades via `player.GetUpgrade(type)`
 - **Unified upgrade catalog** — Single `Catalog` type handles all upgrade types
 - **Damage through entity** — Player uses `player.DealDamage()`, bosses control own vulnerability via state machine
+- **Public Game fields** — Renderer accesses `game.World`, `game.Player`, etc. directly (no getters)
+- **UI composition** — Shop states embed `GridNavigator`; Market/Service/Inventory states embed `FirstFrameTracker`; Hospital/FuelStation share `ModalServiceProvider` interface
+- **Null-object handlers** — Boss handlers (`PhaseChangeHandler`, `DamageReactionHandler`) default to no-ops; concrete bosses override only when needed
 
 ## Code Style
 

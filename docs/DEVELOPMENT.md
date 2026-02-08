@@ -478,22 +478,22 @@ func (ns *NewSystem) Update(game *engine.Game, dt float32) error {
 
 ### Modifying Physics
 
-Physics tuning is in `internal/domain/physics/constants.go`:
+Fixed physics constants are in `internal/domain/physics/constants.go`:
 
 ```go
 const (
-    Gravity           = 800          // pixels/sec²
-    MaxMoveSpeed      = 450          // pixels/sec
-    MoveAcceleration  = 2500         // pixels/sec²
-    MoveDamping       = 1000         // pixels/sec²
-    FlyAcceleration   = 2500         // pixels/sec²
-    MaxUpwardVelocity = -600         // pixels/sec (negative = upward)
-    FlyDamping        = 300          // pixels/sec²
+    Gravity             = 800.0    // pixels/sec² - downward acceleration
+    MoveDamping         = 1000.0   // pixels/sec² - horizontal deceleration
+    FlyDamping          = 300.0    // pixels/sec² - vertical deceleration
+    FallDamageThreshold = 500.0    // px/sec - minimum speed for damage
+    FallDamageDivisor   = 20.0     // damage scaling factor
 )
 ```
 
+Dynamic movement values (MaxSpeed, Acceleration, FlyAcceleration, MaxUpwardSpeed) come from player upgrades — see [CONFIGURATION.md](docs/CONFIGURATION.md) for the Engine upgrade table.
+
 **Process:**
-1. Adjust constants in `physics/constants.go`
+1. Adjust constants in `physics/constants.go` (or upgrade tiers in level config for dynamic values)
 2. Run game: `go run cmd/game/main.go`
 3. Test feel and responsiveness
 4. Write/update unit tests for expected behavior

@@ -113,6 +113,8 @@ type DamageReactionHandler interface {
 - `TakeDamageAt()` (with DamageReactionHandler hook)
 - `BaseUpdate()` (handles phase transitions, state machine, box positions)
 
+**No-op handler defaults:** `NewBaseBoss` initializes both `PhaseChangeHandler` and `DamageReactionHandler` with no-op defaults. Concrete bosses only need to set `b.PhaseChangeHandler = b` or `b.DamageReactionHandler = b` if they want to react to those events.
+
 ### Box Types
 
 ```go
@@ -550,6 +552,7 @@ func New(roomStartY, worldWidth float32) *MyBoss {
     })
 
     b := &MyBoss{BaseBoss: baseBoss}
+    // Optional: override no-op defaults only if the boss needs to react to these events
     b.PhaseChangeHandler = b
     b.DamageReactionHandler = b
     b.SetStateMachine(statemachine.NewStateMachine(b.buildStates(), StateIdle))
@@ -557,7 +560,7 @@ func New(roomStartY, worldWidth float32) *MyBoss {
     return b
 }
 
-// Implement handlers
+// Implement handlers (only needed if handlers are set above)
 func (b *MyBoss) OnPhaseChange(phaseIndex int, cfg phases.Config) { ... }
 func (b *MyBoss) OnDamageReceived(hurtboxID string, damage float32) { ... }
 
