@@ -60,17 +60,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 4. `AOEAttack` Component Is Unused
+### ~~4. `AOEAttack` Component Is Unused~~ (Resolved)
 
-**Location:** `internal/domain/bosses/attacks/aoe_attack.go`
-
-**Issue:** A full `AOEAttack` component exists (161 lines, its own state machine with 4 states, 13 public methods) but no boss uses it. TestBoss manages AOE through its own state machine states instead. The component is also untested.
-
-Unused code with no tests will silently rot. When a future boss tries to use it, it may not work as expected or may not fit the actual use case.
-
-**Suggestion:** Either write tests to keep it honest, or remove it and recreate when actually needed. YAGNI applies here.
-
-**Severity:** Low — no runtime impact, but maintenance noise.
+**Resolution:** Removed `aoe_attack.go` (161 lines) per YAGNI. No boss used it — TestBoss manages AOE through its own state machine states. Can be recreated when a boss actually needs a reusable AOE component, designed around the real use case.
 
 ---
 
@@ -139,7 +131,7 @@ spawnRequests := s.boss.Update(player, dt) // Called even after Deactivate()
 | `registry` | 0% |
 | `boss_fight` (system) | 0% |
 | `test_boss` | 0% |
-| `aoe_attack` | 0% |
+| ~~`aoe_attack`~~ | ~~0%~~ (Removed) |
 
 The untested code includes `BaseBoss` (foundation for all bosses), `BossFightSystem` (game state transitions), and `TestBoss` (the only integration of all components).
 
@@ -198,7 +190,7 @@ These issues were identified in earlier reviews and have been addressed:
 | ~~1~~ | ~~`phases.Config` is TestBoss-specific~~ | ~~Medium~~ | ~~Extensibility~~ (Resolved) |
 | ~~2~~ | ~~`BaseBoss.TakeDamageAt` bypasses overrides~~ | ~~Medium~~ | ~~Go composition~~ (Resolved) |
 | ~~3~~ | ~~Hardcoded projectile params in `OnPhaseChange`~~ | ~~Low~~ | ~~Data-driven~~ (Resolved) |
-| 4 | `AOEAttack` component unused and untested | Low | Dead code |
+| ~~4~~ | ~~`AOEAttack` component unused and untested~~ | ~~Low~~ | ~~Dead code~~ (Resolved) |
 | 5 | Lava floor damage hardcoded | Low | Data-driven |
 | 6 | `GetAOEInfo` allocates per frame | Low | Allocation |
 | 7 | Boss update called when inactive | Low | Layering |
