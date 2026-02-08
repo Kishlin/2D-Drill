@@ -6,344 +6,244 @@
 
 ---
 
-## Overall Rating: 9/10
+## Overall Rating: 8/10
 
-Excellent architecture with BaseBoss significantly reducing boilerplate. Adding a new boss requires creating a subpackage, embedding BaseBoss, and implementing handlers.
-
----
-
-## What's Done Well
-
-### 1. Return-Based Architecture
-`Update()` returning spawn requests instead of mutating external state is clean and testable. No hidden side effects in the update loop.
-
-### 2. Separation of Concerns
-Movement, attacks, phases, and state machine are properly decoupled into separate packages/types.
-
-### 3. Three-Box System
-Flexible hitbox/hurtbox/collision box separation allows complex boss scenarios (invulnerability phases, damage-only zones, etc.).
-
-### 4. Data-Driven Phases
-`phases.Config` struct allows phase behavior to be defined declaratively rather than in code.
-
-### 5. Pool-Based Projectile System
-Pre-allocated projectile pool avoids GC pressure during combat.
-
-### 6. BoxSet System
-Pre-allocated boxes with position synchronization eliminate per-frame allocations.
-
-### 7. Registration Pattern
-Boss packages self-register via `init()`, enabling "add package only" workflow.
-
-### 8. BaseBoss Struct (NEW)
-Embeddable struct provides default implementations for 11+ interface methods, reducing ~80 lines of boilerplate per boss.
-
-### 9. Package Organization (NEW)
-- `bosses/phases/` - Phase management as separate package
-- `boss_catalog/` - Boss implementations separate from infrastructure
-- Clean import paths and separation of concerns
+Strong architecture with well-separated infrastructure and a clear extensibility story. BaseBoss and the double-registry pattern (domain + renderer) make adding new bosses straightforward. However, the single concrete boss makes some design decisions hard to validate, and several areas show signs of premature generalization or TestBoss-specific assumptions baked into shared infrastructure.
 
 ---
 
-## Issues & Status
+## Strengths
 
-### 1. Boss Factory Violates Extensibility Goal ✅ RESOLVED
+### 1. Return-Based Update Loop
+`Update()` returning `[]projectiles.SpawnRequest` instead of mutating external state is clean and testable. The state machine propagates spawn requests upward through `StateResult`, keeping the entire update path free of hidden side effects.
 
-**Location:** `internal/domain/bosses/registry.go`
+### 2. Double-Registry Pattern
+Two parallel registries, one in domain (`bosses.Register`) and one in adapters (`bossrenderers.Register`), both triggered by `init()`. Adding a new boss requires creating a catalog package and a renderer package — no modifications to `game.go` or core rendering. The renderer registry uses a `CanRender(boss) bool` pattern that cleanly decouples the adapter layer from concrete boss types.
 
-**Solution Implemented:** Registration pattern where each boss package registers itself:
+### 3. Three-Box System with BoxSet Pre-Allocation
+The collision/hitbox/hurtbox separation covers real 2D game scenarios (invulnerability phases, damage-only zones). `BoxSet` pre-allocates all boxes and updates positions in-place with `UpdatePositions()`, achieving zero per-frame allocations. `NewBodyBoxSet` provides a single-call shortcut for the common case where all three boxes share the same bounds.
+
+### 4. BaseBoss Composition
+Embedding `*BaseBoss` provides default implementations for 11+ interface methods, reducing ~80 lines of boilerplate per boss. The `PhaseChangeHandler` and `DamageReactionHandler` interfaces with no-op defaults let concrete bosses opt into only the hooks they need.
+
+### 5. State Machine Design
+Clean separation between infrastructure (`statemachine` package) and boss-specific states (`buildStates()` with closures). Closures capture the boss struct, giving states direct field access without callback indirection. Typed `StateID` constants with `iota` catch typos at compile time.
+
+### 6. Data-Driven Phase Progression
+`phases.Manager` tracks HP thresholds and advances phases automatically. `BaseUpdate` calls the phase manager on every frame and dispatches to the `PhaseChangeHandler` when a transition occurs. The boss never needs to manually check "am I in a new phase."
+
+### 7. Projectile Movement Polymorphism
+The `projectiles.Movement` interface with `Linear`, `Sinusoidal`, `Homing`, and `Orbital` implementations gives bosses a rich projectile vocabulary without any boss-specific code in the projectile system.
+
+### 8. Package Organization
+Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations), `bosses/phases/`, `bosses/statemachine/`, `bosses/attacks/`, `bosses/movement/` (composable building blocks). Import paths are clean and each package has a focused responsibility.
+
+---
+
+## Current Issues
+
+### 1. `phases.Config` Is TestBoss-Specific
+
+**Location:** `internal/domain/bosses/phases/phase.go`
+
+**Issue:** The `Config` struct hardcodes fields for the TestBoss's specific attack types:
 
 ```go
-// In bosses/registry.go
-var registry = make(map[string]BossConstructor)
-
-func Register(bossType string, constructor BossConstructor) { ... }
-func Create(bossType string, roomStartY, worldWidth float32) (Boss, error) { ... }
-
-// In boss_catalog/test_boss/boss.go init()
-func init() {
-    bosses.Register("test_boss", func(roomStartY, worldWidth float32) bosses.Boss {
-        return New(roomStartY, worldWidth)
-    })
+type Config struct {
+    HPThreshold        float32
+    MovementSpeed      float32
+    ProjectileCooldown float32 // TestBoss-specific
+    AOECooldown        float32 // TestBoss-specific
 }
 ```
 
-`game.go` now uses `bosses.Create()` instead of a switch statement.
+A boss with different attacks (charge, beam, summon) would need different phase parameters. Options: grow the struct for every boss type (violates separation), ignore irrelevant fields (confusing), or make phase config boss-specific.
+
+**Suggestion:** Reduce `Config` to truly universal fields (`HPThreshold`, `MovementSpeed`) and let each boss define its own phase data alongside it. Alternatively, use a `map[string]float32` or an `any` field for boss-specific parameters.
+
+**Severity:** Medium — not a problem with one boss, becomes friction with two.
 
 ---
 
-### 2. String-Based IDs Are Fragile ✅ RESOLVED
+### 2. `BaseBoss.TakeDamageAt` Bypasses Vulnerability Override
 
-**Location:** `internal/domain/bosses/statemachine/types.go`
+**Location:** `internal/domain/bosses/base_boss.go:129`
 
-**Solution Implemented:** Typed integer constants with iota:
+**Issue:** `BaseBoss.TakeDamageAt` iterates `b.BoxSet.Hurtboxes` directly instead of calling `b.GetHurtboxes()`. Because Go embedding is not virtual dispatch, calling `TakeDamageAt` on a `BaseBoss` receiver will use the base `GetHurtboxes` even if the concrete boss overrides it.
+
+This means **any boss with conditional vulnerability must override `TakeDamageAt` entirely**, which is exactly what TestBoss does (duplicating the damage logic). This partially defeats the purpose of BaseBoss providing a default.
+
+**Suggestion:** Accept this as a Go limitation and document that `TakeDamageAt` should always be overridden alongside `GetHurtboxes`. Alternatively, store a `self Boss` reference in `BaseBoss` to enable virtual dispatch (common Go pattern for embedding).
+
+**Severity:** Medium — every boss with invulnerability phases will hit this.
+
+---
+
+### 3. Hardcoded Projectile Parameters in `OnPhaseChange`
+
+**Location:** `internal/domain/boss_catalog/test_boss/boss.go:161-167`
+
+**Issue:** When a phase changes, TestBoss creates a brand-new `ProjectileAttack` with hardcoded values:
 
 ```go
-type StateID int
-const StateIDNone StateID = -1
-
-// In boss_catalog/test_boss/states.go
-const (
-    StatePatrol statemachine.StateID = iota
-    StateWindup
-    StateWindupBetween
-    StateSlam
-    StateVulnerable
-)
+b.projectileAttack = attacks.NewProjectileAttack(attacks.ProjectileAttackConfig{
+    Cooldown:        phaseCfg.ProjectileCooldown,
+    ProjectileCount: 3,          // hardcoded
+    ProjectileSpeed: 200.0,      // hardcoded
+    ProjectileSize:  16.0,       // hardcoded
+    Damage:          5.0,        // hardcoded
+})
 ```
 
-Typos in state names are now caught at compile time.
+Only `Cooldown` comes from the phase config. The rest should be constants at minimum, or part of the phase configuration if they're intended to change per phase.
+
+**Severity:** Low — contained to TestBoss, but sets a bad example for future bosses.
 
 ---
 
-### 3. Boss Interface Is Too Large (13+ methods) ✅ RESOLVED
+### 4. `AOEAttack` Component Is Unused
 
-**Location:** `internal/domain/bosses/boss.go`
+**Location:** `internal/domain/bosses/attacks/aoe_attack.go`
 
-**Solution Implemented:** `BaseBoss` struct provides default implementations for most interface methods. Concrete bosses only need to:
-- Embed `*bosses.BaseBoss`
-- Implement handlers (`PhaseChangeHandler`, `DamageReactionHandler`)
-- Override `GetHurtboxes()` for custom vulnerability logic
-- Implement `Update()` by calling `b.BaseUpdate(player, dt)`
+**Issue:** A full `AOEAttack` component exists (161 lines, its own state machine with 4 states, 13 public methods) but no boss uses it. TestBoss manages AOE through its own state machine states instead. The component is also untested.
+
+Unused code with no tests will silently rot. When a future boss tries to use it, it may not work as expected or may not fit the actual use case.
+
+**Suggestion:** Either write tests to keep it honest, or remove it and recreate when actually needed. YAGNI applies here.
+
+**Severity:** Low — no runtime impact, but maintenance noise.
 
 ---
 
-### 4. No Base Boss / Composition Helper ✅ IMPLEMENTED
+### 5. Lava Floor Damage Is Hardcoded
 
-**Location:** `internal/domain/bosses/base_boss.go`
+**Location:** `internal/domain/systems/boss_fight.go:130`
 
-**Solution Implemented:** `BaseBoss` struct with:
+**Issue:** `handleFloorDamage` uses a hardcoded `10.0` damage value with a comment saying "Can be made configurable."
 
 ```go
-type BaseBoss struct {
-    Position      types.Vec2
-    Damageable    components.Damageable
-    Active        bool
-    BoxSet        *BoxSet
-    StateMachine  *statemachine.StateMachine
-    PhaseManager  *phases.Manager
-    CurrentPlayer *entities.Player
-
-    PhaseChangeHandler    PhaseChangeHandler
-    DamageReactionHandler DamageReactionHandler
-}
-
-// Default implementations provided:
-func (b *BaseBoss) Activate()
-func (b *BaseBoss) Deactivate()
-func (b *BaseBoss) IsActive() bool
-func (b *BaseBoss) IsDefeated() bool
-func (b *BaseBoss) GetHP() float32
-func (b *BaseBoss) GetMaxHP() float32
-func (b *BaseBoss) GetDamageable() *components.Damageable
-func (b *BaseBoss) GetPosition() types.Vec2
-func (b *BaseBoss) GetCollisionBoxes() []CollisionBox
-func (b *BaseBoss) GetHitboxes() []Hitbox
-func (b *BaseBoss) GetHurtboxes() []Hurtbox
-func (b *BaseBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32
-func (b *BaseBoss) BaseUpdate(player *entities.Player, dt float32) []projectiles.SpawnRequest
+player.DealDamage(10.0) // Can be made configurable
 ```
 
-**Usage in TestBoss:**
-```go
-type TestBoss struct {
-    *bosses.BaseBoss
-    // Boss-specific fields only
-    movement         *movement.Grounded
-    projectileAttack *attacks.ProjectileAttack
-    // ...
-}
+This value should come from `config.BossRoomConfig` or similar.
 
-func (b *TestBoss) Update(player *entities.Player, dt float32) []projectiles.SpawnRequest {
-    return b.BaseUpdate(player, dt)
-}
-```
+**Severity:** Low — works, but inconsistent with the data-driven approach used elsewhere.
 
 ---
 
-### 5. StateBehaviors Callback Pattern Is Unusual for Go ✅ RESOLVED
+### 6. `GetAOEInfo` Allocates Per Frame
 
-**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
+**Location:** `internal/domain/boss_catalog/test_boss/boss.go:367-399`
 
-**Solution Implemented:** Removed the callback pattern entirely. States are now defined in a `buildStates()` method on the boss struct with direct field access:
+**Issue:** `GetAOEInfo()` returns `&bosses.AOEInfo{...}`, heap-allocating a new struct every frame it's called. This is inconsistent with the zero-allocation philosophy behind `BoxSet`.
+
+**Suggestion:** Store `AOEInfo` as a field on TestBoss and return a pointer to it (same pattern as `BoxSet`), or return by value.
+
+**Severity:** Low — one small allocation per frame is negligible, but inconsistent.
+
+---
+
+### 7. Boss Update Called When Inactive
+
+**Location:** `internal/domain/systems/boss_fight.go:69`
+
+**Issue:** `BossFightSystem.Update` calls `s.boss.Update(player, dt)` unconditionally, even when the boss is deactivated. `BaseUpdate` early-returns when inactive, so there's no bug, but the system is delegating a responsibility it should own.
 
 ```go
-func (b *TestBoss) buildStates() map[statemachine.StateID]*statemachine.State {
-    return map[statemachine.StateID]*statemachine.State{
-        StatePatrol: {
-            ID:      StatePatrol,
-            CanMove: true,
-            OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
-                b.Position = b.movement.Update(b.Position, ctx.Dt)
-                // Direct field access - no callbacks needed
-                if b.hasAOEAttack() {
-                    b.aoeCooldown -= ctx.Dt
-                    // ...
-                }
-                return statemachine.StateResult{NextState: statemachine.StateIDNone}
-            },
-        },
-        // ... other states
-    }
-}
+spawnRequests := s.boss.Update(player, dt) // Called even after Deactivate()
 ```
 
-**Benefits:**
-- No callback indirection - states directly access boss fields
-- Simpler mental model - one file contains boss logic
-- Better IDE support - direct field/method access enables navigation
-- More idiomatic Go - methods instead of function fields
-- `states.go` now only contains state ID constants (~12 lines)
+**Severity:** Low — no behavioral impact, but the system should guard this.
 
 ---
 
-### 6. Vulnerability Logic Is Scattered ✅ RESOLVED
+### 8. No Boss Reset Mechanism
 
-**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
+**Issue:** There's no way to reset a boss to its initial state. If a player dies and the game needs to restart the level, the boss must be recreated entirely. This works for now but won't scale if boss creation becomes expensive (loading assets, complex initialization).
 
-**Solution Implemented:** `GetHurtboxes()` is the single source of truth. Each boss decides its own vulnerability rules:
-
-```go
-func (b *TestBoss) GetHurtboxes() []bosses.Hurtbox {
-    // Phase 1: always has hurtboxes
-    // Phase 2+: only has hurtboxes during StateVulnerable
-    if b.PhaseManager.GetCurrentPhase() == 0 || b.StateMachine.CurrentState() == StateVulnerable {
-        return b.BoxSet.Hurtboxes
-    }
-    return []bosses.Hurtbox{}
-}
-
-func (b *TestBoss) IsVulnerable() bool {
-    return len(b.GetHurtboxes()) > 0
-}
-```
-
-**Key improvement:** Vulnerability is boss-specific logic, not part of `phases.Config`. Phases only define HP thresholds and phase-specific parameters (speed, cooldowns).
+**Severity:** Low — not a problem until level restart is needed in gameplay.
 
 ---
 
-### 7. TakeDamageAt Has Hidden Side Effects ⚠️ DOCUMENTED
+### 9. Test Coverage Is Low (~25-30%)
 
-**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
+**Issue:** The tested components (phase manager, state machine, projectile attack, grounded movement) have reasonable happy-path coverage. But the core infrastructure and the only concrete boss have zero tests:
 
-**Status:** Side effect remains (transitioning out of vulnerable state on damage) but is now handled via `DamageReactionHandler`:
+| Component | Coverage |
+|-----------|----------|
+| `phases/` | ~70% (happy path) |
+| `statemachine/` | ~75% (happy path) |
+| `attacks/projectile_attack` | ~60% |
+| `movement/grounded` | ~70% |
+| `base_boss` | 0% |
+| `boxes` | 0% |
+| `registry` | 0% |
+| `boss_fight` (system) | 0% |
+| `test_boss` | 0% |
+| `aoe_attack` | 0% |
 
-```go
-func (b *TestBoss) OnDamageReceived(hurtboxID string, damage float32) {
-    if b.StateMachine.CurrentState() == StateVulnerable {
-        b.StateMachine.TransitionTo(StatePatrol, &statemachine.StateContext{})
-    }
-}
-```
+The untested code includes `BaseBoss` (foundation for all bosses), `BossFightSystem` (game state transitions), and `TestBoss` (the only integration of all components).
 
-This is desired behavior: hitting the boss during vulnerability window immediately ends that window.
-
----
-
-### 8. Hardcoded Duration Values in States ✅ RESOLVED
-
-**Location:** `internal/domain/boss_catalog/test_boss/boss.go`
-
-**Solution Implemented:** All timing values are package-level constants:
-
-```go
-const (
-    MaxHP                    = 100.0
-    WindupDuration           = 1.0
-    SlamDuration             = 0.3
-    DoubleSlamPause          = 0.4
-    Phase2VulnerableDuration = 3.0
-    Phase3VulnerableDuration = 2.0
-)
-```
-
-States reference these constants:
-```go
-if ctx.Elapsed >= WindupDuration { ... }
-if ctx.Elapsed >= SlamDuration { ... }
-```
+**Severity:** Medium — the code works in-game, but regression risk is high when adding a second boss.
 
 ---
 
-### 9. Potential GC Pressure from Slice Returns ✅ RESOLVED
+### 10. `State.CanMove` Is Purely Informational
 
-**Location:** `internal/domain/bosses/boxes.go`
+**Location:** `internal/domain/bosses/statemachine/types.go:31`
 
-**Solution Implemented:** `BoxSet` pre-allocates all boxes and updates positions in-place:
+**Issue:** The `CanMove` field on `State` is exposed via `StateMachine.CanMove()` but the state machine doesn't enforce anything with it. Movement is handled manually in the StatePatrol `OnUpdate` callback. No code outside TestBoss's `buildStates()` reads `CanMove`.
 
-```go
-type BoxSet struct {
-    CollisionBoxes []CollisionBox
-    Hitboxes       []Hitbox
-    Hurtboxes      []Hurtbox
-}
+This is documentation masquerading as data. If movement were handled by BaseBoss (move when `CanMove` is true, skip when false), it would be useful infrastructure. Currently it's just a label.
 
-func (bs *BoxSet) UpdatePositions(bossX, bossY float32) {
-    for i, def := range bs.collisionDefs {
-        bs.CollisionBoxes[i].X = bossX + def.OffsetX
-        bs.CollisionBoxes[i].Y = bossY + def.OffsetY
-    }
-    // ... hitboxes and hurtboxes similarly
-}
-```
-
-Zero allocations per frame.
+**Severity:** Low — harmless, but could mislead future boss authors into thinking movement is handled automatically.
 
 ---
 
-### 10. Nested State Machines (AOEAttack) ✅ RESOLVED
+### 11. `MovementBehavior` Interface Is Not Used Polymorphically
 
-**Status:** The TestBoss no longer uses a separate AOE state machine. AOE phases are handled as boss states directly:
-- `StateWindup` - Telegraph before slam
-- `StateWindupBetween` - Pause between slams
-- `StateSlam` - Active damage
-- `StateVulnerable` - Vulnerability window
+**Location:** `internal/domain/bosses/movement/movement.go`
 
-One state machine, one source of truth.
+**Issue:** The `MovementBehavior` interface exists but TestBoss uses `*movement.Grounded` directly, not the interface. No code accepts `MovementBehavior` as a parameter or field type. The interface is speculative generalization.
 
-**Note:** A standalone `AOEAttack` component still exists in `attacks/aoe_attack.go` as a reusable building block with its own internal state machine (Idle → Telegraph → Damage → Vulnerable). Future bosses can choose either approach: manage AOE through boss states (like TestBoss) or use the self-contained `AOEAttack` component.
+**Severity:** Low — doesn't hurt, but premature. Will be validated when a boss needs a different movement type.
 
 ---
 
-### 11. Three-Box System May Be Overkill ⚠️ DOCUMENTED
+## Historical Issues (Previously Resolved)
 
-**Status:** System retained with helper for common case:
+These issues were identified in earlier reviews and have been addressed:
 
-```go
-// NewBodyBoxSet for bosses where collision = hitbox = hurtbox
-func NewBodyBoxSet(cfg BodyBoxConfig) *BoxSet {
-    // Creates all three box types from single config
-}
-```
-
-Full flexibility available when needed, simple helper for common case.
-
----
-
-### 12. No Animation/Sound Hooks ⚠️ NOT YET NEEDED
-
-**Status:** Not implemented. Will address when adding visual/audio polish.
-
-Current rendering uses `GetState()` and `GetStateTimer()` for basic visual feedback.
+| Issue | Resolution |
+|-------|-----------|
+| Boss factory switch statement | Registration pattern via `init()` |
+| String-based state IDs | `StateID int` with iota constants |
+| Large Boss interface (13+ methods) | BaseBoss provides defaults |
+| No BaseBoss struct | Implemented, ~80 lines boilerplate reduction |
+| StateBehaviors callback pattern | Removed — closures with direct field access |
+| Scattered vulnerability logic | `GetHurtboxes()` as single source of truth |
+| Hardcoded duration values | Package-level constants |
+| GC pressure from slice returns | BoxSet pre-allocation |
+| Nested state machines (AOE) | Single state machine per boss |
+| `TakeDamageAt` side effects | Channeled through `DamageReactionHandler` |
 
 ---
 
-## Summary Table
+## Summary Table (Current Issues)
 
-| Issue | Status | Notes |
-|-------|--------|-------|
-| Boss factory switch statement | ✅ Resolved | Registration pattern via `init()` |
-| String-based state IDs | ✅ Resolved | `StateID int` with iota constants |
-| Large Boss interface | ✅ Resolved | BaseBoss provides defaults |
-| No BaseBoss struct | ✅ Implemented | ~80 lines boilerplate reduction |
-| StateBehaviors callbacks | ✅ Resolved | Removed, direct field access |
-| Scattered vulnerability logic | ✅ Resolved | `GetHurtboxes()` as single source |
-| TakeDamageAt side effects | ⚠️ Documented | Via DamageReactionHandler |
-| Hardcoded durations | ✅ Resolved | Package constants |
-| GC pressure from slices | ✅ Resolved | BoxSet pre-allocation |
-| Nested state machines | ✅ Resolved | Single state machine |
-| Three-box complexity | ⚠️ Documented | Helper for common case |
-| No animation/sound hooks | ⚠️ Deferred | Add when needed |
+| # | Issue | Severity | Category |
+|---|-------|----------|----------|
+| 1 | `phases.Config` is TestBoss-specific | Medium | Extensibility |
+| 2 | `BaseBoss.TakeDamageAt` bypasses overrides | Medium | Go composition |
+| 3 | Hardcoded projectile params in `OnPhaseChange` | Low | Data-driven |
+| 4 | `AOEAttack` component unused and untested | Low | Dead code |
+| 5 | Lava floor damage hardcoded | Low | Data-driven |
+| 6 | `GetAOEInfo` allocates per frame | Low | Allocation |
+| 7 | Boss update called when inactive | Low | Layering |
+| 8 | No boss reset mechanism | Low | Lifecycle |
+| 9 | Test coverage ~25-30% | Medium | Testing |
+| 10 | `State.CanMove` purely informational | Low | API clarity |
+| 11 | `MovementBehavior` not used polymorphically | Low | Premature abstraction |
 
 ---
 
@@ -352,7 +252,8 @@ Current rendering uses `GetState()` and `GetStateTimer()` for basic visual feedb
 | Version | Rating | Key Changes |
 |---------|--------|-------------|
 | Initial | 7/10 | Good foundations, friction points |
-| Previous | 8.5/10 | Registry, BoxSet, typed IDs, config constants |
-| Current | 9/10 | BaseBoss, phases package, boss_catalog separation |
+| +Registry/BoxSet/TypedIDs | 8.5/10 | Extensibility and performance |
+| +BaseBoss/Phases/Catalog | 9/10 | Boilerplate reduction, package organization |
+| Current reassessment | 8/10 | Strong with one boss; some abstractions unvalidated by a second |
 
-The system now achieves the goal: **adding a new boss requires only creating a subpackage and embedding BaseBoss**.
+The previous 9/10 was fair given the trajectory of improvements. With a fresh look, the rating accounts for the fact that several design decisions (phases.Config, MovementBehavior, AOEAttack, CanMove) are speculative — they look right for TestBoss but haven't been stress-tested by a second boss with different needs. The true extensibility score will be known when boss #2 arrives.
