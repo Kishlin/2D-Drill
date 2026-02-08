@@ -32,25 +32,34 @@ When working on the boss system, these are the core files:
 
 ```
 internal/domain/
-├── bosses/                  # Boss infrastructure
-│   ├── boss.go              # Boss interface (start here)
-│   ├── base_boss.go         # BaseBoss struct with default implementations
-│   ├── boxes.go             # BoxSet, Hit/Hurt/Collision box types
-│   ├── registry.go          # Boss registration pattern
-│   ├── phases/              # Phase management package
-│   │   └── phase.go         # phases.Config, phases.Manager
-│   └── statemachine/        # State machine implementation
-│       ├── types.go         # StateID (int), StateContext, StateResult
-│       └── machine.go
-├── boss_catalog/            # Boss implementations
+├── bosses/                      # Boss infrastructure
+│   ├── boss.go                  # Boss interface + AOEInfo (start here)
+│   ├── base_boss.go             # BaseBoss struct with default implementations
+│   ├── boxes.go                 # BoxSet, Hit/Hurt/Collision box types, BoxDefs
+│   ├── registry.go              # Boss registration pattern
+│   ├── phases/                  # Phase management package
+│   │   └── phase.go             # phases.Config, phases.Manager
+│   ├── statemachine/            # State machine implementation
+│   │   ├── types.go             # StateID (int), StateContext, StateResult
+│   │   └── machine.go
+│   ├── attacks/                 # Attack components
+│   │   ├── projectile_attack.go # Cooldown-based projectile volleys
+│   │   └── aoe_attack.go        # Reusable AOE attack (telegraph/damage/vulnerable)
+│   └── movement/                # Movement behaviors
+│       ├── movement.go          # MovementBehavior interface
+│       └── grounded.go          # Left-right patrol (implements MovementBehavior)
+├── boss_catalog/                # Boss implementations
 │   └── test_boss/
-│       ├── boss.go          # TestBoss (embeds BaseBoss) + buildStates()
-│       └── states.go        # State ID constants (iota)
+│       ├── boss.go              # TestBoss (embeds BaseBoss) + buildStates()
+│       └── states.go            # State ID constants (iota)
 ├── systems/
-│   ├── boss_fight.go        # Room detection, contact damage
-│   └── projectile_system.go # Projectile pool
+│   ├── boss_fight.go            # Room detection, contact damage
+│   └── projectile_system.go     # Projectile pool
+├── effects/
+│   ├── effect.go                # Effect, EffectContext, DamageableEntity
+│   └── projectile.go            # ProjectileDamage effect
 └── engine/
-    └── game.go              # Uses bosses.Create() from registry
+    └── game.go                  # Uses bosses.Create() from registry
 ```
 
 ## Reference Implementation

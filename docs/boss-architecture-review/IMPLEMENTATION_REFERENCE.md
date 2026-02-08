@@ -2,7 +2,7 @@
 
 This document provides a detailed reference of the current boss fight implementation. Use this to understand the existing system before making changes.
 
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 
 ---
 
@@ -10,34 +10,40 @@ This document provides a detailed reference of the current boss fight implementa
 
 ```
 internal/domain/
-├── bosses/                      # Boss infrastructure
-│   ├── boss.go                  # Boss interface definition
-│   ├── base_boss.go             # BaseBoss struct with default implementations
-│   ├── boxes.go                 # BoxSet, CollisionBox, Hitbox, Hurtbox types
-│   ├── registry.go              # Boss registration pattern
-│   ├── phases/                  # Phase management package
-│   │   ├── phase.go             # phases.Config, phases.Manager
+├── bosses/                          # Boss infrastructure
+│   ├── boss.go                      # Boss interface + AOEInfo struct
+│   ├── base_boss.go                 # BaseBoss struct with default implementations
+│   ├── boxes.go                     # BoxSet, CollisionBox, Hitbox, Hurtbox, BoxDef types
+│   ├── registry.go                  # Boss registration pattern
+│   ├── phases/                      # Phase management package
+│   │   ├── phase.go                 # phases.Config, phases.Manager
 │   │   └── phase_test.go
 │   ├── statemachine/
-│   │   ├── types.go             # State, StateID (int), StateContext, StateResult
-│   │   └── machine.go           # StateMachine implementation
+│   │   ├── types.go                 # State, StateID (int), StateContext, StateResult
+│   │   ├── machine.go               # StateMachine implementation
+│   │   └── machine_test.go
 │   ├── attacks/
-│   │   └── projectile_attack.go # Cooldown-based projectile volleys
+│   │   ├── attack.go                # Historical note (Attack interface removed)
+│   │   ├── projectile_attack.go     # Cooldown-based projectile volleys
+│   │   ├── projectile_attack_test.go
+│   │   └── aoe_attack.go            # AOE attack with telegraph/damage/vulnerable phases
 │   └── movement/
-│       └── grounded.go          # Left-right patrol movement
-├── boss_catalog/                # Boss implementations
+│       ├── movement.go              # MovementBehavior interface
+│       ├── grounded.go              # Left-right patrol movement (implements MovementBehavior)
+│       └── grounded_test.go
+├── boss_catalog/                    # Boss implementations
 │   └── test_boss/
-│       ├── boss.go              # TestBoss (embeds BaseBoss) + buildStates()
-│       └── states.go            # State ID constants (iota)
+│       ├── boss.go                  # TestBoss (embeds BaseBoss) + buildStates()
+│       └── states.go                # State ID constants (iota)
 ├── systems/
-│   ├── boss_fight.go            # BossFightSystem (room detection, contact damage)
-│   └── projectile_system.go     # Projectile pool management
+│   ├── boss_fight.go                # BossFightSystem (room detection, contact damage)
+│   └── projectile_system.go         # Projectile pool management
 ├── projectiles/
-│   ├── spawn.go                 # SpawnRequest struct
-│   └── movement.go              # Movement interface + implementations
+│   ├── spawn.go                     # SpawnRequest struct
+│   └── movement.go                  # Movement interface + implementations
 └── effects/
-    ├── effect.go                # Effect interface, EffectContext, DamageableEntity
-    └── projectile.go            # ProjectileDamage effect
+    ├── effect.go                    # Effect, EffectContext, DamageableEntity
+    └── projectile.go                # ProjectileDamage effect
 ```
 
 ---
@@ -105,21 +111,21 @@ type Boss interface {
 }
 ```
 
-### DamageableEntity Interface
+### AOEInfo Struct
 
-**Location:** `internal/domain/effects/effect.go`
+**Location:** `internal/domain/bosses/boss.go`
+
+Used by boss-specific renderers that type-assert to concrete boss types to render AOE effects.
 
 ```go
-type DamageableEntity interface {
-    GetHurtboxes() []bosses.Hurtbox
-    GetDamageable() *components.Damageable
-    TakeDamageAt(hurtboxID string, baseDamage float32) float32
+type AOEInfo struct {
+    Position    types.Vec2
+    Radius      float32
+    IsTelegraph bool    // Warning phase
+    IsDamaging  bool    // Damage phase
+    StateTimer  float32
 }
 ```
-
-Used by the effect system to damage any entity (boss, future enemies).
-
----
 
 ## BaseBoss Struct
 
@@ -139,6 +145,18 @@ type PhaseChangeHandler interface {
 type DamageReactionHandler interface {
     OnDamageReceived(hurtboxID string, damage float32)
 }
+```
+
+### No-Op Default Handlers
+
+Handlers default to no-ops so concrete bosses only override what they need:
+
+```go
+type noOpPhaseChangeHandler struct{}
+func (noOpPhaseChangeHandler) OnPhaseChange(int, phases.Config) {}
+
+type noOpDamageReactionHandler struct{}
+func (noOpDamageReactionHandler) OnDamageReceived(string, float32) {}
 ```
 
 ### BaseBossConfig
@@ -230,6 +248,38 @@ type Hurtbox struct {
     ID               string
     X, Y, Width, Height float32
     DamageMultiplier float32  // 1.0 = normal, 2.0+ = weak point
+}
+```
+
+Each box type has an `AABB()` method returning a `types.AABB` for intersection checks:
+
+```go
+func (c CollisionBox) AABB() types.AABB
+func (h Hitbox) AABB() types.AABB
+func (h Hurtbox) AABB() types.AABB
+```
+
+### Box Definition Types
+
+Definitions describe boxes relative to boss position (static offsets). Used by `BoxSet` to create and update runtime boxes.
+
+```go
+type BoxDef struct {
+    ID      string
+    OffsetX float32 // Relative to boss position
+    OffsetY float32
+    Width   float32
+    Height  float32
+}
+
+type HitboxDef struct {
+    BoxDef
+    DamagePerSec float32
+}
+
+type HurtboxDef struct {
+    BoxDef
+    DamageMultiplier float32
 }
 ```
 
@@ -342,6 +392,152 @@ func (sm *StateMachine) Elapsed() float32
 
 ---
 
+## Movement System
+
+**Location:** `internal/domain/bosses/movement/`
+
+### MovementBehavior Interface (`movement.go`)
+
+```go
+type MovementBehavior interface {
+    Update(currentPos types.Vec2, dt float32) types.Vec2
+    GetVelocity() types.Vec2
+    SetSpeed(speed float32)
+    GetSpeed() float32
+}
+```
+
+### Grounded (`grounded.go`)
+
+Left-right patrol movement along the floor. Implements `MovementBehavior`.
+
+```go
+type GroundedConfig struct {
+    Speed     float32 // Movement speed in pixels per second
+    MinX      float32 // Left boundary
+    MaxX      float32 // Right boundary
+    FloorY    float32 // Y position of the floor
+    BossWidth float32 // Width of the boss (for boundary calculation)
+}
+
+type Grounded struct { ... }
+
+func NewGrounded(cfg GroundedConfig) *Grounded
+func (g *Grounded) Update(currentPos types.Vec2, dt float32) types.Vec2
+func (g *Grounded) GetVelocity() types.Vec2
+func (g *Grounded) SetSpeed(speed float32)
+func (g *Grounded) GetSpeed() float32
+func (g *Grounded) GetDirection() float32  // 1 = right, -1 = left
+```
+
+---
+
+## Attack Components
+
+**Location:** `internal/domain/bosses/attacks/`
+
+### ProjectileAttack (`projectile_attack.go`)
+
+Cooldown-based projectile volleys aimed at the player with configurable spread.
+
+```go
+type ProjectileAttackConfig struct {
+    Cooldown        float32
+    ProjectileCount int
+    ProjectileSpeed float32
+    ProjectileSize  float32
+    Damage          float32
+}
+
+type ProjectileAttack struct { ... }
+
+func NewProjectileAttack(cfg ProjectileAttackConfig) *ProjectileAttack
+func (a *ProjectileAttack) Update(bossAABB, playerAABB types.AABB, dt float32) []projectiles.SpawnRequest
+func (a *ProjectileAttack) IsReady() bool
+func (a *ProjectileAttack) GetCooldown() float32
+func (a *ProjectileAttack) Reset()
+```
+
+### AOEAttack (`aoe_attack.go`)
+
+Standalone AOE attack helper with its own state machine (telegraph → damage → vulnerable). Available for bosses that want a self-contained AOE component rather than handling AOE through the boss state machine.
+
+**Note:** The TestBoss does NOT use this component — it manages AOE phases directly through its boss state machine states instead. This component exists as a reusable building block for future bosses.
+
+```go
+type AOEState int
+const (
+    AOEStateIdle AOEState = iota
+    AOEStateTelegraph
+    AOEStateDamage
+    AOEStateVulnerable
+)
+
+type AOEAttackConfig struct {
+    Cooldown           float32
+    TelegraphDuration  float32
+    DamageDuration     float32
+    VulnerableDuration float32
+    Radius             float32
+    Damage             float32
+}
+
+type AOEAttack struct { ... }
+
+func NewAOEAttack(cfg AOEAttackConfig) *AOEAttack
+func (a *AOEAttack) Update(dt float32)
+func (a *AOEAttack) StartAttack(bossAABB types.AABB)
+func (a *AOEAttack) GetDamageToPlayer(playerAABB types.AABB) float32
+func (a *AOEAttack) IsReady() bool
+func (a *AOEAttack) GetCooldown() float32
+func (a *AOEAttack) Reset()
+func (a *AOEAttack) GetState() AOEState
+func (a *AOEAttack) IsVulnerableWindow() bool
+func (a *AOEAttack) IsTelegraphing() bool
+func (a *AOEAttack) IsDamaging() bool
+func (a *AOEAttack) GetPosition() types.Vec2
+func (a *AOEAttack) GetRadius() float32
+func (a *AOEAttack) GetStateTimer() float32
+```
+
+---
+
+## Effects System
+
+**Location:** `internal/domain/effects/`
+
+### Core Types (`effect.go`)
+
+```go
+type DamageableEntity interface {
+    GetHurtboxes() []bosses.Hurtbox
+    GetDamageable() *components.Damageable
+    TakeDamageAt(hurtboxID string, baseDamage float32) float32
+}
+
+type EffectContext struct {
+    Player      *entities.Player
+    World       *world.World
+    Damageables []DamageableEntity // Boss + future enemies
+}
+
+type Effect interface {
+    Apply(ctx *EffectContext)
+}
+```
+
+### ProjectileDamage (`projectile.go`)
+
+```go
+type ProjectileDamage struct {
+    Damage float32
+}
+
+func (e ProjectileDamage) Apply(ctx *EffectContext)  // Calls ctx.Player.DealDamage()
+```
+
+---
+
 ## TestBoss Implementation
 
 **Location:** `internal/domain/boss_catalog/test_boss/`
@@ -442,6 +638,37 @@ func (b *TestBoss) IsVulnerable() bool {
 }
 ```
 
+### Helper Methods
+
+```go
+// Internal logic
+func (b *TestBoss) vulnerableDuration() float32          // Phase-dependent vulnerable window duration
+func (b *TestBoss) updateProjectileAttack(dt float32) []projectiles.SpawnRequest
+func (b *TestBoss) hasAOEAttack() bool                   // True if current phase has AOE
+func (b *TestBoss) determineMaxSlams()                   // Sets maxSlams (1, or 50% chance of 2 in phase 3)
+func (b *TestBoss) dealAOEDamage(dt float32)             // Applies damage to player if within AOE radius
+```
+
+### Rendering Helpers
+
+These methods are used by the adapter layer (renderer) via type-assertion to the concrete `TestBoss`:
+
+```go
+func (b *TestBoss) IsVulnerable() bool              // True if GetHurtboxes() is non-empty
+func (b *TestBoss) GetVulnerableTimer() float32      // -1 in phase 1 (always vulnerable), 0 when not, or remaining time
+func (b *TestBoss) GetAOEInfo() *bosses.AOEInfo      // Returns AOE state for rendering, nil when no AOE active
+func (b *TestBoss) GetState() statemachine.StateID   // Current state ID
+func (b *TestBoss) GetStateTimer() float32           // Remaining time in current state (0 for StatePatrol)
+```
+
+### TakeDamageAt Override
+
+TestBoss overrides `BaseBoss.TakeDamageAt` to check vulnerability via its own `GetHurtboxes()` first (which is phase/state-dependent), then delegates damage application and handler notification:
+
+```go
+func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32
+```
+
 ### Five States
 
 1. **StatePatrol** (`CanMove: true`)
@@ -496,12 +723,31 @@ type BossFightResult struct {
 }
 ```
 
-**Update Flow:**
+### Constructor
+
+```go
+func NewBossFightSystem(boss bosses.Boss, bossRoomCfg config.BossRoomConfig, worldHeight float32) *BossFightSystem
+```
+
+Returns `nil` if `boss` is `nil`.
+
+### Methods
+
+```go
+func (s *BossFightSystem) Update(player *entities.Player, dt float32) BossFightResult
+func (s *BossFightSystem) IsPlayerInBossRoom(player *entities.Player) bool
+func (s *BossFightSystem) DamageBoss(damage float32)           // Damages first available hurtbox
+func (s *BossFightSystem) GetBoss() bosses.Boss
+func (s *BossFightSystem) IsBossFightActive() bool             // Delegates to boss.IsActive()
+```
+
+### Update Flow
+
 1. Check if player is in boss room
 2. Activate/deactivate boss based on room entry/exit
 3. Call `boss.Update(player, dt)`
-4. Handle contact damage from hitboxes
-5. Handle lava floor damage
+4. Handle contact damage from hitboxes (via `hitbox.AABB()` intersection)
+5. Handle lava floor damage (if `floorType == config.FloorLava`)
 6. Determine game state (Playing/Victory/Defeat)
 
 ---

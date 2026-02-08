@@ -1,7 +1,7 @@
 # Boss Architecture Analysis
 
 **Date:** January 2026
-**Last Updated:** January 2026
+**Last Updated:** February 2026
 **Goal:** Evaluate the boss system for Go idiomatics, 2D game dev best practices, and ease of adding new bosses.
 
 ---
@@ -293,13 +293,15 @@ Zero allocations per frame.
 
 ### 10. Nested State Machines (AOEAttack) ✅ RESOLVED
 
-**Status:** AOE attack no longer uses a separate state machine. AOE phases are handled as boss states directly:
+**Status:** The TestBoss no longer uses a separate AOE state machine. AOE phases are handled as boss states directly:
 - `StateWindup` - Telegraph before slam
 - `StateWindupBetween` - Pause between slams
 - `StateSlam` - Active damage
 - `StateVulnerable` - Vulnerability window
 
 One state machine, one source of truth.
+
+**Note:** A standalone `AOEAttack` component still exists in `attacks/aoe_attack.go` as a reusable building block with its own internal state machine (Idle → Telegraph → Damage → Vulnerable). Future bosses can choose either approach: manage AOE through boss states (like TestBoss) or use the self-contained `AOEAttack` component.
 
 ---
 
