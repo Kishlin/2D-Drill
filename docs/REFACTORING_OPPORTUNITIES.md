@@ -57,21 +57,7 @@ if inputState.Interact { /* get amount, cost, apply effects */ }
 
 ---
 
-### 3. Level Configuration Duplication
-
-**Priority:** High
-**Effort:** Medium
-**Files:**
-- `internal/domain/levels/level1.go` (261 lines)
-- `internal/domain/levels/level_dev.go` (262 lines)
-
-**Issue:** Level1 and LevelDev configs are nearly identical (same world, generation, ores, hazards, upgrades) with only differences in Player starting stats and items.
-
-**Suggested Fix:** Extract the common config base and override only the Player section for each level. Could use a builder pattern or config composition.
-
----
-
-### 4. Panic-Based Error Handling
+### 3. Panic-Based Error Handling
 
 **Priority:** High
 **Effort:** Medium
@@ -88,45 +74,7 @@ if inputState.Interact { /* get amount, cost, apply effects */ }
 
 ## Medium-Impact Opportunities
 
-### 5. Magic Numbers in TestBoss
-
-**Priority:** Medium
-**Effort:** Small
-**File:** `internal/domain/boss_catalog/test_boss/boss.go` (lines 22-37, 83, 129-130)
-
-**Issue:** Several hardcoded values without explanation:
-- Line 83: `roomStartY + 680 - Height` (680 is unexplained)
-- Line 129: `aoeRadius: 150.0`
-- Line 130: `aoeDamage: 15.0`
-- Various numeric values in phase configs
-
-**Suggested Fix:** Extract these as named constants at package level:
-```go
-const (
-    BossRoomHeight = 680.0
-    AOERadius      = 150.0
-    AOEDamage      = 15.0
-)
-```
-
----
-
-### 6. Duplicate Switch Statements in TestBoss
-
-**Priority:** Medium
-**Effort:** Small
-**File:** `internal/domain/boss_catalog/test_boss/boss.go` (lines 145-152, 373-400, 413-425)
-
-**Issue:** Multiple methods have similar switch statements:
-- `vulnerableDuration()` - switches on phase
-- `GetStateTimer()` - switches on state
-- `GetAOEInfo()` - switches on state
-
-**Suggested Fix:** Create helper methods like `getDurationForState(stateID)` to consolidate duration lookups.
-
----
-
-### 7. Type Assertion Boilerplate
+### 4. Type Assertion Boilerplate
 
 **Priority:** Medium
 **Effort:** Small
@@ -150,7 +98,7 @@ Then call directly without type switching.
 
 ---
 
-### 8. Excessive Getter Methods
+### 5. Excessive Getter Methods
 
 **Priority:** Medium
 **Effort:** Small (but needs design decision)
@@ -167,7 +115,7 @@ Then call directly without type switching.
 
 ## Lower-Priority Opportunities
 
-### 9. First Frame Pattern
+### 6. First Frame Pattern
 
 **Priority:** Low
 **Effort:** Small
@@ -182,7 +130,7 @@ Then call directly without type switching.
 
 ---
 
-### 10. Optional Handler Nil Checks
+### 7. Optional Handler Nil Checks
 
 **Priority:** Low
 **Effort:** Small
@@ -198,33 +146,15 @@ func (noOpPhaseHandler) OnPhaseChange(int, phases.Config) {}
 
 ---
 
-### 11. Config Validation Timing
+### 8. Config Validation Timing
 
 **Priority:** Low
-**Effort:** Medium
+**Effort:** Small
 **Files:** `internal/domain/systems/drilling.go`, `internal/domain/config/game_config.go`
 
-**Issue:** Config validation happens via panics in drilling.go rather than at config load time.
+**Issue:** A `Validate()` method now exists on `GameConfig` (covering hazard configs, drilling params, etc.), but `drilling.go` (lines 297, 300) still has two defensive `panic()` calls for missing/invalid hazard configs at runtime.
 
-**Suggested Fix:** Add a `Validate()` method to `GameConfig` called during initialization.
-
----
-
-### 12. Large buildStates() Method
-
-**Priority:** Low (recently refactored)
-**Effort:** Medium
-**File:** `internal/domain/boss_catalog/test_boss/boss.go` (lines 184-269, 85 lines)
-
-**Issue:** The `buildStates()` method is 85 lines, returning a map of 5 state configurations.
-
-**Suggested Fix:** Could extract each state into a separate factory method:
-```go
-func (b *TestBoss) buildStatePatrol() *statemachine.State { ... }
-func (b *TestBoss) buildStateWindup() *statemachine.State { ... }
-```
-
-**Note:** This was recently refactored (StateBehaviors removal). May not be worth additional changes immediately.
+**Remaining Fix:** Either remove the panics in `drilling.go` (trusting the upfront validation) or convert them to error returns.
 
 ---
 
@@ -234,29 +164,23 @@ func (b *TestBoss) buildStateWindup() *statemachine.State { ... }
 |---|-------|----------|--------|--------|
 | 1 | Grid navigation duplication | High | Medium | Open |
 | 2 | Modal UI duplication | High | Medium | Open |
-| 3 | Level config duplication | High | Medium | Open |
-| 4 | Panic error handling | High | Medium | Open |
-| 5 | TestBoss magic numbers | Medium | Small | Open |
-| 6 | TestBoss switch duplication | Medium | Small | Open |
-| 7 | Type assertion boilerplate | Medium | Small | Open |
-| 8 | Excessive getter methods | Medium | Small | Open |
-| 9 | First frame pattern | Low | Small | Open |
-| 10 | Optional handler nil checks | Low | Small | Open |
-| 11 | Config validation timing | Low | Medium | Open |
-| 12 | Large buildStates() | Low | Medium | Open |
+| 3 | Panic error handling | High | Medium | Open |
+| 4 | Type assertion boilerplate | Medium | Small | Open |
+| 5 | Excessive getter methods | Medium | Small | Open |
+| 6 | First frame pattern | Low | Small | Open |
+| 7 | Optional handler nil checks | Low | Small | Open |
+| 8 | Config validation timing | Low | Small | Partial |
 
 ---
 
 ## Quick Wins (Small Effort)
 
 If looking for fast improvements:
-1. **TestBoss magic numbers** (#5) - Extract constants
-2. **TestBoss switch duplication** (#6) - Extract helper method
-3. **Type assertion boilerplate** (#7) - Add Resettable interface
+1. **Type assertion boilerplate** (#4) - Add Resettable interface
 
 ## High-Impact Refactors (Medium Effort)
 
 For significant code quality improvements:
 1. **Grid navigation** (#1) - Reduces ~100 lines of duplication
 2. **Modal UI pattern** (#2) - Reduces ~50 lines of duplication
-3. **Panic handling** (#4) - Improves error handling robustness
+3. **Panic handling** (#3) - Improves error handling robustness
