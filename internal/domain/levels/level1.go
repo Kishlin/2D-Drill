@@ -234,6 +234,7 @@ func GetLevel1Config() *config.GameConfig {
 			BossRoom: config.BossRoomConfig{
 				BossType:    "test_boss",
 				FloorType:   config.FloorConcrete,
+				FloorDamage: 10.0,
 				RoomHeight:  680.0,
 				FloorHeight: 6.0,
 			},

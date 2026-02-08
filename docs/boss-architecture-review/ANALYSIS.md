@@ -66,19 +66,9 @@ Clear separation: `bosses/` (infrastructure), `boss_catalog/` (implementations),
 
 ---
 
-### 5. Lava Floor Damage Is Hardcoded
+### ~~5. Lava Floor Damage Is Hardcoded~~ (Resolved)
 
-**Location:** `internal/domain/systems/boss_fight.go:130`
-
-**Issue:** `handleFloorDamage` uses a hardcoded `10.0` damage value with a comment saying "Can be made configurable."
-
-```go
-player.DealDamage(10.0) // Can be made configurable
-```
-
-This value should come from `config.BossRoomConfig` or similar.
-
-**Severity:** Low — works, but inconsistent with the data-driven approach used elsewhere.
+**Resolution:** Added `FloorDamage float32` field to `config.BossRoomConfig`. `handleFloorDamage` now reads `s.bossRoomCfg.FloorDamage` instead of using a hardcoded `10.0`. All level configs set `FloorDamage: 10.0`.
 
 ---
 
@@ -191,7 +181,7 @@ These issues were identified in earlier reviews and have been addressed:
 | ~~2~~ | ~~`BaseBoss.TakeDamageAt` bypasses overrides~~ | ~~Medium~~ | ~~Go composition~~ (Resolved) |
 | ~~3~~ | ~~Hardcoded projectile params in `OnPhaseChange`~~ | ~~Low~~ | ~~Data-driven~~ (Resolved) |
 | ~~4~~ | ~~`AOEAttack` component unused and untested~~ | ~~Low~~ | ~~Dead code~~ (Resolved) |
-| 5 | Lava floor damage hardcoded | Low | Data-driven |
+| ~~5~~ | ~~Lava floor damage hardcoded~~ | ~~Low~~ | ~~Data-driven~~ (Resolved) |
 | 6 | `GetAOEInfo` allocates per frame | Low | Allocation |
 | 7 | Boss update called when inactive | Low | Layering |
 | 8 | No boss reset mechanism | Low | Lifecycle |

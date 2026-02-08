@@ -127,7 +127,7 @@ func (s *BossFightSystem) handleFloorDamage(player *entities.Player) {
 	// If player is on the floor tiles, apply damage
 	if playerBottomY >= s.floorStartY && playerBottomY <= s.floorEndY && player.OnGround {
 		// Apply damage per second (rough estimate)
-		player.DealDamage(10.0) // Can be made configurable
+		player.DealDamage(s.bossRoomCfg.FloorDamage)
 	}
 }
 
