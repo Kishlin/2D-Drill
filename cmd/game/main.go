@@ -44,7 +44,11 @@ func main() {
 
 	renderer.SetTargetFPS(targetFPS)
 
-	game := engine.NewGame(gameCfg)
+	game, err := engine.NewGame(gameCfg)
+	if err != nil {
+		slog.Error("Failed to create game", "error", err)
+		return
+	}
 
 	for {
 		dt := renderer.GetFrameTime() // Delta time in seconds

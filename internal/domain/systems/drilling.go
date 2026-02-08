@@ -293,13 +293,10 @@ func (ds *DrillingSystem) calculateDrillingDuration(tileY float32, tile *entitie
 	// Hazard tiles use fixed duration (depth-independent) since effects are the penalty
 	if tile.Type == entities.TileTypeHazard {
 		hazardCfg := ds.genCfg.GetHazardByID(tile.HazardID)
-		if hazardCfg == nil {
-			panic("missing hazard config for hazard ID: " + tile.HazardID)
+		if hazardCfg != nil && hazardCfg.FixedDuration > 0 {
+			return hazardCfg.FixedDuration
 		}
-		if hazardCfg.FixedDuration <= 0 {
-			panic("hazard config missing FixedDuration for hazard ID: " + tile.HazardID)
-		}
-		return hazardCfg.FixedDuration
+		// Fall through to normal duration calculation if config is missing
 	}
 
 	hardness := ds.getHardness(tile)

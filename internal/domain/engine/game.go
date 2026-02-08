@@ -35,7 +35,7 @@ type Game struct {
 	config           *config.GameConfig
 }
 
-func NewGame(gameCfg *config.GameConfig) *Game {
+func NewGame(gameCfg *config.GameConfig) (*Game, error) {
 	worldCfg := gameCfg.World
 
 	// Create the world from config
@@ -88,7 +88,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		worldCfg.Width,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to create boss: %v", err))
+		return nil, fmt.Errorf("failed to create boss: %w", err)
 	}
 	bossFightSystem := systems.NewBossFightSystem(boss, gameCfg.Level.BossRoom, worldCfg.Height)
 	// Add physical boss to damageables list
@@ -129,7 +129,7 @@ func NewGame(gameCfg *config.GameConfig) *Game {
 		bossFightSystem:  bossFightSystem,
 		gameState:        entities.GameStatePlaying,
 		config:           gameCfg,
-	}
+	}, nil
 }
 
 func (g *Game) Update(dt float32, inputState input.InputState) error {
