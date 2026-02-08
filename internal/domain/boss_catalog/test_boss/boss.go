@@ -340,9 +340,7 @@ func (b *TestBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32 {
 			actual := baseDamage * hb.DamageMultiplier
 			b.Damageable.TakeDamage(actual)
 
-			if b.DamageReactionHandler != nil {
-				b.DamageReactionHandler.OnDamageReceived(hurtboxID, actual)
-			}
+			b.DamageReactionHandler.OnDamageReceived(hurtboxID, actual)
 			return actual
 		}
 	}

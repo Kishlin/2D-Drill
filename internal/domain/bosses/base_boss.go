@@ -19,6 +19,14 @@ type DamageReactionHandler interface {
 	OnDamageReceived(hurtboxID string, damage float32)
 }
 
+type noOpPhaseChangeHandler struct{}
+
+func (noOpPhaseChangeHandler) OnPhaseChange(int, phases.Config) {}
+
+type noOpDamageReactionHandler struct{}
+
+func (noOpDamageReactionHandler) OnDamageReceived(string, float32) {}
+
 // BaseBossConfig contains initialization parameters for BaseBoss
 type BaseBossConfig struct {
 	Position types.Vec2
@@ -38,7 +46,6 @@ type BaseBoss struct {
 	PhaseManager  *phases.Manager
 	CurrentPlayer *entities.Player
 
-	// Optional handlers (nil = skip)
 	PhaseChangeHandler    PhaseChangeHandler
 	DamageReactionHandler DamageReactionHandler
 }
@@ -46,11 +53,13 @@ type BaseBoss struct {
 // NewBaseBoss creates a BaseBoss with the given configuration
 func NewBaseBoss(cfg BaseBossConfig) *BaseBoss {
 	return &BaseBoss{
-		Position:     cfg.Position,
-		Damageable:   components.NewDamageable(cfg.MaxHP, cfg.MaxHP),
-		Active:       false,
-		BoxSet:       cfg.BoxSet,
-		PhaseManager: phases.NewManager(cfg.MaxHP, cfg.Phases),
+		Position:              cfg.Position,
+		Damageable:            components.NewDamageable(cfg.MaxHP, cfg.MaxHP),
+		Active:                false,
+		BoxSet:                cfg.BoxSet,
+		PhaseManager:          phases.NewManager(cfg.MaxHP, cfg.Phases),
+		PhaseChangeHandler:    noOpPhaseChangeHandler{},
+		DamageReactionHandler: noOpDamageReactionHandler{},
 	}
 }
 
@@ -117,16 +126,13 @@ func (b *BaseBoss) GetHurtboxes() []Hurtbox {
 }
 
 // TakeDamageAt applies damage to the boss at a specific hurtbox.
-// Calls DamageReactionHandler if set.
 func (b *BaseBoss) TakeDamageAt(hurtboxID string, baseDamage float32) float32 {
 	for _, hb := range b.BoxSet.Hurtboxes {
 		if hb.ID == hurtboxID {
 			actual := baseDamage * hb.DamageMultiplier
 			b.Damageable.TakeDamage(actual)
 
-			if b.DamageReactionHandler != nil {
-				b.DamageReactionHandler.OnDamageReceived(hurtboxID, actual)
-			}
+			b.DamageReactionHandler.OnDamageReceived(hurtboxID, actual)
 			return actual
 		}
 	}
@@ -145,11 +151,9 @@ func (b *BaseBoss) BaseUpdate(player *entities.Player, dt float32) []projectiles
 
 	// Check for phase transitions
 	if b.PhaseManager.Update(b.Damageable.HP) {
-		if b.PhaseChangeHandler != nil {
-			phaseIndex := b.PhaseManager.GetCurrentPhase()
-			config := b.PhaseManager.GetCurrentConfig()
-			b.PhaseChangeHandler.OnPhaseChange(phaseIndex, config)
-		}
+		phaseIndex := b.PhaseManager.GetCurrentPhase()
+		config := b.PhaseManager.GetCurrentConfig()
+		b.PhaseChangeHandler.OnPhaseChange(phaseIndex, config)
 	}
 
 	// Update state machine

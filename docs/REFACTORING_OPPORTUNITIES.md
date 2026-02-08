@@ -3,7 +3,7 @@
 **Date:** January 2026
 **Last updated:** February 2026
 
-This document catalogs refactoring opportunities found during a codebase audit. Items 1-6 have been completed. Items 7-8 remain open.
+This document catalogs refactoring opportunities found during a codebase audit. Items 1-7 have been completed. Item 8 remains open.
 
 ---
 
@@ -77,23 +77,17 @@ Extracted a reusable `FirstFrameTracker` type that handles the "skip first frame
 
 ---
 
-## Remaining Opportunities
+### 7. Optional Handler Nil Checks — Done
 
-### 7. Optional Handler Nil Checks
+**Files changed:**
+- `internal/domain/bosses/base_boss.go` — Added `noOpPhaseChangeHandler` and `noOpDamageReactionHandler` null-object defaults, set in `NewBaseBoss`, removed 2 nil checks
+- `internal/domain/boss_catalog/test_boss/boss.go` — Removed 1 nil check in overridden `TakeDamageAt`
 
-**Priority:** Low
-**Effort:** Small
-**File:** `internal/domain/bosses/base_boss.go`
-
-**Issue:** `PhaseChangeHandler` and `DamageReactionHandler` are optional (can be nil), requiring nil checks at call sites.
-
-**Suggested Fix:** Use the null-object pattern with empty no-op implementations as defaults:
-```go
-type noOpPhaseHandler struct{}
-func (noOpPhaseHandler) OnPhaseChange(int, phases.Config) {}
-```
+Used the null-object pattern: `NewBaseBoss` now initializes both handlers with no-op defaults. Concrete bosses that set `b.PhaseChangeHandler = b` override the default. All 3 nil checks at call sites removed.
 
 ---
+
+## Remaining Opportunities
 
 ### 8. Config Validation Timing
 
@@ -117,5 +111,5 @@ func (noOpPhaseHandler) OnPhaseChange(int, phases.Config) {}
 | 4 | Type assertion boilerplate | Medium | Small | Done |
 | 5 | Getter methods + Game struct cleanup | Medium | Small | Done |
 | 6 | First frame pattern | Low | Small | Done |
-| 7 | Optional handler nil checks | Low | Small | Open |
+| 7 | Optional handler nil checks | Low | Small | Done |
 | 8 | Config validation timing | Low | Small | Open |
