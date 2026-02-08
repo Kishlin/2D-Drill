@@ -1,128 +1,81 @@
 # Refactoring Opportunities
 
 **Date:** January 2026
-**Status:** Identified, not yet implemented
+**Last updated:** February 2026
 
-This document catalogs refactoring opportunities found during a codebase audit. Use this as a reference when looking for improvements to tackle.
-
----
-
-## High-Impact Opportunities
-
-### 1. Grid Navigation Duplication
-
-**Priority:** High
-**Effort:** Medium
-**Files:** `internal/domain/ui/state.go` (lines 38-88, 118-192)
-
-**Issue:** `UpgradeShopState` and `ItemShopState` have identical grid navigation logic (NavigateUp, NavigateDown, NavigateLeft, NavigateRight, GetSelectedRow, GetSelectedCol) that calculates row/col from a flat index using the same pattern repeatedly.
-
-**Example of duplicated code:**
-```go
-row := s.SelectedTier / UpgradeShopGridCols
-col := s.SelectedTier % UpgradeShopGridCols
-// ... same pattern repeated ~8 times across two types
-```
-
-**Suggested Fix:** Extract a shared `GridNavigator` type or mixin that handles grid-based selection with customizable grid dimensions. Both states could embed or use this component.
+This document catalogs refactoring opportunities found during a codebase audit. Items 1-5 have been completed. Items 6-8 remain open.
 
 ---
 
-### 2. Modal UI Pattern Duplication
+## Completed Refactors
 
-**Priority:** High
-**Effort:** Medium
-**Files:**
-- `internal/domain/ui/hospital.go` (lines 21-70)
-- `internal/domain/ui/fuel_station.go` (lines 21-70)
+### 1. Grid Navigation Duplication — Done
 
-**Issue:** `HospitalUI` and `FuelStationUI` have nearly identical `Process()` methods with same control flow:
-1. Close shop check
-2. First frame skip
-3. Navigation handling
-4. Interaction handling
+**Files changed:**
+- `internal/domain/ui/grid_navigator.go` (new) — Shared `GridNavigator` struct with `NavigateUp/Down/Left/Right`, `GetSelectedRow/Col`
+- `internal/domain/ui/state.go` — `UpgradeShopState` and `ItemShopState` embed `GridNavigator`
 
-The only differences are the specific healing/refueling amounts and cost calculations.
-
-**Duplicated pattern:**
-```go
-// Both follow identical pattern:
-if inputState.CloseShop { return Close() }
-if u.state.IsFirstFrame() { /* skip */ }
-if inputState.NavUp/Down { /* navigate */ }
-if inputState.Interact { /* get amount, cost, apply effects */ }
-```
-
-**Suggested Fix:** Create a base `ModalServiceUI` type that handles the common control flow and lets subclasses define the service-specific logic (GetAmount, GetCost, GetOptionLabel).
+Extracted a reusable `GridNavigator` type that handles grid-based selection with customizable dimensions. Both shop states embed it. `ItemShopState` overrides navigation methods to skip empty cells.
 
 ---
 
-### 3. Panic-Based Error Handling
+### 2. Modal UI Pattern Duplication — Done
 
-**Priority:** High
-**Effort:** Medium
-**Files:**
-- `internal/domain/engine/game.go` (line 91)
-- `internal/domain/systems/drilling.go` (lines 297, 300)
-- `internal/domain/bosses/registry.go`
+**Files changed:**
+- `internal/domain/ui/modal_service.go` (new) — `ModalServiceProvider` interface + shared `processModalService` function
+- `internal/domain/ui/state.go` — Unified `HospitalState`/`FuelStationState` into `ModalServiceState`
+- `internal/domain/ui/hospital.go` — Implements `ModalServiceProvider`, delegates `Process()` to shared function
+- `internal/domain/ui/fuel_station.go` — Same pattern as hospital
 
-**Issue:** Three panic calls in domain layer for error handling. Domain code should return errors instead, allowing graceful error handling at the boundary (adapters).
-
-**Suggested Fix:** Convert panics to error returns. Callers at the adapter layer can then decide how to handle errors (log, show message, etc.).
+Created a `ModalServiceProvider` interface (`GetAmount`, `GetCost`, `BuildEffect`) and a shared `processModalService` function that handles the common control flow (close check, first frame skip, navigation, interaction).
 
 ---
 
-## Medium-Impact Opportunities
+### 3. Panic-Based Error Handling — Done
 
-### 4. Type Assertion Boilerplate
+**Files changed:**
+- `internal/domain/engine/game.go` — `NewGame` returns `(*Game, error)` instead of panicking on boss creation failure
+- `internal/domain/systems/drilling.go` — Replaced panics with fallthrough to normal duration calculation when hazard config is missing
+- `cmd/game/main.go` — Handles `NewGame` error return
 
-**Priority:** Medium
-**Effort:** Small
-**File:** `internal/domain/engine/game.go` (lines 239-260)
-
-**Issue:** `resetUIState()` uses multiple type assertions with the same pattern repeated 5 times:
-```go
-case ComponentType:
-    if uiCast, ok := registeredUI.(*UIType); ok {
-        uiCast.ResetState()
-    }
-```
-
-**Suggested Fix:** Create a `Resettable` interface:
-```go
-type Resettable interface {
-    ResetState()
-}
-```
-Then call directly without type switching.
+`registry.go` panic left as-is — it runs at init time and is idiomatic Go for invalid program configuration.
 
 ---
 
-### 5. Excessive Getter Methods
+### 4. Type Assertion Boilerplate — Done
 
-**Priority:** Medium
-**Effort:** Small (but needs design decision)
-**File:** `internal/domain/engine/game.go` (lines 263-309)
-
-**Issue:** The `Game` struct has 12 simple getter methods (GetWorld, GetPlayer, GetBuildings, etc.) that just return fields. This is verbose boilerplate.
-
-**Options:**
-1. Make fields public (Go idiom for simple structs)
-2. Keep getters if encapsulation is important
-3. Reduce if some getters are unused
+**Files changed:**
+- `internal/domain/ui/ui.go` — Added `ResetState()` to the `UI` interface
+- `internal/domain/engine/game.go` — Collapsed 5-case type switch in `resetUIState` to a single `registeredUI.ResetState()` call
 
 ---
 
-## Lower-Priority Opportunities
+### 5. Excessive Getter Methods + Game Struct Cleanup — Done
+
+**Files changed:**
+- `internal/domain/engine/game.go` — Removed 12 getter methods, made externally-accessed fields public, kept internal fields private
+- `internal/domain/systems/projectile_system.go` — Converted from struct to package-level functions (`SpawnProjectiles`, `UpdateProjectiles`)
+- `internal/adapters/rendering/raylib.go` — Updated all `game.GetX()` calls to direct field access
+- `cmd/game/main.go` — Updated `game.GetPlayer()` to `game.Player`
+
+Changes made:
+- **Public fields** (used by renderer/main): `World`, `Player`, `Buildings`, `Boss`, `GameState`, `UIManager`, `InventoryUI`, `Projectiles`
+- **Private fields** (internal only): `drillingSystem`, `bossFightSystem`, `projectilePool`, `projectileBounds`, `effectProcessor`, `effectContext`, `config`
+- **Removed unused fields**: `UpgradeCatalog`, `ItemCatalog`, `damageables`
+- **Projectile system**: Removed `ProjectileSystem` struct. Game owns the pool and builds a `[]types.AABB` snapshot (`Projectiles`) for the renderer each frame.
+- **Struct field ordering**: Grouped by concern (core state, UI, render data, systems, projectile internals, effects, config)
+
+---
+
+## Remaining Opportunities
 
 ### 6. First Frame Pattern
 
 **Priority:** Low
 **Effort:** Small
 **Files:**
-- `internal/domain/ui/market.go` (lines 28-31)
-- `internal/domain/ui/hospital.go` (lines 28-30)
-- `internal/domain/ui/fuel_station.go` (lines 28-30)
+- `internal/domain/ui/market.go`
+- `internal/domain/ui/modal_service.go`
 
 **Issue:** Multiple UI types use the same "skip first frame" pattern with `IsFirstFrame()` and `ClearFirstFrame()` methods.
 
@@ -134,7 +87,7 @@ Then call directly without type switching.
 
 **Priority:** Low
 **Effort:** Small
-**File:** `internal/domain/bosses/base_boss.go` (lines 41-43, 127-129, 148-152)
+**File:** `internal/domain/bosses/base_boss.go`
 
 **Issue:** `PhaseChangeHandler` and `DamageReactionHandler` are optional (can be nil), requiring nil checks at call sites.
 
@@ -152,9 +105,9 @@ func (noOpPhaseHandler) OnPhaseChange(int, phases.Config) {}
 **Effort:** Small
 **Files:** `internal/domain/systems/drilling.go`, `internal/domain/config/game_config.go`
 
-**Issue:** A `Validate()` method now exists on `GameConfig` (covering hazard configs, drilling params, etc.), but `drilling.go` (lines 297, 300) still has two defensive `panic()` calls for missing/invalid hazard configs at runtime.
+**Issue:** A `Validate()` method exists on `GameConfig` and is called at startup. The defensive panics in `drilling.go` were replaced with safe fallthrough behavior (item 3), but the code still does redundant runtime checks for config that was already validated at load time.
 
-**Remaining Fix:** Either remove the panics in `drilling.go` (trusting the upfront validation) or convert them to error returns.
+**Remaining Fix:** Remove the redundant runtime checks in `drilling.go`, trusting the upfront validation.
 
 ---
 
@@ -162,25 +115,11 @@ func (noOpPhaseHandler) OnPhaseChange(int, phases.Config) {}
 
 | # | Issue | Priority | Effort | Status |
 |---|-------|----------|--------|--------|
-| 1 | Grid navigation duplication | High | Medium | Open |
-| 2 | Modal UI duplication | High | Medium | Open |
-| 3 | Panic error handling | High | Medium | Open |
-| 4 | Type assertion boilerplate | Medium | Small | Open |
-| 5 | Excessive getter methods | Medium | Small | Open |
+| 1 | Grid navigation duplication | High | Medium | Done |
+| 2 | Modal UI duplication | High | Medium | Done |
+| 3 | Panic error handling | High | Medium | Done |
+| 4 | Type assertion boilerplate | Medium | Small | Done |
+| 5 | Getter methods + Game struct cleanup | Medium | Small | Done |
 | 6 | First frame pattern | Low | Small | Open |
 | 7 | Optional handler nil checks | Low | Small | Open |
-| 8 | Config validation timing | Low | Small | Partial |
-
----
-
-## Quick Wins (Small Effort)
-
-If looking for fast improvements:
-1. **Type assertion boilerplate** (#4) - Add Resettable interface
-
-## High-Impact Refactors (Medium Effort)
-
-For significant code quality improvements:
-1. **Grid navigation** (#1) - Reduces ~100 lines of duplication
-2. **Modal UI pattern** (#2) - Reduces ~50 lines of duplication
-3. **Panic handling** (#3) - Improves error handling robustness
+| 8 | Config validation timing | Low | Small | Open |
