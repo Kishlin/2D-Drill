@@ -16,7 +16,7 @@ The boss system provides extensible end-of-level encounters. Bosses are implemen
 
 ```
 internal/domain/bosses/              # Boss infrastructure
-├── boss.go                          # Core Boss interface + shared types (AOEInfo)
+├── boss.go                          # Core Boss interface
 ├── base_boss.go                     # BaseBoss struct with default implementations
 ├── boxes.go                         # Box types (CollisionBox, Hitbox, Hurtbox)
 ├── registry.go                      # Boss registration: Register() and Create()
@@ -33,7 +33,7 @@ internal/domain/bosses/              # Boss infrastructure
 
 internal/domain/boss_catalog/        # Boss implementations
 ├── test_boss/                       # TestBoss: grounded patrol + AOE slam + projectiles
-│   ├── boss.go                      # Boss struct (embeds BaseBoss), states, init() registration
+│   ├── boss.go                      # Boss struct (embeds BaseBoss), states, AOEInfo, init() registration
 │   └── states.go                    # State ID constants (iota)
 └── sentinel_boss/                   # SentinelBoss: hovering + charge + laser + sinusoidal/homing projectiles
     ├── boss.go                      # Boss struct, states, laser/charge logic, init() registration
@@ -576,7 +576,7 @@ func (r *TestBossRenderer) Render(boss bosses.Boss) {
     // Access state for rendering
     state := tb.GetState()
     stateTimer := tb.GetStateTimer()
-    aoeInfo := tb.GetAOEInfo()
+    aoeInfo := tb.GetAOEInfo()  // Returns *test_boss.AOEInfo
 
     // Render based on state
     switch state {

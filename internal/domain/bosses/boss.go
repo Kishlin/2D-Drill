@@ -32,13 +32,3 @@ type Boss interface {
 	TakeDamageAt(hurtboxID string, baseDamage float32) float32
 }
 
-// AOEInfo contains information about an active AOE effect for rendering
-// Used by boss-specific renderers that type-assert to concrete boss types
-type AOEInfo struct {
-	Position    types.Vec2
-	Radius      float32
-	IsTelegraph bool // Warning phase
-	IsDamaging  bool // Damage phase
-	StateTimer  float32
-}
-

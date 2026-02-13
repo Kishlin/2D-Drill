@@ -66,6 +66,16 @@ var phaseConfigs = []phaseConfig{
 	{MovementSpeed: BaseSpeed * 1.5, ProjectileCooldown: 1.0, AOECooldown: 4.0},
 }
 
+// AOEInfo contains information about an active AOE effect for rendering.
+// Used by the TestBoss renderer via type-assertion.
+type AOEInfo struct {
+	Position    types.Vec2
+	Radius      float32
+	IsTelegraph bool // Warning phase
+	IsDamaging  bool // Damage phase
+	StateTimer  float32
+}
+
 type TestBoss struct {
 	*bosses.BaseBoss
 
@@ -82,7 +92,7 @@ type TestBoss struct {
 	aoeRadius   float32
 	aoeDamage   float32
 	aoePosition types.Vec2
-	aoeInfo     bosses.AOEInfo
+	aoeInfo     AOEInfo
 }
 
 func New(roomStartY, worldWidth float32) *TestBoss {
@@ -354,7 +364,7 @@ func (b *TestBoss) GetVulnerableTimer() float32 {
 	return 0
 }
 
-func (b *TestBoss) GetAOEInfo() *bosses.AOEInfo {
+func (b *TestBoss) GetAOEInfo() *AOEInfo {
 	currentState := b.StateMachine.CurrentState()
 	elapsed := b.StateMachine.Elapsed()
 
