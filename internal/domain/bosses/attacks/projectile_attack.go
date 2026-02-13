@@ -5,6 +5,10 @@ import (
 	"github.com/Kishlin/drill-game/internal/domain/types"
 )
 
+// MovementFactory creates a projectile movement from a velocity vector.
+// When nil, Linear movement is used by default.
+type MovementFactory func(velocity types.Vec2) projectiles.Movement
+
 // ProjectileAttackConfig holds configuration for a projectile attack
 type ProjectileAttackConfig struct {
 	Cooldown        float32 // Time between attacks in seconds
@@ -12,6 +16,7 @@ type ProjectileAttackConfig struct {
 	ProjectileSpeed float32 // Speed in pixels per second
 	ProjectileSize  float32 // Size of projectiles (width and height)
 	Damage          float32 // Damage per projectile
+	MovementFactory MovementFactory // Optional: custom movement type (nil = Linear)
 }
 
 // ProjectileAttack fires projectiles at the player
@@ -73,7 +78,7 @@ func (a *ProjectileAttack) fire(bossAABB, playerAABB types.AABB) []projectiles.S
 			Position: types.NewVec2(bossX, bossY),
 			Size:     a.config.ProjectileSize,
 			Damage:   a.config.Damage,
-			Movement: projectiles.Linear{Velocity: velocity},
+			Movement: a.createMovement(velocity),
 		}
 		requests = append(requests, req)
 	} else {
@@ -93,13 +98,21 @@ func (a *ProjectileAttack) fire(bossAABB, playerAABB types.AABB) []projectiles.S
 				Position: types.NewVec2(bossX, bossY),
 				Size:     a.config.ProjectileSize,
 				Damage:   a.config.Damage,
-				Movement: projectiles.Linear{Velocity: velocity},
+				Movement: a.createMovement(velocity),
 			}
 			requests = append(requests, req)
 		}
 	}
 
 	return requests
+}
+
+// createMovement creates the appropriate movement for a projectile
+func (a *ProjectileAttack) createMovement(velocity types.Vec2) projectiles.Movement {
+	if a.config.MovementFactory != nil {
+		return a.config.MovementFactory(velocity)
+	}
+	return projectiles.Linear{Velocity: velocity}
 }
 
 // IsReady returns true if the attack can fire

@@ -23,21 +23,26 @@ internal/domain/bosses/              # Boss infrastructure
 ├── phases/                          # Phase management package
 │   └── phase.go                     # phases.Config, phases.Manager
 ├── attacks/                         # Reusable attack patterns
-│   └── projectile_attack.go         # Fires projectiles at player
+│   └── projectile_attack.go         # Fires projectiles at player (with MovementFactory)
 ├── movement/                        # Reusable movement behaviors
-│   └── grounded.go                  # Left-right patrol on floor
+│   ├── grounded.go                  # Left-right patrol on floor
+│   └── hovering.go                  # Horizontal patrol + vertical sine-wave bobbing
 └── statemachine/                    # Generic state machine framework
     ├── types.go                     # StateID (int), StateContext, StateResult, State
     └── machine.go                   # StateMachine with transitions and lifecycle
 
 internal/domain/boss_catalog/        # Boss implementations
-└── test_boss/                       # TestBoss implementation
-    ├── boss.go                      # Boss struct (embeds BaseBoss), states, init() registration
+├── test_boss/                       # TestBoss: grounded patrol + AOE slam + projectiles
+│   ├── boss.go                      # Boss struct (embeds BaseBoss), states, init() registration
+│   └── states.go                    # State ID constants (iota)
+└── sentinel_boss/                   # SentinelBoss: hovering + charge + laser + sinusoidal/homing projectiles
+    ├── boss.go                      # Boss struct, states, laser/charge logic, init() registration
     └── states.go                    # State ID constants (iota)
 
 internal/adapters/rendering/bosses/
 ├── renderer.go                      # BossRenderer interface + registry
-└── test_boss.go                     # TestBoss-specific rendering
+├── test_boss.go                     # TestBoss-specific rendering
+└── sentinel_boss.go                 # SentinelBoss-specific rendering (laser beams, charge telegraph)
 ```
 
 ---
@@ -266,6 +271,33 @@ StateVulnerable (immobile, can be bombed)
 StatePatrol (cooldown reset)
 ```
 
+### SentinelBoss State Flow
+
+```
+StateHover (floating + shooting sinusoidal/homing projectiles)
+    │
+    ├─ Charge cooldown expires ──────────────────────────┐
+    │                                                     v
+    │                                        StateChargeWindup (0.8s, locks target, flashes red)
+    │                                                     │
+    │                                                     v
+    │                                        StateCharge (rushes to target at 400 px/s, max 1.5s)
+    │                                                     │
+    │                                                     v
+    │                                        StateStunned (vulnerable, 2-3s depending on phase)
+    │                                                     │
+    │                          Timer expires OR bomb hit ──┘
+    │
+    ├─ Laser cooldown expires ───────────────────────────┐
+    │                                                     v
+    │                                        StateLaserAim (1.0s, yellow telegraph line)
+    │                                                     │
+    │                                                     v
+    │                                        StateLaser (0.5s, beam fires along line)
+    │                                                     │
+    └─────────────────────── Back to StateHover ──────────┘
+```
+
 ### State Machine Usage
 
 ```go
@@ -341,6 +373,16 @@ func (pm *Manager) GetCurrentConfig() Config
 
 **Phase 3 Special:** 50% chance of double slam (slam → 0.4s pause → slam → vulnerable)
 
+### SentinelBoss Phases
+
+| Phase | HP Range | Movement | Projectiles | Charge | Laser | Vulnerability |
+|-------|----------|----------|-------------|--------|-------|---------------|
+| 1 | 100-60% | 60 px/s | Sinusoidal, 2.5s | None | None | Always |
+| 2 | 60-30% | 80 px/s | Sinusoidal, 2.0s | Every 8s | None | After charge stun (3s) |
+| 3 | 30-0% | 100 px/s | Homing, 1.5s | Every 6s | Every 10s | After charge stun (2s) |
+
+**Cooldown interaction:** Charge cooldown resets after each stun. Laser cooldown accumulates across charge cycles and only resets when the laser fires, creating natural interleaving of attacks in phase 3.
+
 ---
 
 ## Attack System
@@ -349,18 +391,35 @@ Reusable attack patterns in `bosses/attacks/`:
 
 ### ProjectileAttack
 
-Fires projectiles at the player:
+Fires projectiles at the player with configurable movement type:
 
 ```go
-type ProjectileAttack struct {
-    cooldown     float32
-    maxCooldown  float32
-    speed        float32
-    damage       float32
-    count        int     // Projectiles per volley
+type MovementFactory func(velocity types.Vec2) projectiles.Movement
+
+type ProjectileAttackConfig struct {
+    Cooldown        float32
+    ProjectileCount int
+    ProjectileSpeed float32
+    ProjectileSize  float32
+    Damage          float32
+    MovementFactory MovementFactory // nil = Linear (default)
 }
 
 func (pa *ProjectileAttack) Update(bossAABB, playerAABB types.AABB, dt float32) []SpawnRequest
+```
+
+**MovementFactory** allows bosses to use different projectile types through the same reusable component. When nil, projectiles use `Linear` movement (straight line). Examples:
+
+```go
+// Sinusoidal projectiles (SentinelBoss phases 1-2)
+MovementFactory: func(velocity types.Vec2) projectiles.Movement {
+    return projectiles.NewSinusoidal(velocity, 20.0, 5.0)
+}
+
+// Homing projectiles (SentinelBoss phase 3)
+MovementFactory: func(velocity types.Vec2) projectiles.Movement {
+    return projectiles.Homing{Speed: velocity.Magnitude(), Target: playerPos}
+}
 ```
 
 ---
@@ -375,14 +434,36 @@ Left-right patrol on floor:
 
 ```go
 type Grounded struct {
-    position  types.Vec2
+    config    GroundedConfig
     direction float32  // 1 or -1
-    minX      float32
-    maxX      float32
 }
 
 func (g *Grounded) Update(position types.Vec2, dt float32) types.Vec2
+func (g *Grounded) SetSpeed(speed float32)
+func (g *Grounded) GetDirection() float32
 ```
+
+### Hovering Movement
+
+Horizontal patrol with vertical sine-wave bobbing. Supports pause/resume for attack states:
+
+```go
+type HoveringConfig struct {
+    Speed        float32 // Horizontal movement speed
+    MinX, MaxX   float32 // Boundaries
+    HoverY       float32 // Base Y position
+    BossWidth    float32 // For boundary calculation
+    BobAmplitude float32 // Vertical bobbing amplitude
+    BobFrequency float32 // Bobbing frequency (radians/sec)
+}
+
+func (h *Hovering) Update(position types.Vec2, dt float32) types.Vec2
+func (h *Hovering) SetSpeed(speed float32)
+func (h *Hovering) Pause()   // Stops horizontal movement, continues bobbing
+func (h *Hovering) Resume()  // Restores horizontal movement
+```
+
+**Usage pattern:** Pause during charge windup/laser aim (boss stays in place but bobs), resume when returning to hover state.
 
 ---
 
@@ -515,7 +596,36 @@ func (r *TestBossRenderer) Render(boss bosses.Boss) {
 }
 ```
 
+### SentinelBossRenderer
+
+Type-asserts to `*sentinel_boss.SentinelBoss` for boss-specific data (`GetLaserInfo()`, `GetChargeTarget()`):
+
+```go
+type SentinelBossRenderer struct{}
+
+func (r *SentinelBossRenderer) Render(boss bosses.Boss) {
+    sb := boss.(*sentinel_boss.SentinelBoss)
+
+    switch sb.GetState() {
+    case sentinel_boss.StateHover:
+        // Blue-gray body, pink if vulnerable, gray if invulnerable
+    case sentinel_boss.StateChargeWindup:
+        // Vibrating body + red telegraph line to charge target
+    case sentinel_boss.StateCharge:
+        // Bright red body rushing toward target
+    case sentinel_boss.StateStunned:
+        // Pink flashing (vulnerable window)
+    case sentinel_boss.StateLaserAim:
+        // Yellow telegraph line from boss to target direction
+    case sentinel_boss.StateLaser:
+        // Thick red beam rectangle along laser line
+    }
+}
+```
+
 ### Visual Feedback
+
+**TestBoss:**
 
 | State | Visual Effect |
 |-------|---------------|
@@ -524,6 +634,18 @@ func (r *TestBossRenderer) Render(boss bosses.Boss) {
 | Windup | Orange flashing + horizontal vibration |
 | Slam | Bright red + AOE damage circle |
 | Vulnerable | Pink flashing |
+
+**SentinelBoss:**
+
+| State | Visual Effect |
+|-------|---------------|
+| Hover (Vulnerable) | Blue-gray body, pink tint |
+| Hover (Invulnerable) | Blue-gray body, gray tint |
+| Charge Windup | Vibrating body + red line to target |
+| Charge | Bright red body |
+| Stunned | Pink flashing (vulnerable) |
+| Laser Aim | Yellow telegraph line |
+| Laser Fire | Thick red beam rectangle |
 
 ---
 
@@ -709,3 +831,34 @@ BossRoom: config.BossRoomConfig{
 - Damage: 15 HP
 - Telegraph: 1 second warning
 - Damage Zone: 0.3 seconds
+
+---
+
+## SentinelBoss Reference
+
+### Stats
+
+- HP: 150
+- Size: 80×120 pixels
+- Base Movement: 60 px/s (hovering)
+- Contact Damage: 15 HP/sec
+
+### Attacks
+
+**Projectile Volley:**
+- Count: 3 projectiles
+- Speed: 200 px/s
+- Damage: 5 HP each
+- Movement: Sinusoidal (phases 1-2) or Homing (phase 3)
+
+**Charge Attack:**
+- Windup: 0.8 seconds (locks target position)
+- Charge Speed: 400 px/s
+- Max Duration: 1.5 seconds
+- Stun Duration: 3s (phase 2), 2s (phase 3)
+
+**Laser Beam:**
+- Aim Duration: 1.0 second (yellow telegraph)
+- Fire Duration: 0.5 seconds (red beam)
+- Beam Width: 30 pixels
+- Damage: 25 HP/sec

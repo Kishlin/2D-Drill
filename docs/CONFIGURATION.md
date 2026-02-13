@@ -369,12 +369,14 @@ Levels are defined in `internal/domain/levels/` as functions returning complete 
 // levels/registry.go
 func GetLevelConfig(levelNum int) (*config.GameConfig, error) {
     switch levelNum {
+    case -3:
+        return GetSentinelBossTestLevelConfig(), nil  // Sentinel boss testing
     case -2:
-        return GetBossTestLevelConfig(), nil  // Boss testing
+        return GetBossTestLevelConfig(), nil          // Boss testing (TestBoss)
     case -1:
-        return GetTestLevelConfig(), nil      // Development
+        return GetTestLevelConfig(), nil              // Development
     case 1:
-        return GetLevel1Config(), nil         // Production
+        return GetLevel1Config(), nil                 // Production
     default:
         return nil, fmt.Errorf("level %d not found", levelNum)
     }
@@ -435,7 +437,9 @@ func GetLevel1Config() *config.GameConfig {
 - Max tier Engine and Drill
 - Mid tier (Mk3) Hull, FuelTank, CargoHold, HeatShield
 
-**Boss Test Level (-2):** For boss development and testing.
+**Boss Test Level (-2):** For TestBoss development and testing. Concrete floor.
+
+**Sentinel Boss Test Level (-3):** For SentinelBoss development and testing. Lava floor.
 
 ---
 

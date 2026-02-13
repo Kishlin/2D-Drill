@@ -111,3 +111,65 @@ func TestProjectileAttack_SpawnRequestProperties(t *testing.T) {
 		t.Error("expected Linear movement type")
 	}
 }
+
+func TestProjectileAttack_CustomMovementFactory(t *testing.T) {
+	cfg := ProjectileAttackConfig{
+		Cooldown:        2.0,
+		ProjectileCount: 1,
+		ProjectileSpeed: 200.0,
+		ProjectileSize:  16.0,
+		Damage:          5.0,
+		MovementFactory: func(velocity types.Vec2) projectiles.Movement {
+			return projectiles.NewSinusoidal(velocity, 20.0, 5.0)
+		},
+	}
+	attack := NewProjectileAttack(cfg)
+
+	bossAABB := types.NewAABB(100, 100, 100, 100)
+	playerAABB := types.NewAABB(300, 100, 54, 54)
+
+	requests := attack.Update(bossAABB, playerAABB, 0.016)
+
+	if len(requests) != 1 {
+		t.Fatalf("expected 1 spawn request, got %d", len(requests))
+	}
+
+	if _, ok := requests[0].Movement.(*projectiles.Sinusoidal); ok == false {
+		t.Error("expected Sinusoidal movement type from custom factory")
+	}
+}
+
+func TestProjectileAttack_CustomMovementFactory_MultipleProjectiles(t *testing.T) {
+	factoryCalled := 0
+	cfg := ProjectileAttackConfig{
+		Cooldown:        2.0,
+		ProjectileCount: 3,
+		ProjectileSpeed: 200.0,
+		ProjectileSize:  16.0,
+		Damage:          5.0,
+		MovementFactory: func(velocity types.Vec2) projectiles.Movement {
+			factoryCalled++
+			return projectiles.NewSinusoidal(velocity, 20.0, 5.0)
+		},
+	}
+	attack := NewProjectileAttack(cfg)
+
+	bossAABB := types.NewAABB(100, 100, 100, 100)
+	playerAABB := types.NewAABB(300, 100, 54, 54)
+
+	requests := attack.Update(bossAABB, playerAABB, 0.016)
+
+	if len(requests) != 3 {
+		t.Fatalf("expected 3 spawn requests, got %d", len(requests))
+	}
+
+	if factoryCalled != 3 {
+		t.Errorf("expected factory called 3 times, got %d", factoryCalled)
+	}
+
+	for i, req := range requests {
+		if _, ok := req.Movement.(*projectiles.Sinusoidal); ok == false {
+			t.Errorf("request %d: expected Sinusoidal movement type", i)
+		}
+	}
+}

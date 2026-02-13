@@ -635,18 +635,55 @@ The camera clamps at the world bottom to prevent viewing or nuking below the flo
 
 **Phase 3 Special**: 50% chance of double slam (slam → 0.4s pause → slam → vulnerable)
 
+### SentinelBoss Behavior
+
+**Stats:**
+- 150 HP, 80×120 pixel sprite
+- 60 px/s base hovering speed (increases per phase)
+- 15 HP/sec contact damage
+
+**State Machine:**
+1. **Hover** — Floating left-right with sine-wave bobbing, shooting projectiles
+2. **Charge Windup** — Locks target position, flashes red (0.8 seconds)
+3. **Charge** — Rushes toward target at 400 px/s (max 1.5 seconds)
+4. **Stunned** — Vulnerable to bombs (2-3 seconds depending on phase)
+5. **Laser Aim** — Yellow telegraph line to player (1.0 second)
+6. **Laser** — Red beam fires along telegraph line (0.5 seconds)
+
+**Attacks:**
+- **Projectile Volley**: 3 sinusoidal or homing projectiles aimed at player
+- **Charge Attack**: Rush toward player, creates vulnerability window on recovery
+- **Laser Beam**: Aimed beam with telegraph warning (25 HP/sec, 30px wide)
+
+**Phase System:**
+
+| Phase | HP Range | Movement | Projectiles | Charge | Laser | Vulnerability |
+|-------|----------|----------|-------------|--------|-------|---------------|
+| 1 | 100-60% | 60 px/s | Sinusoidal, 2.5s | None | None | Always |
+| 2 | 60-30% | 80 px/s | Sinusoidal, 2.0s | Every 8s | None | After charge stun (3s) |
+| 3 | 30-0% | 100 px/s | Homing, 1.5s | Every 6s | Every 10s | After charge stun (2s) |
+
 ### Visual Feedback
 
-**Boss States:**
+**TestBoss States:**
 - **Patrol (Vulnerable)**: Pink flashing
 - **Patrol (Invulnerable)**: Gray tint
 - **Windup**: Orange flashing + horizontal vibration
 - **Slam**: Bright red + AOE damage circle
 - **Vulnerable**: Pink flashing
 
-**AOE Effects:**
+**TestBoss AOE Effects:**
 - **Telegraph**: Pulsing yellow circle (warning)
 - **Damage**: Solid orange-red circle
+
+**SentinelBoss States:**
+- **Hover (Vulnerable)**: Blue-gray body, pink tint
+- **Hover (Invulnerable)**: Blue-gray body, gray tint
+- **Charge Windup**: Vibrating body + red line to target
+- **Charge**: Bright red body
+- **Stunned**: Pink flashing (vulnerable)
+- **Laser Aim**: Yellow telegraph line
+- **Laser Fire**: Thick red beam rectangle
 
 ### Floor Types
 

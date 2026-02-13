@@ -59,6 +59,8 @@ A special development level is available with an advanced player configuration f
 ```bash
 # Edit cmd/game/main.go to use test level
 # Change: levels.GetLevelConfig(1) → levels.GetLevelConfig(-1)
+# Or: levels.GetLevelConfig(-2)  for TestBoss testing
+# Or: levels.GetLevelConfig(-3)  for SentinelBoss testing
 ```
 
 **Test Level Player Stats:**
