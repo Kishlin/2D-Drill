@@ -109,6 +109,18 @@ project-wide floor that local settings cannot override.
 - **UI composition** — Shop states embed `GridNavigator`; Market/Service/Inventory states embed `FirstFrameTracker`; Hospital/FuelStation share `ModalServiceProvider` interface
 - **Null-object handlers** — Boss handlers (`PhaseChangeHandler`, `DamageReactionHandler`) default to no-ops; concrete bosses override only when needed
 
+## Design Principles
+
+- **Simplest approach first** — Do NOT introduce abstractions (interfaces, wrappers, resolver patterns) unless explicitly requested. When in doubt, ask before adding indirection.
+- **Fail loudly** — When errors or invalid states are detected (nil returns from ID lookups, missing struct fields), panic or return an explicit error. Do NOT add silent fallbacks or defensive nil guards that mask bugs.
+- **Delete dead code completely** — When removing dead code, fully delete the files. Do not leave behind modified comments or empty shells. If a file's purpose is gone, remove the entire file.
+
+## Workflow
+
+- **Plan mode is sacred** — Stay in plan mode until the user explicitly approves the plan. Do not begin implementation or exit planning prematurely. If the user says "plan", produce only a plan document — no code changes.
+- **Verify docs against code** — After making code changes, always verify documentation values against actual source code. Never guess numeric values (damage, HP, thresholds) — read them from the code.
+- **CLAUDE.md is the single source of context** — Do not create memory files, personal notes, or auxiliary tracking files. Do not attempt to save preferences or context anywhere else.
+
 ## Communication Style
 
 - **Be direct and challenge me** — Push back when you think I'm wrong. No flattery, no sugarcoating, no sycophancy.
