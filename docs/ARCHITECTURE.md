@@ -124,6 +124,7 @@ Pure game logic with zero framework dependencies:
 | `levels/` | Level definitions |
 | `bosses/` | Boss infrastructure (interfaces, base types, state machine) |
 | `boss_catalog/` | Boss implementations (one package per boss) |
+| `projectiles/` | Projectile spawning and movement types |
 | `components/` | Position, Interactable, Damageable |
 
 ---

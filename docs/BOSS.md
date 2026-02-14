@@ -846,9 +846,9 @@ BossRoom: config.BossRoomConfig{
 ### Attacks
 
 **Projectile Volley:**
-- Count: 3 projectiles
-- Speed: 200 px/s
-- Damage: 5 HP each
+- Count: 1 projectile
+- Speed: 180 px/s
+- Damage: 8 HP each
 - Movement: Sinusoidal (phases 1-2) or Homing (phase 3)
 
 **Charge Attack:**

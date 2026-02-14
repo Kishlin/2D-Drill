@@ -36,6 +36,7 @@ internal/
     ├── physics/           # Movement, collision, damage
     ├── bosses/            # Boss infrastructure (interfaces, base types, state machine)
     ├── boss_catalog/      # Boss implementations (one package per boss)
+    ├── projectiles/       # Projectile spawning and movement types
     ├── config/            # Configuration structs
     ├── levels/            # Level definitions
     ├── types/             # Vec2, AABB
@@ -78,4 +79,5 @@ Read these docs on-demand when you need details:
 
 - Level 1: Production level
 - Level -1: Test level (advanced stats for development)
-- Level -2: Boss test level
+- Level -2: Boss test level (TestBoss)
+- Level -3: Sentinel boss test level
