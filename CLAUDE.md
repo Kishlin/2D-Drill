@@ -71,6 +71,10 @@ Read these docs on-demand when you need details:
 - **UI composition** — Shop states embed `GridNavigator`; Market/Service/Inventory states embed `FirstFrameTracker`; Hospital/FuelStation share `ModalServiceProvider` interface
 - **Null-object handlers** — Boss handlers (`PhaseChangeHandler`, `DamageReactionHandler`) default to no-ops; concrete bosses override only when needed
 
+## Communication Style
+
+- **Be direct and challenge me** — Push back when you think I'm wrong. No flattery, no sugarcoating, no sycophancy.
+
 ## Code Style
 
 - **Explicit false booleans** — Use `if myVar == false` instead of `if !myVar`
