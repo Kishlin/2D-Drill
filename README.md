@@ -34,10 +34,9 @@ See [GAME_DESIGN.md](docs/GAME_DESIGN.md) for detailed game mechanics and progre
 ### Prerequisites
 
 - Go 1.21+ (or latest stable)
-- Raylib dependencies for your platform:
-  - **macOS**: `brew install raylib`
-  - **Linux**: Install raylib dev packages (`libasound2-dev`, `mesa-common-dev`, `libx11-dev`, etc.)
-  - **Windows**: See [raylib-go installation](https://github.com/gen2brain/raylib-go#requirements)
+- A C compiler and the Raylib system dependencies for your platform. raylib-go builds Raylib from source via cgo, so these **must** be installed before `go run` — follow [raylib-go § Requirements](https://github.com/gen2brain/raylib-go#requirements), which lists the packages per OS.
+
+  Missing them shows up as a cgo compile error rather than a Go one, e.g. `fatal error: wayland-client-core.h: No such file or directory`.
 
 ### Installation
 
