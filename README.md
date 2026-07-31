@@ -137,7 +137,7 @@ TBD (will be decided before public release)
 
 ## Credits
 
-- **Developer**: [Your Name]
+- **Developer**: Pierre-Louis Legrand
 - **Inspired by**: Motherload (XGen Studios), Steamworld Dig Series, Terraria
 - **Built with**: [Raylib](https://www.raylib.com/) and [Go](https://go.dev/)
 
