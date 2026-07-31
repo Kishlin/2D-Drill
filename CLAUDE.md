@@ -8,6 +8,8 @@ This file provides guidance to Claude Code when working with this repository.
 go run cmd/game/main.go      # Run the game
 go build -o drill-game cmd/game/main.go  # Build executable
 go test ./...                # Run all tests
+./scripts/architecture-check.sh  # Verify hexagonal boundaries
+./scripts/style-check.sh         # Verify Go style rules
 ```
 
 ## Architecture
@@ -17,12 +19,16 @@ go test ./...                # Run all tests
 - `internal/adapters/` — Framework integration (Raylib)
 - `cmd/game/main.go` — Application orchestration
 
-**Key constraint:** Domain layer CANNOT import Raylib. Verify: `grep -r "raylib" internal/domain/`
+**Key constraint:** Domain layer CANNOT import Raylib. Verify with `./scripts/architecture-check.sh`,
+which also enforces that domain imports no adapters, no `cmd/`, and uses no `rl.*` types. A
+`PostToolUse` hook runs it automatically on every edit under `internal/domain/` and blocks on failure.
 
 ## Project Structure
 
 ```
 cmd/game/main.go           # Entry point
+scripts/                   # Dev scripts (architecture-check.sh, style-check.sh)
+.claude/                   # Skills, slash commands, rules, hooks, permissions
 internal/
 ├── adapters/              # Raylib integration (input, rendering)
 └── domain/                # Pure game logic
@@ -59,6 +65,38 @@ Read these docs on-demand when you need details:
 | [GAME_DESIGN.md](docs/GAME_DESIGN.md) | Understanding game mechanics, progression, or player-facing features |
 | [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Testing, debugging, or development workflows |
 
+## Tooling
+
+**Skills** (`.claude/skills/`) — invoked by name or automatically when relevant:
+
+| Skill | Use when |
+|-------|----------|
+| `architecture-check` | Finishing work under `internal/domain/`, reviewing a branch, auditing layering |
+
+**Slash commands** (`.claude/commands/`):
+
+| Command | Does |
+|---------|------|
+| `/new-boss <name>` | Scaffolds a boss end to end — domain package, states, renderer, level wiring |
+
+**Hooks** (`.claude/settings.json`, `PostToolUse` on Write/Edit):
+
+| Hook | Trigger | Effect |
+|------|---------|--------|
+| `gofmt` | any `*.go` | Formats in place |
+| `hexagonal boundary check` | `internal/domain/**.go` | Runs `architecture-check.sh` — **blocks the edit** |
+| `go style check` | any `*.go` | Runs `style-check.sh` on that file — **blocks the edit** |
+
+Rules that must always hold live in `.claude/rules/` and are backed by a script
+in `scripts/`, so they are enforced by the harness rather than by remembering.
+
+**Permissions** — `.claude/settings.json` (checked in) allows **only commands
+that are harmless in every case**: reads, queries, and the two audit scripts.
+Anything that writes, deletes, stages, or executes repo code — `go build`,
+`go test`, `gofmt -w`, `git add`, `find`, `chmod` — belongs in each developer's
+own `.claude/settings.local.json` (gitignored). The versioned `deny` list is a
+project-wide floor that local settings cannot override.
+
 ## Key Patterns
 
 - **Data-driven config** — All parameters in `config/` structs, loaded via `levels.GetLevelConfig(n)`
@@ -77,7 +115,9 @@ Read these docs on-demand when you need details:
 
 ## Code Style
 
-- **Explicit false booleans** — Use `if myVar == false` instead of `if !myVar`
+Full rules: **[.claude/rules/go-style.md](.claude/rules/go-style.md)** — mechanically enforced, read it before writing Go.
+
+- **No `!` negation** — Use `myVar == false`, never `!myVar`. Applies to `if`, `for`, assignments, and `&&`/`||` operands. A `PostToolUse` hook **rejects the write** on violation.
 
 ## Special Levels
 

@@ -74,7 +74,7 @@ func TestCalculateAllTileWeights_MultipleOres(t *testing.T) {
 	}
 
 	// Gold should have weight at its peak
-	if _, hasGold := weights.Ores["gold"]; !hasGold {
+	if _, hasGold := weights.Ores["gold"]; hasGold == false {
 		t.Error("Expected gold to have weight at its peak depth")
 	}
 }

@@ -36,7 +36,7 @@ func UpdatePhysics(player *entities.Player, w *world.World, inputState input.Inp
 	collisionsY := physics.CheckCollisions(player.AABB, w)
 
 	// Capture state before Y-resolution for fall damage calculation
-	wasAirborne := !player.OnGround
+	wasAirborne := player.OnGround == false
 	ySpeedBeforeLanding := player.Velocity.Y
 
 	player.AABB, player.Velocity, player.OnGround = physics.ResolveCollisionsY(player.AABB, player.Velocity, collisionsY)

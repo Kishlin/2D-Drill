@@ -772,12 +772,17 @@ func (b *MyBoss) buildStates() map[statemachine.StateID]*statemachine.State {
 
 The boss registers automatically when its renderer package imports the concrete type. No changes to `engine/game.go` required — `bosses.Create()` finds the registered constructor at runtime.
 
+**The renderer import is the only thing pulling the boss package into the binary.** Nothing else references `boss_catalog/` — verify with `grep -rn "boss_catalog" --include='*.go' .`. Skip step 3 and the domain `init()` never runs, so `bosses.Create()` fails at **runtime** with `unknown boss type`, not at compile time.
+
 ### 3. Create Boss Renderer
 
 `internal/adapters/rendering/bosses/my_boss.go`:
 
 ```go
-package bossrenderers
+// Package is `bosses` — `bossrenderers` is only the import alias used at
+// internal/adapters/rendering/raylib.go:8. Inside this package, the unaliased
+// `bosses` identifier refers to the domain bosses package.
+package bosses
 
 type MyBossRenderer struct{}
 

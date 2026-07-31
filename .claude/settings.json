@@ -1,0 +1,61 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(tree:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(jq:*)",
+      "Bash(command -v:*)",
+      "Bash(gofmt -l:*)",
+      "Bash(gofmt -d:*)",
+      "Bash(go doc:*)",
+      "Bash(go list:*)",
+      "Bash(go vet:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(./scripts/architecture-check.sh:*)",
+      "Bash(./scripts/style-check.sh:*)",
+      "WebFetch(domain:github.com)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *.go) PATH=\"$PATH:/usr/local/go/bin\" gofmt -w \"$f\";; esac; } 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "gofmt"
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *internal/domain/*.go) out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/architecture-check.sh\" 2>&1) || { printf '%s\\n' \"$out\" >&2; exit 2; };; esac; }",
+            "timeout": 15,
+            "statusMessage": "hexagonal boundary check"
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; case \"$f\" in *.go) out=$(bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/style-check.sh\" \"$f\" 2>&1) || { printf '%s\\n' \"$out\" >&2; exit 2; };; esac; }",
+            "timeout": 10,
+            "statusMessage": "go style check"
+          }
+        ]
+      }
+    ]
+  }
+}

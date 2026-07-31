@@ -7,10 +7,13 @@ This guide covers common development tasks, workflows, and how to extend the gam
 1. [Setup](#setup)
 2. [Running the Game](#running-the-game)
 3. [Testing](#testing)
-4. [Debugging](#debugging)
-5. [Making Changes](#making-changes)
-6. [Code Review Checklist](#code-review-checklist)
-7. [Performance & Profiling](#performance--profiling)
+4. [Architecture Check](#architecture-check)
+5. [Style Check](#style-check)
+6. [Claude Code Tooling](#claude-code-tooling)
+7. [Debugging](#debugging)
+8. [Making Changes](#making-changes)
+9. [Code Review Checklist](#code-review-checklist)
+10. [Performance & Profiling](#performance--profiling)
 
 ---
 
@@ -169,6 +172,147 @@ go test ./internal/domain/world -bench=. -benchmem
 # Chunk generation: ~2.2ms per 16×16 chunk
 # Cached tile lookup: ~38ns per tile
 ```
+
+---
+
+## Architecture Check
+
+The hexagonal boundary is enforced by a script, not by discipline:
+
+```bash
+./scripts/architecture-check.sh
+```
+
+It audits every `.go` file under `internal/domain/` (tests included) for four
+violations and exits non-zero on any of them:
+
+| # | Rule | Why |
+|---|------|-----|
+| 1 | No `raylib-go` import | Domain must compile and test without a graphics stack |
+| 2 | No `internal/adapters` import | Dependency direction — adapters depend on domain, never the reverse |
+| 3 | No `cmd/` import | Wiring flows inward from `main.go` only |
+| 4 | No `rl.*` types | Domain speaks `types.Vec2` / `types.AABB` |
+
+Failures print `file:line` plus the fix. The fix is essentially never to loosen
+the check — define the interface in the domain package and implement it in
+adapters instead.
+
+Run it before every commit that touched `internal/domain/`, and after any
+refactor that moved packages around.
+
+---
+
+## Style Check
+
+The explicit-false-boolean rule is enforced by a script, not by review:
+
+```bash
+./scripts/style-check.sh                 # sweep internal/ and cmd/
+./scripts/style-check.sh path/to/file.go # check specific files
+```
+
+**This codebase never uses the `!` operator.** Write `x == false` instead of
+`!x` — in `if`, in `for`, in assignments, and in `&&` / `||` operands. `!=` is
+unaffected. Full rationale in [.claude/rules/go-style.md](../.claude/rules/go-style.md).
+
+```go
+// NO                                  // YES
+if !ok { ... }                         if ok == false { ... }
+wasAirborne := !player.OnGround        wasAirborne := player.OnGround == false
+if a && !b { ... }                     if a && b == false { ... }
+```
+
+The check strips string literals, rune literals, raw strings, and comments
+before matching, so a `!` inside those never trips it. Multi-line block comments
+are the one unhandled case; the codebase does not use them inside function
+bodies, which is the only place `!` can appear.
+
+Note that grepping for `if !` is **not** equivalent — a negation can sit far
+from the `if`, as in `if _, ok := m[k]; !ok {`. Use the script.
+
+---
+
+## Claude Code Tooling
+
+Shared configuration lives in `.claude/settings.json` (checked in).
+Machine-specific permissions belong in `.claude/settings.local.json`, which is
+gitignored — do not put project-wide settings there.
+
+### Permission policy
+
+The versioned allow-list contains **only commands that are harmless in every
+case**. The test is not "would I usually be fine with this?" but "is there any
+invocation of this that could damage the working tree?" If yes, it does not go
+in the versioned file — it is each developer's own call.
+
+| Goes in `settings.json` (versioned) | Goes in `settings.local.json` (yours) |
+|---|---|
+| Reads and queries: `ls`, `grep`, `head`, `wc`, `tree`, `jq`, `command -v` | Anything that writes: `gofmt -w`, `go fmt`, `go mod tidy` |
+| Read-only Go: `go doc`, `go list`, `go vet`, `gofmt -l`, `gofmt -d` | Anything that builds or executes repo code: `go build`, `go test`, `go run` |
+| Read-only git: `status`, `diff`, `log`, `show`, `check-ignore` | Anything that mutates git state: `git add`, `git reset`, `git rm` |
+| The audit scripts — both are pure `grep` | Filesystem mutation: `chmod`, `rm`, and `find` (which takes `-delete` and `-exec`) |
+
+Two entries worth explaining:
+
+- **`gofmt -l` and `gofmt -d` are versioned, plain `gofmt` is not.** The first
+  two only list and diff; the glob `gofmt:*` would also permit `gofmt -w`.
+  Splitting the flag out keeps the read-only forms frictionless.
+- **`find` is local, not versioned.** It reads — until someone appends
+  `-delete` or `-exec rm {} \;`. It fails the "any invocation" test.
+
+### Deny list
+
+`settings.json` also carries a `deny` list — `rm -rf`, `git reset --hard`,
+`git clean -fd`, `git push --force`. **Deny beats allow**, including a local
+allow, so this is a project-wide floor no individual config can lower. Note
+that `git reset:*` is allowed locally while `git reset --hard:*` stays denied;
+that layering is intentional.
+
+### Automatic hooks
+
+`PostToolUse` hooks fire whenever Claude writes or edits a file:
+
+| Hook | Trigger | Effect |
+|------|---------|--------|
+| `gofmt` | any `*.go` | Formats the file in place |
+| `hexagonal boundary check` | any `internal/domain/**.go` | Runs `architecture-check.sh`, **blocks the edit** on failure |
+| `go style check` | any `*.go` | Runs `style-check.sh` on that file, **blocks the edit** on failure |
+
+The blocking hooks mean a layering or style violation is rejected at write time
+with the diagnostic fed back — it cannot land silently and be discovered later.
+
+### Rules
+
+`.claude/rules/` holds rules that must always hold, kept short and separate from
+CLAUDE.md so they are not diluted by surrounding prose.
+
+| File | Covers |
+|------|--------|
+| [go-style.md](../.claude/rules/go-style.md) | No `!` negation |
+
+A rule belongs here only if a script in `scripts/` can enforce it and a hook can
+block on it. A rule that relies on the model remembering it belongs in CLAUDE.md
+and should be understood as a strong preference, not a guarantee.
+
+### Skills
+
+| Skill | Use when |
+|-------|----------|
+| `architecture-check` | Full boundary sweep — before a commit, after a refactor, or auditing someone else's work |
+
+### Slash commands
+
+| Command | Does |
+|---------|------|
+| `/new-boss <boss_name>` | Scaffolds a boss end to end: domain package, state machine, renderer, level wiring, tests |
+
+Adding a skill: create `.claude/skills/<name>/SKILL.md` with `name` and
+`description` in YAML frontmatter. The description is what Claude matches
+against, so state *when* to use it, not just what it does. Back anything
+non-trivial with a script in `scripts/` so a human can run it too.
+
+Adding a command: create `.claude/commands/<name>.md` with a `description` and
+optional `argument-hint` in frontmatter; `$1` interpolates the argument.
 
 ---
 
@@ -549,7 +693,7 @@ func TestApplyNewDamage_Example(t *testing.T) {
 When submitting changes, verify:
 
 ### Architecture Compliance
-- [ ] No Raylib imports in `internal/domain/`
+- [ ] `./scripts/architecture-check.sh` passes
 - [ ] New domain code is pure functions (testable without framework)
 - [ ] Framework integration stays in `internal/adapters/`
 - [ ] Data flow is clear (domain → adapters → application)
@@ -561,6 +705,7 @@ When submitting changes, verify:
 - [ ] Coverage maintained or improved
 
 ### Code Quality
+- [ ] `./scripts/style-check.sh` passes (no `!` negation)
 - [ ] Code follows Go idioms (gofmt, effective Go)
 - [ ] Error handling is appropriate (minimal in game loop, errors in domain)
 - [ ] Comments explain "why", not "what" (code is self-documenting)
@@ -643,16 +788,14 @@ git checkout -b feature/description-of-change
 
 # Make changes, test
 go test ./...
+./scripts/architecture-check.sh
+./scripts/style-check.sh
 
 # Commit
 git add .
 git commit -m "Feature: description of change
 
-Detailed explanation of what and why.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+Detailed explanation of what and why."
 
 # Push
 git push -u origin feature/description-of-change
@@ -677,6 +820,8 @@ go test ./...                         # Run all tests
 go test -cover ./...                 # Test with coverage
 go fmt ./...                          # Format code
 go vet ./...                          # Lint code
+./scripts/architecture-check.sh      # Verify hexagonal boundaries
+./scripts/style-check.sh             # Verify Go style rules
 
 # Building
 go build -o drill-game cmd/game/main.go        # Build executable
