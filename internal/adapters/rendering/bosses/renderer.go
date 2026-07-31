@@ -8,12 +8,12 @@ import (
 
 // Colors shared across boss renderers
 var (
-	BossColor           = rl.NewColor(255, 0, 0, 255)     // Red
-	BossBorderColor     = rl.NewColor(139, 0, 0, 255)     // Dark Red
-	BossVulnerableColor = rl.NewColor(255, 200, 200, 255) // Light pink
+	BossColor             = rl.NewColor(255, 0, 0, 255)     // Red
+	BossBorderColor       = rl.NewColor(139, 0, 0, 255)     // Dark Red
+	BossVulnerableColor   = rl.NewColor(255, 200, 200, 255) // Light pink
 	BossInvulnerableColor = rl.NewColor(150, 150, 150, 255) // Gray
-	AOETelegraphColor   = rl.NewColor(255, 255, 0, 128)   // Semi-transparent yellow
-	AOEDamageColor      = rl.NewColor(255, 100, 0, 200)   // Orange-red
+	AOETelegraphColor     = rl.NewColor(255, 255, 0, 128)   // Semi-transparent yellow
+	AOEDamageColor        = rl.NewColor(255, 100, 0, 200)   // Orange-red
 )
 
 // Renderer handles rendering for a specific boss type

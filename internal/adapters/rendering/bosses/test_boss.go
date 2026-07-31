@@ -3,8 +3,8 @@ package bosses
 import (
 	rl "github.com/gen2brain/raylib-go/raylib"
 
-	"github.com/Kishlin/drill-game/internal/domain/bosses"
 	"github.com/Kishlin/drill-game/internal/domain/boss_catalog/test_boss"
+	"github.com/Kishlin/drill-game/internal/domain/bosses"
 )
 
 func init() {

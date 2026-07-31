@@ -11,11 +11,11 @@ type MovementFactory func(velocity types.Vec2) projectiles.Movement
 
 // ProjectileAttackConfig holds configuration for a projectile attack
 type ProjectileAttackConfig struct {
-	Cooldown        float32 // Time between attacks in seconds
-	ProjectileCount int     // Number of projectiles per volley
-	ProjectileSpeed float32 // Speed in pixels per second
-	ProjectileSize  float32 // Size of projectiles (width and height)
-	Damage          float32 // Damage per projectile
+	Cooldown        float32         // Time between attacks in seconds
+	ProjectileCount int             // Number of projectiles per volley
+	ProjectileSpeed float32         // Speed in pixels per second
+	ProjectileSize  float32         // Size of projectiles (width and height)
+	Damage          float32         // Damage per projectile
 	MovementFactory MovementFactory // Optional: custom movement type (nil = Linear)
 }
 
@@ -143,7 +143,7 @@ func rotateVector(v types.Vec2, angle float32) types.Vec2 {
 	// sin := float32(math.Sin(float64(angle)))
 
 	return types.NewVec2(
-		v.X*cos - v.Y*sin,
-		v.X*sin + v.Y*cos,
+		v.X*cos-v.Y*sin,
+		v.X*sin+v.Y*cos,
 	)
 }

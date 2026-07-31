@@ -66,8 +66,8 @@ func newTestBaseBoss() *baseBossWrapper {
 	w.SetStateMachine(statemachine.NewStateMachine(
 		map[statemachine.StateID]*statemachine.State{
 			testBossStateIdle: {
-				ID:      testBossStateIdle,
-					OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
+				ID: testBossStateIdle,
+				OnUpdate: func(ctx *statemachine.StateContext) statemachine.StateResult {
 					return statemachine.StateResult{NextState: statemachine.StateIDNone}
 				},
 			},

@@ -43,9 +43,9 @@ const (
 	Phase3VulnerableDuration = 2.0
 
 	// Projectile parameters
-	ProjectileCount = 3
-	ProjectileSpeed = 200.0
-	ProjectileSize  = 16.0
+	ProjectileCount  = 3
+	ProjectileSpeed  = 200.0
+	ProjectileSize   = 16.0
 	ProjectileDamage = 5.0
 )
 

@@ -42,7 +42,7 @@ func (r *SentinelBossRenderer) Render(boss bosses.Boss) {
 
 	// Determine color based on state
 	bossColor := rl.NewColor(100, 100, 200, 255) // Blue-gray for sentinel
-	borderColor := rl.NewColor(50, 50, 120, 255)  // Dark blue border
+	borderColor := rl.NewColor(50, 50, 120, 255) // Dark blue border
 
 	switch state {
 	case sentinel_boss.StateChargeWindup:

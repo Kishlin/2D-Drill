@@ -215,7 +215,7 @@ func TestFuelSystem_MultipleConsumptionsAccumulate(t *testing.T) {
 	inputState1 := input.InputState{Left: true}
 	ConsumeFuel(player, inputState1, 1.0, fuelCfg) // -0.0833L
 
-	inputState2 := input.InputState{}             // Idle
+	inputState2 := input.InputState{}              // Idle
 	ConsumeFuel(player, inputState2, 1.0, fuelCfg) // -0.0167L
 
 	inputState3 := input.InputState{Up: true}

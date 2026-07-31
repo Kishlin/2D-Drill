@@ -31,4 +31,3 @@ type Boss interface {
 	// Damage (only works if hurtbox exists)
 	TakeDamageAt(hurtboxID string, baseDamage float32) float32
 }
-

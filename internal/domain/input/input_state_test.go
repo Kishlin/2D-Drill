@@ -62,11 +62,11 @@ func TestInputState_HasMovementInput_MovementWithInteract(t *testing.T) {
 
 func TestInputState_HasMovementInput_AllInputs(t *testing.T) {
 	inputState := InputState{
-		Left:  true,
-		Right: true,
-		Up:    true,
-		Drill: true,
-		Interact:  true,
+		Left:     true,
+		Right:    true,
+		Up:       true,
+		Drill:    true,
+		Interact: true,
 	}
 	if inputState.HasMovementInput() == false {
 		t.Error("expected HasMovementInput() to return true with all inputs pressed")
